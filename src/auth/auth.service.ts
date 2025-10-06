@@ -90,10 +90,8 @@ export class AuthService {
     const refreshStart = Date.now();
 
     try {
-      // Verificar el refresh token
       const payload = this.jwtService.verify(refreshToken);
 
-      // Validar que sea un refresh token
       if (payload.type !== 'refresh') {
         this.logger.warn(
           `Invalid token type for refresh - User: ${currentUser.email}`,
@@ -103,7 +101,6 @@ export class AuthService {
         );
       }
 
-      // Validar que el refresh token pertenezca al usuario autenticado
       if (payload.userId !== currentUser.id) {
         this.logger.warn(
           `Token user mismatch for refresh - User: ${currentUser.email}`,
@@ -113,7 +110,6 @@ export class AuthService {
         );
       }
 
-      // Validar que el usuario autenticado esté activo
       if (!currentUser.isActive) {
         this.logger.warn(
           `Inactive user attempted refresh - User: ${currentUser.email}`,
@@ -123,7 +119,6 @@ export class AuthService {
         );
       }
 
-      // Buscar el usuario para asegurar que aún existe y está activo
       const user = await this.usersService.findUserByTerm(payload.userId);
 
       if (!user) {
@@ -144,14 +139,11 @@ export class AuthService {
         );
       }
 
-      // Generar nuevos tokens
       const newAccessPayload = { userId: user.id, type: 'access' };
       const newRefreshPayload = { userId: user.id, type: 'refresh' };
 
-      // El CustomJwtModule ya maneja JWT_ACCESS_EXPIRY automáticamente
       const newAccessToken = this.jwtService.sign(newAccessPayload);
 
-      // Solo especificamos expiry para refresh token
       const refreshTokenExpiry = this.configService.get(
         'JWT_REFRESH_EXPIRY',
         '7d',
