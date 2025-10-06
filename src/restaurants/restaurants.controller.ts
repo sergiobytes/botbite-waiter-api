@@ -17,7 +17,7 @@ import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { User } from '../users/entities/user.entity';
 import { UpdateRestaurantDto } from './dto/update-restaurant.dto';
 import { Lang } from '../common/decorators/lang.decorator';
-import { FindRestaurantDto } from './dto/find-resturant.dto';
+import { FindRestaurantsDto } from './dto/find-resturants.dto';
 
 @Controller('restaurants')
 export class RestaurantsController {
@@ -28,10 +28,12 @@ export class RestaurantsController {
   createRestaurant(
     @Body() createRestaurantDto: CreateRestaurantDto,
     @CurrentUser() user: User,
+    @Lang() lang: string,
   ) {
     return this.restaurantsService.createRestaurant(
       createRestaurantDto,
       user.id,
+      lang,
     );
   }
 
@@ -46,7 +48,7 @@ export class RestaurantsController {
     return this.restaurantsService.updateRestaurant(
       restaurantId,
       updateRestaurantDto,
-      user.id,
+      user,
       lang,
     );
   }
@@ -58,11 +60,7 @@ export class RestaurantsController {
     @CurrentUser() user: User,
     @Lang() lang: string,
   ) {
-    return this.restaurantsService.activateRestaurant(
-      restaurantId,
-      user.id,
-      lang,
-    );
+    return this.restaurantsService.activateRestaurant(restaurantId, user, lang);
   }
 
   @Delete(':restaurantId')
@@ -74,7 +72,7 @@ export class RestaurantsController {
   ) {
     return this.restaurantsService.deactivateRestaurant(
       restaurantId,
-      user.id,
+      user,
       lang,
     );
   }
@@ -87,13 +85,13 @@ export class RestaurantsController {
 
   @Get()
   @Auth([UserRoles.CLIENT, UserRoles.ADMIN, UserRoles.SUPER])
-  async findRestaurantsByClient(
-    @Query() findRestaurantsDto: FindRestaurantDto,
+  findRestaurantsByClient(
+    @Query() findRestaurantsDto: FindRestaurantsDto,
     @CurrentUser() user: User,
   ) {
     const { limit, offset, ...searchFilters } = findRestaurantsDto;
 
-    return this.restaurantsService.findRestaurantsByClient(
+    return this.restaurantsService.findAllRestaurantsByClient(
       user,
       { limit, offset },
       searchFilters,

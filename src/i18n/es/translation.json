@@ -8,7 +8,10 @@
     "token_user_mismatch": "El token no pertenece al usuario autenticado",
     "invalid_refresh_token": "Token de actualización inválido",
     "too_many_requests": "Demasiados intentos. Inténtalo de nuevo en {{seconds}} segundos",
-    "cannot_activate_own_restaurant": "No puedes activar tu propio restaurante"
+    "cannot_activate_own_restaurant": "No puedes activar tu propio restaurante",
+    "restaurant_not_found": "Restaurante no encontrado",
+    "restaurant_creation_failed": "Error al crear el restaurante",
+    "restaurant_not_owned": "No eres propietario de este restaurante"
   },
   "auth": {
     "registration_success": "Registro exitoso",
@@ -33,6 +36,12 @@
     "already_active": "El restaurante ya está activo",
     "activated": "Restaurante activado con éxito",
     "already_inactive": "El restaurante ya está inactivo",
-    "deactivated": "Restaurante desactivado con éxito"
+    "deactivated": "Restaurante desactivado con éxito",
+    "restaurant_created": "Restaurante creado exitosamente",
+    "restaurant_updated": "Restaurante actualizado exitosamente",
+    "restaurant_activated": "Restaurante activado exitosamente",
+    "restaurant_deactivated": "Restaurante desactivado exitosamente",
+    "restaurant_already_active": "El restaurante ya está activo",
+    "restaurant_already_inactive": "El restaurante ya está inactivo"
   }
 }

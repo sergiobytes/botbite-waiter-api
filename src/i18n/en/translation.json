@@ -8,7 +8,10 @@
     "token_user_mismatch": "Token does not belong to the authenticated user",
     "invalid_refresh_token": "Invalid refresh token",
     "too_many_requests": "Too many attempts. Try again in {{seconds}} seconds",
-    "cannot_activate_own_restaurant": "You cannot activate your own restaurant"
+    "cannot_activate_own_restaurant": "You cannot activate your own restaurant",
+    "restaurant_not_found": "Restaurant not found",
+    "restaurant_creation_failed": "Failed to create restaurant",
+    "restaurant_not_owned": "You don't own this restaurant"
   },
   "auth": {
     "registration_success": "Registration successful",
@@ -33,6 +36,12 @@
     "already_active": "Restaurant is already active",
     "activated": "Restaurant activated successfully",
     "already_inactive": "Restaurant is already inactive",
-    "deactivated": "Restaurant deactivated successfully"
+    "deactivated": "Restaurant deactivated successfully",
+    "restaurant_created": "Restaurant created successfully",
+    "restaurant_updated": "Restaurant updated successfully",
+    "restaurant_activated": "Restaurant activated successfully",
+    "restaurant_deactivated": "Restaurant deactivated successfully",
+    "restaurant_already_active": "Restaurant is already active",
+    "restaurant_already_inactive": "Restaurant is already inactive"
   }
 }
