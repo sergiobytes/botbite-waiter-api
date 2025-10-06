@@ -83,7 +83,7 @@ export class RestaurantsService {
       user.roles.includes(UserRoles.ADMIN) ||
       user.roles.includes(UserRoles.SUPER);
 
-    if (!canModifyAnyRestaurant && restaurant.userId !== user.id) {
+    if (!canModifyAnyRestaurant && restaurant.user.id !== user.id) {
       this.logger.warn(
         `Update failed - User ${user.id} tried to modify restaurant ${restaurantId} not owned by them`,
       );
