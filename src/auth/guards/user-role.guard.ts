@@ -8,8 +8,8 @@ import {
 import { Reflector } from '@nestjs/core';
 import { Observable } from 'rxjs';
 import { META_ROLES } from '../decorators/role-protected.decorator';
-import { User } from '../../entities/user.entity';
-import { UserRoles } from '../../entities/enums/user-valid-roles';
+import { UserRoles } from '../../users/enums/user-roles';
+import { User } from '../../users/entities/user.entity';
 
 @Injectable()
 export class UserRoleGuard implements CanActivate {
@@ -30,10 +30,14 @@ export class UserRoleGuard implements CanActivate {
 
     if (!user) throw new BadRequestException('User not found');
 
-    if (roles.includes(user.role)) return true;
+    const hasValidRole = user.roles.some((userRole) =>
+      roles.includes(userRole),
+    );
+
+    if (hasValidRole) return true;
 
     throw new ForbiddenException(
-      `User ${user.name} need a valid role [${roles}]`,
+      `User ${user.email} need a valid role [${roles.join(', ')}]`,
     );
   }
 }
