@@ -3,7 +3,6 @@ import {
   IsEmail,
   IsString,
   IsEnum,
-  IsArray,
 } from 'class-validator';
 import { UserRoles } from '../enums/user-roles';
 import { PaginationDto } from '../../common/dto/pagination.dto';
@@ -20,12 +19,4 @@ export class FindUsersDto extends PaginationDto {
   @IsOptional()
   @IsEnum(UserRoles, { message: 'Role must be a valid UserRole' })
   role?: UserRoles;
-
-  @IsOptional()
-  @IsArray()
-  @IsEnum(UserRoles, {
-    each: true,
-    message: 'Each role must be a valid UserRole',
-  })
-  roles?: UserRoles[];
 }

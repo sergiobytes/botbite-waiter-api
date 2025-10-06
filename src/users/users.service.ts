@@ -1,6 +1,6 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, Not, ILike, ArrayContains } from 'typeorm';
 import { User } from './entities/user.entity';
 import { TranslationService } from '../common/services/translation.service';
 import { isUUID } from 'class-validator';
@@ -250,39 +250,29 @@ export class UsersService {
     findUsersDto: FindUsersDto = {},
   ) {
     const { limit = 10, offset = 0 } = paginationDto;
-    const { email, search, role, roles } = findUsersDto;
+    const { email, search, role } = findUsersDto;
 
-    const queryBuilder = this.userRepository
-      .createQueryBuilder('user')
-      .where('user.id != :userId', { userId });
+    const whereConditions: any = {
+      id: Not(userId),
+    };
 
     if (email) {
-      queryBuilder.andWhere('user.email = :email', { email });
+      whereConditions.email = email;
     } else if (search) {
-      queryBuilder.andWhere('user.email ILIKE :search', {
-        search: `%${search}%`,
-      });
+      whereConditions.email = ILike(`%${search}%`);
     }
 
     if (role) {
-      queryBuilder.andWhere(':role = ANY(user.roles)', { role });
-    } else if (roles && roles.length > 0) {
-      queryBuilder.andWhere(':roles && user.roles', { roles });
+      whereConditions.roles = ArrayContains([role]);
     }
 
-    const [users, total] = await queryBuilder
-      .select([
-        'user.id',
-        'user.email',
-        'user.roles',
-        'user.isActive',
-        'user.createdAt',
-        'user.updatedAt',
-      ])
-      .orderBy('user.createdAt', 'DESC')
-      .skip(offset)
-      .take(limit)
-      .getManyAndCount();
+    const [users, total] = await this.userRepository.findAndCount({
+      where: whereConditions,
+      select: ['id', 'email', 'roles', 'isActive', 'createdAt', 'updatedAt'],
+      order: { createdAt: 'DESC' },
+      skip: offset,
+      take: limit,
+    });
 
     const sanitizedUsers = users.map((user) => this.sanitizeUserResponse(user));
 

@@ -1,10 +1,13 @@
 import {
   Body,
   Controller,
+  Delete,
+  Get,
   Param,
   ParseUUIDPipe,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { RegisterUserDto } from './dto/register-user.dto';
@@ -13,6 +16,7 @@ import { Auth } from '../auth/decorators/auth.decorator';
 import { UserRoles } from './enums/user-roles';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { User } from './entities/user.entity';
+import { FindUsersDto } from './dto/find-users.dto';
 
 @Controller('users')
 export class UsersController {
@@ -33,7 +37,7 @@ export class UsersController {
     return this.usersService.registerClient(registerUserDto, lang);
   }
 
-  @Patch('deactivate-user/:id')
+  @Delete('deactivate-user/:id')
   @Auth([UserRoles.ADMIN])
   deactivateUser(
     @Param('id', ParseUUIDPipe) userId: string,
@@ -68,7 +72,7 @@ export class UsersController {
     return this.usersService.addAdminRoleToUser(userId, lang);
   }
 
-  @Patch('remove-admin-role/:id')
+  @Delete('remove-admin-role/:id')
   @Auth([UserRoles.SUPER])
   removeAdminRole(
     @CurrentUser() user: User,
@@ -79,5 +83,23 @@ export class UsersController {
       throw new Error('You cannot remove your own admin role');
     }
     return this.usersService.removeAdminRoleFromUser(userId, lang);
+  }
+
+  @Get('find-user/:term')
+  @Auth([UserRoles.USER])
+  async findUserByTerm(@CurrentUser() user: User, @Param('term') term: string) {
+    if (!user) throw new Error('User not found');
+    const userSearch = await this.usersService.findUserByTerm(term);
+
+    if (!userSearch) throw new Error('User not found');
+    return this.usersService.sanitizeUserResponse(userSearch);
+  }
+
+  @Get()
+  @Auth([UserRoles.USER])
+  findAllUsers(@CurrentUser() user: User, @Query() findUserDto: FindUsersDto) {
+    const { limit, offset, ...filters } = findUserDto;
+
+    return this.usersService.findAllUsers(user.id, { limit, offset }, filters);
   }
 }
