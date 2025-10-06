@@ -141,23 +141,7 @@ export class UsersService {
     };
   }
 
-  async addAdminRoleToUser(
-    userId: string,
-    requestingUserId: string,
-    lang: string,
-  ) {
-    if (userId === requestingUserId) {
-      this.logger.warn(
-        `Add admin role failed - User cannot grant admin role to themselves: ${userId}`,
-      );
-      throw new BadRequestException(
-        this.translationService.translate(
-          'users.cannot_grant_role_to_self',
-          lang,
-        ),
-      );
-    }
-
+  async addAdminRoleToUser(userId: string, lang: string) {
     const user = await this.findUserByTerm(userId);
 
     if (!user) {
@@ -205,23 +189,7 @@ export class UsersService {
     };
   }
 
-  async removeAdminRoleFromUser(
-    userId: string,
-    requestingUserId: string,
-    lang: string,
-  ) {
-    if (userId === requestingUserId) {
-      this.logger.warn(
-        `Remove admin role failed - User cannot remove admin role from themselves: ${userId}`,
-      );
-      throw new BadRequestException(
-        this.translationService.translate(
-          'users.cannot_remove_role_from_self',
-          lang,
-        ),
-      );
-    }
-
+  async removeAdminRoleFromUser(userId: string, lang: string) {
     const user = await this.findUserByTerm(userId);
 
     if (!user) {
