@@ -31,7 +31,7 @@
     "cannot_grant_role_to_self": "No puedes otorgarte permisos de administrador a ti mismo",
     "cannot_remove_role_from_self": "No puedes quitarte permisos de administrador a ti mismo"
   },
-  "restaurant": {
+  "restaurants": {
     "not_found": "Restaurante no encontrado",
     "already_active": "El restaurante ya está activo",
     "activated": "Restaurante activado con éxito",
