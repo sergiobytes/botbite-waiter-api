@@ -12,5 +12,11 @@
   "auth": {
     "registration_success": "Registro exitoso",
     "welcome": "¡Bienvenido!"
+  },
+  "users": {
+    "user_activated": "Usuario activado con éxito",
+    "user_already_active": "El usuario ya está activo",
+    "user_already_inactive": "El usuario ya está inactivo",
+    "user_deactivated": "Usuario desactivado con éxito"
   }
 }

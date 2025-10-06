@@ -12,5 +12,11 @@
   "auth": {
     "registration_success": "Registration successful",
     "welcome": "Welcome!"
+  },
+  "users": {
+    "user_activated": "User activated successfully",
+    "user_already_active": "User is already active",
+    "user_already_inactive": "User is already inactive",
+    "user_deactivated": "User deactivated successfully"
   }
 }
