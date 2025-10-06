@@ -139,7 +139,23 @@ export class UsersService {
     };
   }
 
-  async addAdminRoleToUser(userId: string, lang: string) {
+  async addAdminRoleToUser(
+    userId: string,
+    requestingUserId: string,
+    lang: string,
+  ) {
+    if (userId === requestingUserId) {
+      this.logger.warn(
+        `Add admin role failed - User cannot grant admin role to themselves: ${userId}`,
+      );
+      throw new BadRequestException(
+        this.translationService.translate(
+          'users.cannot_grant_role_to_self',
+          lang,
+        ),
+      );
+    }
+
     const user = await this.findUserByTerm(userId);
 
     if (!user) {
@@ -182,6 +198,62 @@ export class UsersService {
     return {
       message: this.translationService.translate(
         'users.admin_role_added',
+        lang,
+      ),
+    };
+  }
+
+  async removeAdminRoleFromUser(
+    userId: string,
+    requestingUserId: string,
+    lang: string,
+  ) {
+    if (userId === requestingUserId) {
+      this.logger.warn(
+        `Remove admin role failed - User cannot remove admin role from themselves: ${userId}`,
+      );
+      throw new BadRequestException(
+        this.translationService.translate(
+          'users.cannot_remove_role_from_self',
+          lang,
+        ),
+      );
+    }
+
+    const user = await this.findUserByTerm(userId);
+
+    if (!user) {
+      this.logger.warn(`Remove admin role failed - User not found: ${userId}`);
+      throw new BadRequestException(
+        this.translationService.translate('errors.user_not_found', lang),
+      );
+    }
+
+    if (!user.isActive) {
+      this.logger.warn(
+        `Remove admin role failed - User is inactive: ${user.email}`,
+      );
+      throw new BadRequestException(
+        this.translationService.translate('users.user_inactive', lang),
+      );
+    }
+
+    if (!user.roles.includes(UserRoles.ADMIN)) {
+      this.logger.warn(
+        `Remove admin role failed - User doesn't have admin role: ${user.email}`,
+      );
+      throw new BadRequestException(
+        this.translationService.translate('users.user_not_admin', lang),
+      );
+    }
+
+    user.roles = user.roles.filter((role) => role !== UserRoles.ADMIN);
+    await this.userRepository.save(user);
+    this.logger.log(`Admin role removed from user: ${user.email}`);
+
+    return {
+      message: this.translationService.translate(
+        'users.admin_role_removed',
         lang,
       ),
     };

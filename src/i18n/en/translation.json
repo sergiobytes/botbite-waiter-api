@@ -17,9 +17,14 @@
     "user_activated": "User activated successfully",
     "user_already_active": "User is already active",
     "user_already_inactive": "User is already inactive",
+    "user_inactive": "User is inactive",
     "user_deactivated": "User deactivated successfully",
     "user_is_client": "User is a client and cannot perform this action",
     "user_already_admin": "User is already an admin",
-    "admin_role_added": "Admin role added to user successfully"
+    "user_not_admin": "User does not have admin permissions",
+    "admin_role_added": "Admin role added to user successfully",
+    "admin_role_removed": "Admin role removed from user successfully",
+    "cannot_grant_role_to_self": "You cannot grant admin permissions to yourself",
+    "cannot_remove_role_from_self": "You cannot remove admin permissions from yourself"
   }
 }
