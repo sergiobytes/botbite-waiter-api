@@ -1,13 +1,15 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Not, Repository, ILike } from 'typeorm';
 import { User } from './entities/user.entity';
 import { TranslationService } from '../common/services/translation.service';
 import { isUUID } from 'class-validator';
 import { RegisterUserDto } from './dto/register-user.dto';
 import { UserRoles } from './enums/user-roles';
+import { SearchUsersDto } from './dto/search-users.dto';
 
 import * as argon2 from 'argon2';
+import { PaginationDto } from '../common/dto/pagination.dto';
 
 @Injectable()
 export class UsersService {
@@ -259,11 +261,52 @@ export class UsersService {
     };
   }
 
-  async findUserByTerm(term: string): Promise<User | null> {
-    return this.userRepository.findOne({
+  async findUserByTerm(term: string) {
+    const user = await this.userRepository.findOne({
       where: isUUID(term) ? [{ id: term }, { email: term }] : { email: term },
-      select: ['id', 'email', 'password', 'roles', 'createdAt', 'updatedAt'],
     });
+
+    if (!user) return null;
+
+    return this.sanitizeUserResponse(user);
+  }
+
+  async findAllUsers(
+    userId: string,
+    paginationDto: PaginationDto,
+    searchUsersDto: SearchUsersDto = {},
+  ) {
+    const { limit = 10, offset = 0 } = paginationDto;
+    const { email, search } = searchUsersDto;
+
+    const whereConditions: any = { id: Not(userId) };
+
+    if (email) {
+      whereConditions.email = email;
+    } else if (search) {
+      whereConditions.email = ILike(`%${search}%`);
+    }
+
+    const [users, total] = await this.userRepository.findAndCount({
+      where: whereConditions,
+      take: limit,
+      skip: offset,
+      select: ['id', 'email', 'roles', 'isActive', 'createdAt', 'updatedAt'],
+      order: { createdAt: 'DESC' },
+    });
+
+    const sanitizedUsers = users.map((user) => this.sanitizeUserResponse(user));
+
+    return {
+      users: sanitizedUsers,
+      total,
+      pagination: {
+        limit,
+        offset,
+        totalPages: Math.ceil(total / limit),
+        currentPage: Math.floor(offset / limit) + 1,
+      },
+    };
   }
 
   sanitizeUserResponse(user: User) {
@@ -271,6 +314,9 @@ export class UsersService {
       id: user.id,
       email: user.email,
       roles: user.roles,
+      isActive: user.isActive,
+      createdAt: user.createdAt,
+      updatedAt: user.updatedAt,
     };
   }
 }
