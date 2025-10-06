@@ -10,6 +10,7 @@ import { CustomPassportModule } from './custom-passport/custom-passport.module';
 import { CustomThrottlerModule } from './custom-throttler/custom-throttler.module';
 import { RestaurantsModule } from './restaurants/restaurants.module';
 import { CategoriesModule } from './categories/categories.module';
+import { ProductsModule } from './products/products.module';
 
 @Module({
   imports: [
@@ -22,6 +23,7 @@ import { CategoriesModule } from './categories/categories.module';
     CustomThrottlerModule,
     RestaurantsModule,
     CategoriesModule,
+    ProductsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
