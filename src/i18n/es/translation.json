@@ -11,7 +11,8 @@
     "cannot_activate_own_restaurant": "No puedes activar tu propio restaurante",
     "restaurant_not_found": "Restaurante no encontrado",
     "restaurant_creation_failed": "Error al crear el restaurante",
-    "restaurant_not_owned": "No eres propietario de este restaurante"
+    "restaurant_not_owned": "No eres propietario de este restaurante",
+    "category_not_found": "Categoría no encontrada"
   },
   "auth": {
     "registration_success": "Registro exitoso",

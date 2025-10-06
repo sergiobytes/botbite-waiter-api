@@ -9,6 +9,7 @@ import { CustomJwtModule } from './custom-jwt/custom-jwt.module';
 import { CustomPassportModule } from './custom-passport/custom-passport.module';
 import { CustomThrottlerModule } from './custom-throttler/custom-throttler.module';
 import { RestaurantsModule } from './restaurants/restaurants.module';
+import { CategoriesModule } from './categories/categories.module';
 
 @Module({
   imports: [
@@ -20,6 +21,7 @@ import { RestaurantsModule } from './restaurants/restaurants.module';
     CustomPassportModule,
     CustomThrottlerModule,
     RestaurantsModule,
+    CategoriesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

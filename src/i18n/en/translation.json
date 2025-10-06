@@ -11,7 +11,8 @@
     "cannot_activate_own_restaurant": "You cannot activate your own restaurant",
     "restaurant_not_found": "Restaurant not found",
     "restaurant_creation_failed": "Failed to create restaurant",
-    "restaurant_not_owned": "You don't own this restaurant"
+    "restaurant_not_owned": "You don't own this restaurant",
+    "category_not_found": "Category not found"
   },
   "auth": {
     "registration_success": "Registration successful",
