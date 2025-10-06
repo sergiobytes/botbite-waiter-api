@@ -1,12 +1,12 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Not, Repository, ILike } from 'typeorm';
+import { Repository } from 'typeorm';
 import { User } from './entities/user.entity';
 import { TranslationService } from '../common/services/translation.service';
 import { isUUID } from 'class-validator';
 import { RegisterUserDto } from './dto/register-user.dto';
 import { UserRoles } from './enums/user-roles';
-import { SearchUsersDto } from './dto/search-users.dto';
+import { FindUsersDto } from './dto/find-users.dto';
 
 import * as argon2 from 'argon2';
 import { PaginationDto } from '../common/dto/pagination.dto';
@@ -262,38 +262,59 @@ export class UsersService {
   }
 
   async findUserByTerm(term: string) {
-    const user = await this.userRepository.findOne({
+    return await this.userRepository.findOne({
       where: isUUID(term) ? [{ id: term }, { email: term }] : { email: term },
+      select: [
+        'id',
+        'email',
+        'password',
+        'roles',
+        'isActive',
+        'createdAt',
+        'updatedAt',
+      ],
     });
-
-    if (!user) return null;
-
-    return this.sanitizeUserResponse(user);
   }
 
   async findAllUsers(
     userId: string,
     paginationDto: PaginationDto,
-    searchUsersDto: SearchUsersDto = {},
+    findUsersDto: FindUsersDto = {},
   ) {
     const { limit = 10, offset = 0 } = paginationDto;
-    const { email, search } = searchUsersDto;
+    const { email, search, role, roles } = findUsersDto;
 
-    const whereConditions: any = { id: Not(userId) };
+    const queryBuilder = this.userRepository
+      .createQueryBuilder('user')
+      .where('user.id != :userId', { userId });
 
     if (email) {
-      whereConditions.email = email;
+      queryBuilder.andWhere('user.email = :email', { email });
     } else if (search) {
-      whereConditions.email = ILike(`%${search}%`);
+      queryBuilder.andWhere('user.email ILIKE :search', {
+        search: `%${search}%`,
+      });
     }
 
-    const [users, total] = await this.userRepository.findAndCount({
-      where: whereConditions,
-      take: limit,
-      skip: offset,
-      select: ['id', 'email', 'roles', 'isActive', 'createdAt', 'updatedAt'],
-      order: { createdAt: 'DESC' },
-    });
+    if (role) {
+      queryBuilder.andWhere(':role = ANY(user.roles)', { role });
+    } else if (roles && roles.length > 0) {
+      queryBuilder.andWhere(':roles && user.roles', { roles });
+    }
+
+    const [users, total] = await queryBuilder
+      .select([
+        'user.id',
+        'user.email',
+        'user.roles',
+        'user.isActive',
+        'user.createdAt',
+        'user.updatedAt',
+      ])
+      .orderBy('user.createdAt', 'DESC')
+      .skip(offset)
+      .take(limit)
+      .getManyAndCount();
 
     const sanitizedUsers = users.map((user) => this.sanitizeUserResponse(user));
 
