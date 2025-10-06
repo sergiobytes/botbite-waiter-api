@@ -7,7 +7,8 @@
     "invalid_token_type": "Invalid token type",
     "token_user_mismatch": "Token does not belong to the authenticated user",
     "invalid_refresh_token": "Invalid refresh token",
-    "too_many_requests": "Too many attempts. Try again in {{seconds}} seconds"
+    "too_many_requests": "Too many attempts. Try again in {{seconds}} seconds",
+    "cannot_activate_own_restaurant": "You cannot activate your own restaurant"
   },
   "auth": {
     "registration_success": "Registration successful",
@@ -26,5 +27,12 @@
     "admin_role_removed": "Admin role removed from user successfully",
     "cannot_grant_role_to_self": "You cannot grant admin permissions to yourself",
     "cannot_remove_role_from_self": "You cannot remove admin permissions from yourself"
+  },
+  "restaurant": {
+    "not_found": "Restaurant not found",
+    "already_active": "Restaurant is already active",
+    "activated": "Restaurant activated successfully",
+    "already_inactive": "Restaurant is already inactive",
+    "deactivated": "Restaurant deactivated successfully"
   }
 }
