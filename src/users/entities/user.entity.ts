@@ -1,7 +1,8 @@
-import { Column, Entity, BeforeInsert, BeforeUpdate } from 'typeorm';
+import { Column, Entity, BeforeInsert, BeforeUpdate, OneToMany } from 'typeorm';
 import { BaseEntity } from '../../common/base.entity';
 import { UserRoles } from '../enums/user-roles';
 import { Exclude } from 'class-transformer';
+import { Restaurant } from '../../restaurants/entities/restaurant.entity';
 
 @Entity({ name: 'users' })
 export class User extends BaseEntity {
@@ -19,6 +20,12 @@ export class User extends BaseEntity {
     default: [UserRoles.USER],
   })
   roles: UserRoles[];
+
+  @OneToMany(() => Restaurant, (restaurant) => restaurant.user, {
+    cascade: true,
+    eager: false,
+  })
+  restaurants: Restaurant[];
 
   @BeforeInsert()
   @BeforeUpdate()

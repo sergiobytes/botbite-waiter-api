@@ -8,6 +8,7 @@ import { AuthModule } from './auth/auth.module';
 import { CustomJwtModule } from './custom-jwt/custom-jwt.module';
 import { CustomPassportModule } from './custom-passport/custom-passport.module';
 import { CustomThrottlerModule } from './custom-throttler/custom-throttler.module';
+import { RestaurantsModule } from './restaurants/restaurants.module';
 
 @Module({
   imports: [
@@ -18,6 +19,7 @@ import { CustomThrottlerModule } from './custom-throttler/custom-throttler.modul
     CustomJwtModule,
     CustomPassportModule,
     CustomThrottlerModule,
+    RestaurantsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
