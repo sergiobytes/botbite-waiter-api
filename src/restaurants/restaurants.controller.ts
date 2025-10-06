@@ -38,7 +38,7 @@ export class RestaurantsController {
   }
 
   @Patch(':restaurantId')
-  @Auth([UserRoles.SUPER, UserRoles.ADMIN])
+  @Auth([UserRoles.SUPER, UserRoles.ADMIN, UserRoles.CLIENT])
   updateRestaurant(
     @Param('restaurantId', ParseUUIDPipe) restaurantId: string,
     @Body() updateRestaurantDto: UpdateRestaurantDto,
