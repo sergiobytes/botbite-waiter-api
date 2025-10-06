@@ -232,15 +232,15 @@ export class UsersService {
   async findUserByTerm(term: string) {
     return await this.userRepository.findOne({
       where: isUUID(term) ? [{ id: term }, { email: term }] : { email: term },
-      select: [
-        'id',
-        'email',
-        'password',
-        'roles',
-        'isActive',
-        'createdAt',
-        'updatedAt',
-      ],
+      select: {
+        id: true,
+        email: true,
+        password: true,
+        roles: true,
+        isActive: true,
+        createdAt: true,
+        updatedAt: true,
+      },
     });
   }
 
@@ -268,7 +268,14 @@ export class UsersService {
 
     const [users, total] = await this.userRepository.findAndCount({
       where: whereConditions,
-      select: ['id', 'email', 'roles', 'isActive', 'createdAt', 'updatedAt'],
+      select: {
+        id: true,
+        email: true,
+        roles: true,
+        isActive: true,
+        createdAt: true,
+        updatedAt: true,
+      },
       order: { createdAt: 'DESC' },
       skip: offset,
       take: limit,
