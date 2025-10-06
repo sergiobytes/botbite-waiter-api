@@ -1,4 +1,16 @@
 {
-  "errors": {},
-  "auth": {}
+  "errors": {
+    "user_exists": "El usuario ya existe",
+    "user_not_found": "Usuario no encontrado",
+    "user_inactive": "El usuario está inactivo",
+    "invalid_credentials": "Credenciales inválidas",
+    "invalid_token_type": "Tipo de token inválido",
+    "token_user_mismatch": "El token no pertenece al usuario autenticado",
+    "invalid_refresh_token": "Token de actualización inválido",
+    "too_many_requests": "Demasiados intentos. Inténtalo de nuevo en {{seconds}} segundos"
+  },
+  "auth": {
+    "registration_success": "Registro exitoso",
+    "welcome": "¡Bienvenido!"
+  }
 }

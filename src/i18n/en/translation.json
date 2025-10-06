@@ -1,4 +1,16 @@
 {
-  "errors": {},
-  "auth": {}
+  "errors": {
+    "user_exists": "User already exists",
+    "user_not_found": "User not found",
+    "user_inactive": "User is inactive",
+    "invalid_credentials": "Invalid credentials",
+    "invalid_token_type": "Invalid token type",
+    "token_user_mismatch": "Token does not belong to the authenticated user",
+    "invalid_refresh_token": "Invalid refresh token",
+    "too_many_requests": "Too many attempts. Try again in {{seconds}} seconds"
+  },
+  "auth": {
+    "registration_success": "Registration successful",
+    "welcome": "Welcome!"
+  }
 }
