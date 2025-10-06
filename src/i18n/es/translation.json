@@ -1,0 +1,30 @@
+{
+  "errors": {
+    "user_exists": "El usuario ya existe",
+    "user_not_found": "Usuario no encontrado",
+    "user_inactive": "El usuario está inactivo",
+    "invalid_credentials": "Credenciales inválidas",
+    "invalid_token_type": "Tipo de token inválido",
+    "token_user_mismatch": "El token no pertenece al usuario autenticado",
+    "invalid_refresh_token": "Token de actualización inválido",
+    "too_many_requests": "Demasiados intentos. Inténtalo de nuevo en {{seconds}} segundos"
+  },
+  "auth": {
+    "registration_success": "Registro exitoso",
+    "welcome": "¡Bienvenido!"
+  },
+  "users": {
+    "user_activated": "Usuario activado con éxito",
+    "user_already_active": "El usuario ya está activo",
+    "user_already_inactive": "El usuario ya está inactivo",
+    "user_inactive": "El usuario está inactivo",
+    "user_deactivated": "Usuario desactivado con éxito",
+    "user_is_client": "El usuario es un cliente y no puede realizar esta acción",
+    "user_already_admin": "El usuario ya es un administrador",
+    "user_not_admin": "El usuario no tiene permisos de administrador",
+    "admin_role_added": "Rol de administrador agregado al usuario con éxito",
+    "admin_role_removed": "Rol de administrador removido del usuario con éxito",
+    "cannot_grant_role_to_self": "No puedes otorgarte permisos de administrador a ti mismo",
+    "cannot_remove_role_from_self": "No puedes quitarte permisos de administrador a ti mismo"
+  }
+}
