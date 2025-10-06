@@ -16,7 +16,7 @@ export class User extends BaseEntity {
     type: 'enum',
     enum: UserRoles,
     array: true,
-    default: [UserRoles.CLIENT],
+    default: [UserRoles.USER],
   })
   roles: UserRoles[];
 
