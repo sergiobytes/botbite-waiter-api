@@ -139,9 +139,53 @@ export class UsersService {
     };
   }
 
-  // TODO: Obtener usuarios paginados con el role client y con filtros (email, activos)
+  async addAdminRoleToUser(userId: string, lang: string) {
+    const user = await this.findUserByTerm(userId);
 
-  // TODO: Agregar rol de administrador a un usuario que no tenga el rol de cliente y tiene que ser de un usuario activo y que ya sea administrador
+    if (!user) {
+      this.logger.warn(`Add admin role failed - User not found: ${userId}`);
+      throw new BadRequestException(
+        this.translationService.translate('errors.user_not_found', lang),
+      );
+    }
+
+    if (!user.isActive) {
+      this.logger.warn(
+        `Add admin role failed - User is inactive: ${user.email}`,
+      );
+      throw new BadRequestException(
+        this.translationService.translate('users.user_inactive', lang),
+      );
+    }
+
+    if (user.roles.includes(UserRoles.CLIENT)) {
+      this.logger.warn(
+        `Add admin role failed - User is a client: ${user.email}`,
+      );
+      throw new BadRequestException(
+        this.translationService.translate('users.user_is_client', lang),
+      );
+    }
+
+    if (user.roles.includes(UserRoles.ADMIN)) {
+      this.logger.warn(
+        `Add admin role failed - User already has admin role: ${user.email}`,
+      );
+      throw new BadRequestException(
+        this.translationService.translate('users.user_already_admin', lang),
+      );
+    }
+
+    user.roles = [...user.roles, UserRoles.ADMIN];
+    await this.userRepository.save(user);
+    this.logger.log(`Admin role added to user: ${user.email}`);
+    return {
+      message: this.translationService.translate(
+        'users.admin_role_added',
+        lang,
+      ),
+    };
+  }
 
   async findUserByTerm(term: string): Promise<User | null> {
     return this.userRepository.findOne({
