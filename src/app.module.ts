@@ -11,6 +11,7 @@ import { CustomThrottlerModule } from './custom-throttler/custom-throttler.modul
 import { RestaurantsModule } from './restaurants/restaurants.module';
 import { CategoriesModule } from './categories/categories.module';
 import { ProductsModule } from './products/products.module';
+import { BranchesModule } from './branches/branches.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { ProductsModule } from './products/products.module';
     RestaurantsModule,
     CategoriesModule,
     ProductsModule,
+    BranchesModule,
   ],
   controllers: [AppController],
   providers: [AppService],

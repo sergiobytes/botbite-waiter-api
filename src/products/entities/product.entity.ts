@@ -10,13 +10,13 @@ export class Product extends BaseEntity {
   @Column({ nullable: true })
   description: string;
 
-  @Column({ name: 'restaurant' })
+  @Column()
   restaurantId: string;
 
   @ManyToOne(() => Restaurant, (restaurant) => restaurant.products, {
     onDelete: 'CASCADE',
     eager: false,
   })
-  @JoinColumn({ name: 'restaurant' })
+  @JoinColumn({ name: 'restaurantId' })
   restaurant: Restaurant;
 }
