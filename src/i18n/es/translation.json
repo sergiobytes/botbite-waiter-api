@@ -44,5 +44,15 @@
     "restaurant_deactivated": "Restaurante desactivado exitosamente",
     "restaurant_already_active": "El restaurante ya está activo",
     "restaurant_already_inactive": "El restaurante ya está inactivo"
+  },
+  "products": {
+    "product_created": "Producto creado con éxito",
+    "product_updated": "Producto actualizado con éxito",
+    "product_deleted": "Producto eliminado con éxito",
+    "product_not_found": "Producto no encontrado",
+    "product_already_active": "El producto ya está activo",
+    "product_already_inactive": "El producto ya está inactivo",
+    "product_activated": "Producto activado con éxito",
+    "product_deactivated": "Producto desactivado con éxito"
   }
 }
