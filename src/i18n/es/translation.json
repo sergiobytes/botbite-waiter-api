@@ -71,5 +71,15 @@
     "branch_already_inactive": "Sucursal ya está inactiva",
     "branch_activated": "Sucursal activada exitosamente",
     "branch_deactivated": "Sucursal desactivada exitosamente"
+  },
+  "menus": {
+    "menu_created": "Menú creado exitosamente",
+    "menu_updated": "Menú actualizado exitosamente",
+    "menu_deleted": "Menú eliminado exitosamente",
+    "menu_not_found": "Menú no encontrado",
+    "menuitem_created": "Item de menú creado exitosamente",
+    "menuitem_updated": "Item de menú actualizado exitosamente",
+    "menuitem_deleted": "Item de menú eliminado exitosamente",
+    "menuitem_not_found": "Item de menú no encontrado"
   }
 }

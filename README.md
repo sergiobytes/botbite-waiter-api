@@ -1,13 +1,10 @@
-
 <p align="center">
   <img src="/assets/logo-removebg-preview.png" width="180" alt="BotBite Logo" />
 </p>
 
-
 # BotBite API
 
 API para gestión de restaurantes, sucursales, productos, usuarios y catálogos globales.
-
 
 ## Instalación
 
@@ -15,24 +12,20 @@ API para gestión de restaurantes, sucursales, productos, usuarios y catálogos 
 npm install
 ```
 
-
-
 ## Estructura del proyecto
 
 La carpeta principal del código fuente es `src/` y está organizada en módulos funcionales:
 
-| Carpeta        | Descripción                                                                 |
-|---------------|-----------------------------------------------------------------------------|
-| **auth/**     | Autenticación y autorización JWT, guards, decoradores y estrategias         |
-| **branches/** | Sucursales de restaurantes: CRUD, activación, carga masiva CSV, QR, relación con restaurante |
-| **categories/**| Catálogo global de categorías: CRUD, solo admin/super                      |
-| **common/**   | Entidades base, paginación, traducción, decoradores y utilidades compartidas|
-| **products/** | Productos de restaurante: CRUD, carga masiva CSV, activación, relación con restaurante y categorías |
-| **restaurants/**| Restaurantes: CRUD, activación, relación con usuario y sucursales         |
-| **users/**    | Usuarios: registro, login, roles, CRUD, relación con restaurantes           |
-| **utils/**    | Utilidades como generación de QR y subida a Cloudinary                      |
-
-
+| Carpeta          | Descripción                                                                                         |
+| ---------------- | --------------------------------------------------------------------------------------------------- |
+| **auth/**        | Autenticación y autorización JWT, guards, decoradores y estrategias                                 |
+| **branches/**    | Sucursales de restaurantes: CRUD, activación, carga masiva CSV, QR, relación con restaurante        |
+| **categories/**  | Catálogo global de categorías: CRUD, solo admin/super                                               |
+| **common/**      | Entidades base, paginación, traducción, decoradores y utilidades compartidas                        |
+| **menus/**       | Menús de sucursal: CRUD de menús y items, relación con productos y categorías                       |
+| **products/**    | Productos de restaurante: CRUD, carga masiva CSV, activación, relación con restaurante y categorías |
+| **restaurants/** | Restaurantes: CRUD, activación, relación con usuario y sucursales                                   |
+| **users/**       | Usuarios: registro, login, roles, CRUD, relación con restaurantes                                   |
 
 ## Migraciones de base de datos
 
@@ -58,7 +51,6 @@ npm run migration:revert
 
 > **Nota:** Asegúrate de tener configuradas las variables de entorno de la base de datos antes de ejecutar migraciones.
 
-
 ## Ejecutar el proyecto
 
 ```bash
@@ -71,7 +63,6 @@ npm run start:dev
 # producción
 npm run start:prod
 ```
-
 
 ## Pruebas
 
@@ -113,7 +104,6 @@ git push origin --delete nombre-de-tu-rama
 ```
 
 > **Recuerda:** Resuelve cualquier conflicto que aparezca durante el merge antes de hacer push.
-
 
 ## Licencia
 
