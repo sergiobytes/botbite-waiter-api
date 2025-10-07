@@ -12,6 +12,7 @@ import { RestaurantsModule } from './restaurants/restaurants.module';
 import { CategoriesModule } from './categories/categories.module';
 import { ProductsModule } from './products/products.module';
 import { BranchesModule } from './branches/branches.module';
+import { MenusModule } from './menus/menus.module';
 
 @Module({
   imports: [
@@ -26,6 +27,7 @@ import { BranchesModule } from './branches/branches.module';
     CategoriesModule,
     ProductsModule,
     BranchesModule,
+    MenusModule,
   ],
   controllers: [AppController],
   providers: [AppService],
