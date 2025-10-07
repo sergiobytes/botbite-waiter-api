@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Get,
   Param,
   ParseUUIDPipe,
   Post,
@@ -46,5 +47,14 @@ export class ProductsController {
     }
 
     return this.productsService.bulkCreate(restaurantId, file, lang);
+  }
+
+  @Get(':restaurantId/:term')
+  @Auth([UserRoles.SUPER, UserRoles.ADMIN, UserRoles.CLIENT])
+  findByTerm(
+    @Param('restaurantId', ParseUUIDPipe) restaurantId: string,
+    @Param('term') term: string,
+  ) {
+    return this.productsService.findByTerm(restaurantId, term);
   }
 }

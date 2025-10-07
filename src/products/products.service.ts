@@ -8,6 +8,7 @@ import { Readable } from 'stream';
 
 import * as csv from 'csv-parser';
 import { ICsvRow } from './interfaces/csv-row.interface';
+import { isUUID } from 'class-validator';
 
 @Injectable()
 export class ProductsService {
@@ -90,11 +91,36 @@ export class ProductsService {
     }
   }
 
+  async update() {}
+
   async activateProduct() {}
 
   async deactivateProduct() {}
 
-  async findByTerm() {}
+  async findByTerm(term: string, restaurantId: string) {
+    const whereCondition = isUUID(term)
+      ? [
+          { id: term, restaurant: { id: restaurantId } },
+          { name: term, restaurant: { id: restaurantId } },
+        ]
+      : [{ name: term, restaurant: { id: restaurantId } }];
+
+    return await this.productRepository.findOne({
+      where: whereCondition,
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        isActive: true,
+        restaurant: {
+          name: true,
+        },
+      },
+      relations: {
+        restaurant: true,
+      },
+    });
+  }
 
   async findAllByRestaurant() {}
 
