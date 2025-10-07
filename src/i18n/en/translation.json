@@ -80,5 +80,14 @@
     "menuitem_updated": "Menu item updated successfully",
     "menuitem_deleted": "Menu item deleted successfully",
     "menuitem_not_found": "Menu item not found"
+  },
+  "customers": {
+    "customer_created": "Customer created successfully",
+    "customer_updated": "Customer updated successfully",
+    "customer_deleted": "Customer deleted successfully",
+    "customer_found": "Customer found",
+    "customers_found": "Customers found",
+    "customer_not_found": "Customer not found",
+    "customer_already_exists": "Customer with this phone number already exists"
   }
 }
