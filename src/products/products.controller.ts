@@ -6,6 +6,7 @@ import {
   Param,
   ParseUUIDPipe,
   Post,
+  Query,
   UploadedFile,
   UseInterceptors,
 } from '@nestjs/common';
@@ -15,6 +16,7 @@ import { UserRoles } from '../users/enums/user-roles';
 import { CreateProductDto } from './dto/create-product.dto';
 import { Lang } from '../common/decorators/lang.decorator';
 import { FileInterceptor } from '@nestjs/platform-express';
+import { FindProductsDto } from './dto/find-products.dto';
 
 @Controller('products')
 export class ProductsController {
@@ -30,7 +32,7 @@ export class ProductsController {
     return this.productsService.create(restaurantId, createProductDto, lang);
   }
 
-  @Post('restaurantId/bulk-upload')
+  @Post('bulk-upload/:restaurantId')
   @Auth([UserRoles.SUPER, UserRoles.ADMIN, UserRoles.CLIENT])
   @UseInterceptors(FileInterceptor('file'))
   bulkCreate(
@@ -49,12 +51,26 @@ export class ProductsController {
     return this.productsService.bulkCreate(restaurantId, file, lang);
   }
 
-  @Get(':restaurantId/:term')
+  @Get('restaurant/:restaurantId/:term')
   @Auth([UserRoles.SUPER, UserRoles.ADMIN, UserRoles.CLIENT])
   findByTerm(
     @Param('restaurantId', ParseUUIDPipe) restaurantId: string,
     @Param('term') term: string,
   ) {
     return this.productsService.findByTerm(restaurantId, term);
+  }
+
+  @Get('restaurant/:restaurantId')
+  @Auth([UserRoles.SUPER, UserRoles.ADMIN, UserRoles.CLIENT])
+  findAllByRestaurant(
+    @Query() findProductsDto: FindProductsDto,
+    @Param('restaurantId', ParseUUIDPipe) restaurantId: string,
+  ) {
+    const { limit, offset, ...searchFilters } = findProductsDto;
+    return this.productsService.findAllByRestaurant(restaurantId, {
+      limit,
+      offset,
+      ...searchFilters,
+    });
   }
 }

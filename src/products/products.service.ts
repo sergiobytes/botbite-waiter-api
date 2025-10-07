@@ -1,7 +1,7 @@
 import { BadRequestException, Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Product } from './entities/product.entity';
-import { Repository } from 'typeorm';
+import { ILike, Repository } from 'typeorm';
 import { TranslationService } from '../common/services/translation.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { Readable } from 'stream';
@@ -9,6 +9,8 @@ import { Readable } from 'stream';
 import * as csv from 'csv-parser';
 import { ICsvRow } from './interfaces/csv-row.interface';
 import { isUUID } from 'class-validator';
+import { PaginationDto } from '../common/dto/pagination.dto';
+import { FindProductsDto } from './dto/find-products.dto';
 
 @Injectable()
 export class ProductsService {
@@ -122,7 +124,56 @@ export class ProductsService {
     });
   }
 
-  async findAllByRestaurant() {}
+  async findAllByRestaurant(
+    restaurantId: string,
+    paginationDto: PaginationDto,
+    findProductsDto: FindProductsDto = {},
+  ) {
+    const { limit = 10, offset = 0 } = paginationDto;
+    const { name, search, isActive } = findProductsDto;
+
+    const whereConditions: any = { restaurant: { id: restaurantId } };
+
+    if (name) {
+      whereConditions.name = name;
+    } else if (search) {
+      whereConditions.name = ILike(`%${search}%`);
+    }
+
+    if (isActive !== undefined) {
+      whereConditions.isActive = isActive;
+    }
+
+    const [products, total] = await this.productRepository.findAndCount({
+      where: whereConditions,
+      relations: {
+        restaurant: true,
+      },
+      select: {
+        id: true,
+        name: true,
+        description: true,
+        isActive: true,
+        restaurant: {
+          name: true,
+        },
+      },
+      order: { createdAt: 'DESC' },
+      skip: offset,
+      take: limit,
+    });
+
+    return {
+      products,
+      total,
+      pagination: {
+        limit,
+        offset,
+        totalPages: Math.ceil(total / limit),
+        currentPage: Math.floor(offset / limit) + 1,
+      },
+    };
+  }
 
   private parseCsvFile(stream: Readable): Promise<CreateProductDto[]> {
     return new Promise((resolve, reject) => {
