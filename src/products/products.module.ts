@@ -10,6 +10,6 @@ import { CustomJwtModule } from '../custom-jwt/custom-jwt.module';
   controllers: [ProductsController],
   providers: [ProductsService],
   imports: [TypeOrmModule.forFeature([Product]), CommonModule, CustomJwtModule],
-  exports: [ProductsService],
+  exports: [TypeOrmModule, ProductsService],
 })
 export class ProductsModule {}

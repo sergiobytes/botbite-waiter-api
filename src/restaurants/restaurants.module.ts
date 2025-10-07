@@ -14,6 +14,6 @@ import { CustomJwtModule } from '../custom-jwt/custom-jwt.module';
     CommonModule,
     CustomJwtModule,
   ],
-  exports: [RestaurantsService],
+  exports: [TypeOrmModule, RestaurantsService],
 })
 export class RestaurantsModule {}
