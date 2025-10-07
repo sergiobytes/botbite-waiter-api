@@ -14,7 +14,9 @@
     "restaurant_not_owned": "No eres propietario de este restaurante",
     "category_not_found": "Categoría no encontrada",
     "empty_csv_file": "El archivo CSV está vacío o no contiene productos válidos",
-    "csv_processing_failed": "Error al procesar el archivo CSV"
+    "csv_processing_failed": "Error al procesar el archivo CSV",
+    "product_not_owned": "No eres propietario de este producto",
+    "product_not_found": "Producto no encontrado"
   },
   "auth": {
     "registration_success": "Registro exitoso",

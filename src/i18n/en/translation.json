@@ -14,7 +14,9 @@
     "restaurant_not_owned": "You don't own this restaurant",
     "category_not_found": "Category not found",
     "empty_csv_file": "CSV file is empty or contains no valid products",
-    "csv_processing_failed": "Failed to process CSV file"
+    "csv_processing_failed": "Failed to process CSV file",
+    "product_not_owned": "You do not own this product",
+    "product_not_found": "Product not found"
   },
   "auth": {
     "registration_success": "Registration successful",
@@ -52,7 +54,6 @@
     "products_bulk_created": "{{count}} products created successfully",
     "product_updated": "Product updated successfully",
     "product_deleted": "Product deleted successfully",
-    "product_not_found": "Product not found",
     "product_already_active": "Product is already active",
     "product_already_inactive": "Product is already inactive",
     "product_activated": "Product activated successfully",

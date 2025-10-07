@@ -11,6 +11,9 @@ import { ICsvRow } from './interfaces/csv-row.interface';
 import { isUUID } from 'class-validator';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { FindProductsDto } from './dto/find-products.dto';
+import { UpdateProductDto } from './dto/update-product.dto';
+import { User } from '../users/entities/user.entity';
+import { UserRoles } from '../users/enums/user-roles';
 
 @Injectable()
 export class ProductsService {
@@ -93,7 +96,49 @@ export class ProductsService {
     }
   }
 
-  async update() {}
+  async update(
+    productId: string,
+    restaurantId: string,
+    updateProductDto: UpdateProductDto,
+    user: User,
+    lang: string,
+  ) {
+    const product = await this.findByTerm(productId, restaurantId);
+
+    if (!product) {
+      this.logger.warn(`Update failed - Product not found: ${productId}`);
+      throw new BadRequestException(
+        this.translationService.translate('errors.product_not_found', lang),
+      );
+    }
+
+    const canModifyAnyProduct =
+      user.roles.includes(UserRoles.ADMIN) ||
+      user.roles.includes(UserRoles.SUPER);
+
+    if (!canModifyAnyProduct && product.restaurant.user.id !== user.id) {
+      this.logger.warn(
+        `Update failed - User ${user.id} tried to modify product ${product.id} not owned by them`,
+      );
+      throw new BadRequestException(
+        this.translationService.translate('errors.product_not_owned', lang),
+      );
+    }
+    Object.assign(product, updateProductDto);
+    const updatedProduct = await this.productRepository.save(product);
+
+    this.logger.log(
+      `Product updated: ${updatedProduct.name} by user: ${user.email}`,
+    );
+
+    return {
+      product: updatedProduct,
+      message: this.translationService.translate(
+        'products.product_updated',
+        lang,
+      ),
+    };
+  }
 
   async activateProduct() {}
 
@@ -116,10 +161,15 @@ export class ProductsService {
         isActive: true,
         restaurant: {
           name: true,
+          user: {
+            id: true,
+          },
         },
       },
       relations: {
-        restaurant: true,
+        restaurant: {
+          user: true,
+        },
       },
     });
   }
