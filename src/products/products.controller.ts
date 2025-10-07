@@ -5,6 +5,7 @@ import {
   Get,
   Param,
   ParseUUIDPipe,
+  Patch,
   Post,
   Query,
   UploadedFile,
@@ -17,6 +18,9 @@ import { CreateProductDto } from './dto/create-product.dto';
 import { Lang } from '../common/decorators/lang.decorator';
 import { FileInterceptor } from '@nestjs/platform-express';
 import { FindProductsDto } from './dto/find-products.dto';
+import { User } from '../users/entities/user.entity';
+import { UpdateProductDto } from './dto/update-product.dto';
+import { CurrentUser } from '../auth/decorators/current-user.decorator';
 
 @Controller('products')
 export class ProductsController {
@@ -72,5 +76,23 @@ export class ProductsController {
       offset,
       ...searchFilters,
     });
+  }
+
+  @Patch('restaurant/:restaurantId/product/:productId')
+  @Auth([UserRoles.SUPER, UserRoles.ADMIN, UserRoles.CLIENT])
+  updateProduct(
+    @Param('restaurantId', ParseUUIDPipe) restaurantId: string,
+    @Param('productId', ParseUUIDPipe) productId: string,
+    @Body() updateProductDto: UpdateProductDto,
+    @CurrentUser() user: User,
+    @Lang() lang: string,
+  ) {
+    return this.productsService.update(
+      productId,
+      restaurantId,
+      updateProductDto,
+      user,
+      lang,
+    );
   }
 }
