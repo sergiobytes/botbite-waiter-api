@@ -62,7 +62,7 @@ export class ProductsController {
     @Param('restaurantId', ParseUUIDPipe) restaurantId: string,
     @Param('term') term: string,
   ) {
-    return this.productsService.findByTerm(restaurantId, term);
+    return this.productsService.findByTerm(term, restaurantId);
   }
 
   @Get('restaurant/:restaurantId')
@@ -79,7 +79,7 @@ export class ProductsController {
     });
   }
 
-  @Patch('restaurant/:restaurantId/product/:productId')
+  @Patch('restaurant/:restaurantId/:productId')
   @Auth([UserRoles.SUPER, UserRoles.ADMIN, UserRoles.CLIENT])
   updateProduct(
     @Param('restaurantId', ParseUUIDPipe) restaurantId: string,
@@ -113,7 +113,7 @@ export class ProductsController {
     );
   }
 
-  @Delete(':restaurantId')
+  @Delete(':restaurantId/:productId')
   @Auth([UserRoles.SUPER, UserRoles.ADMIN])
   deactivateProduct(
     @Param('restaurantId', ParseUUIDPipe) restaurantId: string,

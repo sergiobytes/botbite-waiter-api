@@ -12,7 +12,7 @@ import { CreateProductDto } from './dto/create-product.dto';
 import { Readable } from 'stream';
 
 import * as csv from 'csv-parser';
-import { ICsvRow } from './interfaces/csv-row.interface';
+import { ICsvProductRow } from './interfaces/csv-product-row.interface';
 import { isUUID } from 'class-validator';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { FindProductsDto } from './dto/find-products.dto';
@@ -338,7 +338,7 @@ export class ProductsService {
 
       stream
         .pipe(csv())
-        .on('data', (row: ICsvRow) => {
+        .on('data', (row: ICsvProductRow) => {
           if (row.nombre && row.nombre.trim()) {
             products.push({
               name: row.nombre.trim(),

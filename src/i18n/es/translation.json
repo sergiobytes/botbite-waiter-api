@@ -16,7 +16,9 @@
     "empty_csv_file": "El archivo CSV está vacío o no contiene productos válidos",
     "csv_processing_failed": "Error al procesar el archivo CSV",
     "product_not_owned": "No eres propietario de este producto",
-    "product_not_found": "Producto no encontrado"
+    "product_not_found": "Producto no encontrado",
+    "branch_not_owned": "No eres propietario de esta sucursal",
+    "branch_not_found": "Sucursal no encontrada"
   },
   "auth": {
     "registration_success": "Registro exitoso",
@@ -59,5 +61,15 @@
     "product_already_inactive": "El producto ya está inactivo",
     "product_activated": "Producto activado exitosamente",
     "product_deactivated": "Producto desactivado exitosamente"
+  },
+  "branches": {
+    "branch_created": "Sucursal creada exitosamente",
+    "branches_bulk_created": "{{count}} sucursales creadas exitosamente",
+    "branch_updated": "Sucursal actualizada exitosamente",
+    "branch_deleted": "Sucursal eliminada exitosamente",
+    "branch_already_active": "Sucursal ya está activa",
+    "branch_already_inactive": "Sucursal ya está inactiva",
+    "branch_activated": "Sucursal activada exitosamente",
+    "branch_deactivated": "Sucursal desactivada exitosamente"
   }
 }

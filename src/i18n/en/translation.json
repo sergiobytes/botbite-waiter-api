@@ -16,7 +16,9 @@
     "empty_csv_file": "CSV file is empty or contains no valid products",
     "csv_processing_failed": "Failed to process CSV file",
     "product_not_owned": "You do not own this product",
-    "product_not_found": "Product not found"
+    "product_not_found": "Product not found",
+    "branch_not_owned": "You do not own this branch",
+    "branch_not_found": "Branch not found"
   },
   "auth": {
     "registration_success": "Registration successful",
@@ -58,5 +60,15 @@
     "product_already_inactive": "Product is already inactive",
     "product_activated": "Product activated successfully",
     "product_deactivated": "Product deactivated successfully"
+  },
+  "branches": {
+    "branch_created": "Branch created successfully",
+    "branches_bulk_created": "{{count}} branches created successfully",
+    "branch_updated": "Branch updated successfully",
+    "branch_deleted": "Branch deleted successfully",
+    "branch_already_active": "Branch is already active",
+    "branch_already_inactive": "Branch is already inactive",
+    "branch_activated": "Branch activated successfully",
+    "branch_deactivated": "Branch deactivated successfully"
   }
 }

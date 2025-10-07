@@ -1,4 +1,4 @@
-export interface ICsvRow {
+export interface ICsvProductRow {
   nombre: string;
   descripcion: string;
 }

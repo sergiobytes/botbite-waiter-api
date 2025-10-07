@@ -6,6 +6,7 @@ import { Restaurant } from '../../restaurants/entities/restaurant.entity';
 export class Branch extends BaseEntity {
   @Column()
   name: string;
+  
   @Column()
   address: string;
   
