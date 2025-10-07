@@ -18,8 +18,8 @@ import { User } from '../users/entities/user.entity';
 import { UserRoles } from '../users/enums/user-roles';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { FindBranchDto } from './dto/find-branch.dto';
-import { createQr } from '../utils/create-qr';
-import { uploadToCloudinary } from '../utils/upload-to-cloudinary';
+import { createQr } from '../common/utils/create-qr';
+import { uploadToCloudinary } from '../common/utils/upload-to-cloudinary';
 
 @Injectable()
 export class BranchesService {
