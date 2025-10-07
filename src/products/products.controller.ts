@@ -2,6 +2,7 @@ import {
   BadRequestException,
   Body,
   Controller,
+  Delete,
   Get,
   Param,
   ParseUUIDPipe,
@@ -91,6 +92,38 @@ export class ProductsController {
       productId,
       restaurantId,
       updateProductDto,
+      user,
+      lang,
+    );
+  }
+
+  @Patch('activate/:restaurantId/:productId')
+  @Auth([UserRoles.SUPER, UserRoles.ADMIN])
+  activateProduct(
+    @Param('restaurantId', ParseUUIDPipe) restaurantId: string,
+    @Param('productId', ParseUUIDPipe) productId: string,
+    @CurrentUser() user: User,
+    @Lang() lang: string,
+  ) {
+    return this.productsService.activateProduct(
+      productId,
+      restaurantId,
+      user,
+      lang,
+    );
+  }
+
+  @Delete(':restaurantId')
+  @Auth([UserRoles.SUPER, UserRoles.ADMIN])
+  deactivateProduct(
+    @Param('restaurantId', ParseUUIDPipe) restaurantId: string,
+    @Param('productId', ParseUUIDPipe) productId: string,
+    @CurrentUser() user: User,
+    @Lang() lang: string,
+  ) {
+    return this.productsService.deactivateProduct(
+      productId,
+      restaurantId,
       user,
       lang,
     );

@@ -1,4 +1,9 @@
-import { BadRequestException, Injectable, Logger } from '@nestjs/common';
+import {
+  BadRequestException,
+  Injectable,
+  Logger,
+  NotFoundException,
+} from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Product } from './entities/product.entity';
 import { ILike, Repository } from 'typeorm';
@@ -140,9 +145,111 @@ export class ProductsService {
     };
   }
 
-  async activateProduct() {}
+  async activateProduct(
+    productId: string,
+    restaurantId: string,
+    user: User,
+    lang: string,
+  ) {
+    const product = await this.findByTerm(productId, restaurantId);
 
-  async deactivateProduct() {}
+    if (!product) {
+      this.logger.warn(`Activate failed - Product not found: ${productId}`);
+      throw new NotFoundException(
+        this.translationService.translate('errors.product_not_found', lang),
+      );
+    }
+
+    const canModifyAnyProduct =
+      user.roles.includes(UserRoles.ADMIN) ||
+      user.roles.includes(UserRoles.SUPER);
+
+    if (!canModifyAnyProduct && product.restaurant.user.id !== user.id) {
+      this.logger.warn(
+        `Activate failed - User ${user.id} tried to activate product ${product.id} not owned by them`,
+      );
+      throw new BadRequestException(
+        this.translationService.translate('errors.product_not_owned', lang),
+      );
+    }
+
+    if (product.isActive) {
+      this.logger.warn(
+        `Activate failed - Product already active: ${product.id}`,
+      );
+      throw new BadRequestException(
+        this.translationService.translate(
+          'products.product_already_active',
+          lang,
+        ),
+      );
+    }
+
+    product.isActive = true;
+    await this.productRepository.save(product);
+
+    this.logger.log(`Product activated: ${product.id} by user: ${user.email}`);
+
+    return {
+      message: this.translationService.translate(
+        'products.product_activated',
+        lang,
+      ),
+    };
+  }
+
+  async deactivateProduct(
+    productId: string,
+    restaurantId: string,
+    user: User,
+    lang: string,
+  ) {
+    const product = await this.findByTerm(productId, restaurantId);
+
+    if (!product) {
+      this.logger.warn(`Activate failed - Product not found: ${productId}`);
+      throw new NotFoundException(
+        this.translationService.translate('errors.product_not_found', lang),
+      );
+    }
+
+    const canModifyAnyProduct =
+      user.roles.includes(UserRoles.ADMIN) ||
+      user.roles.includes(UserRoles.SUPER);
+
+    if (!canModifyAnyProduct && product.restaurant.user.id !== user.id) {
+      this.logger.warn(
+        `Activate failed - User ${user.id} tried to activate product ${product.id} not owned by them`,
+      );
+      throw new BadRequestException(
+        this.translationService.translate('errors.product_not_owned', lang),
+      );
+    }
+
+    if (!product.isActive) {
+      this.logger.warn(
+        `Activate failed - Product already inactive: ${product.id}`,
+      );
+      throw new BadRequestException(
+        this.translationService.translate(
+          'products.product_already_inactive',
+          lang,
+        ),
+      );
+    }
+
+    product.isActive = false;
+    await this.productRepository.save(product);
+
+    this.logger.log(`Product activated: ${product.id} by user: ${user.email}`);
+
+    return {
+      message: this.translationService.translate(
+        'products.product_deactivated',
+        lang,
+      ),
+    };
+  }
 
   async findByTerm(term: string, restaurantId: string) {
     const whereCondition = isUUID(term)
