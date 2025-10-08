@@ -22,7 +22,9 @@ La carpeta principal del código fuente es `src/` y está organizada en módulos
 | **branches/**    | Sucursales de restaurantes: CRUD, activación, carga masiva CSV, QR, relación con restaurante        |
 | **categories/**  | Catálogo global de categorías: CRUD, solo admin/super                                               |
 | **common/**      | Entidades base, paginación, traducción, decoradores y utilidades compartidas                        |
+| **customers/**   | Clientes: CRUD, validación de unicidad, relación con órdenes                                        |
 | **menus/**       | Menús de sucursal: CRUD de menús y items, relación con productos y categorías                       |
+| **orders/**      | Órdenes: CRUD, relación con clientes, sucursales y productos, gestión de items de orden            |
 | **products/**    | Productos de restaurante: CRUD, carga masiva CSV, activación, relación con restaurante y categorías |
 | **restaurants/** | Restaurantes: CRUD, activación, relación con usuario y sucursales                                   |
 | **users/**       | Usuarios: registro, login, roles, CRUD, relación con restaurantes                                   |
