@@ -83,6 +83,7 @@ export class ProductsService {
         message: this.translationService.translate(
           'products.products_bulk_created',
           lang,
+          { count: savedProducts.length.toString() },
         ),
       };
     } catch (error) {
