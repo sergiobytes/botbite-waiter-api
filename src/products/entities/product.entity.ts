@@ -1,4 +1,11 @@
-import { Column, Entity, JoinColumn, ManyToOne } from 'typeorm';
+import {
+  BeforeInsert,
+  BeforeUpdate,
+  Column,
+  Entity,
+  JoinColumn,
+  ManyToOne,
+} from 'typeorm';
 import { BaseEntity } from '../../common/base.entity';
 import { Restaurant } from '../../restaurants/entities/restaurant.entity';
 
@@ -19,4 +26,11 @@ export class Product extends BaseEntity {
   })
   @JoinColumn({ name: 'restaurantId' })
   restaurant: Restaurant;
+
+  @BeforeInsert()
+  @BeforeUpdate()
+  toUpperCaseFields() {
+    if (this.name) this.name = this.name.toUpperCase();
+    if (this.description) this.description = this.description.toUpperCase();
+  }
 }
