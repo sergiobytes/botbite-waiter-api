@@ -6,6 +6,7 @@ import { OrderItem } from './entities/order-item.entity';
 import { TranslationService } from '../common/services/translation.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
+import { CreateOrderItemDto } from './dto/create-order-item.dto';
 
 @Injectable()
 export class OrdersService {
@@ -92,6 +93,54 @@ export class OrdersService {
     this.logger.log(`Order closed: ${order.id}`);
     return {
       message: this.translationService.translate('orders.order_closed', lang),
+    };
+  }
+
+  async addOrderItem(orderId: string, dto: CreateOrderItemDto, lang: string) {
+    const { order } = await this.findOneOrder(orderId, lang);
+
+    const orderItem = this.orderItemRepository.create({
+      ...dto,
+      orderId: order.id,
+    });
+
+    const savedItem = await this.orderItemRepository.save(orderItem);
+
+    this.logger.log(
+      `Order item created: ${savedItem.id} for order: ${orderId}`,
+    );
+
+    return {
+      orderItem: savedItem,
+      message: this.translationService.translate(
+        'orders.orderitem_created',
+        lang,
+      ),
+    };
+  }
+
+  async removeOrderItem(orderId: string, itemId: string, lang: string) {
+    const orderItem = await this.orderItemRepository.findOne({
+      where: { id: itemId, orderId },
+    });
+
+    if (!orderItem) {
+      this.logger.warn(
+        `Delete failed - Order item not found: ${itemId} in order: ${orderId}`,
+      );
+      throw new NotFoundException(
+        this.translationService.translate('orders.orderitem_not_found', lang),
+      );
+    }
+
+    await this.orderItemRepository.delete(itemId);
+
+    this.logger.log(`Order item deleted: ${itemId} from order: ${orderId}`);
+    return {
+      message: this.translationService.translate(
+        'orders.orderitem_deleted',
+        lang,
+      ),
     };
   }
 }

@@ -89,5 +89,17 @@
     "customers_found": "Customers found",
     "customer_not_found": "Customer not found",
     "customer_already_exists": "Customer with this phone number already exists"
+  },
+  "orders": {
+    "order_created": "Order created successfully",
+    "order_updated": "Order updated successfully",
+    "order_deleted": "Order deleted successfully",
+    "order_found": "Order found",
+    "orders_found": "Orders found",
+    "order_not_found": "Order not found",
+    "orderitem_created": "Order item created successfully",
+    "orderitem_updated": "Order item updated successfully",
+    "orderitem_deleted": "Order item deleted successfully",
+    "orderitem_not_found": "Order item not found"
   }
 }
