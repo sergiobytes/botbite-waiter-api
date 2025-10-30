@@ -15,6 +15,7 @@ import { BranchesModule } from './branches/branches.module';
 import { MenusModule } from './menus/menus.module';
 import { OrdersModule } from './orders/orders.module';
 import { CustomersModule } from './customers/customers.module';
+import { MessagesModule } from './messages/messages.module';
 
 @Module({
   imports: [
@@ -32,6 +33,7 @@ import { CustomersModule } from './customers/customers.module';
     MenusModule,
     OrdersModule,
     CustomersModule,
+    MessagesModule,
   ],
   controllers: [AppController],
   providers: [AppService],
