@@ -131,11 +131,21 @@ export class BranchesService {
         this.translationService.translate('errors.branch_not_owned', lang),
       );
     }
+
+
+    if (updateBranchDto.availableMessages !== undefined) {
+      const { availableMessages } = updateBranchDto;
+      branch.availableMessages += availableMessages;
+
+      updateBranchDto.availableMessages = branch.availableMessages;
+    }
+
     Object.assign(branch, updateBranchDto);
+    
     const updatedBranch = await this.branchRepository.save(branch);
 
     this.logger.log(
-      `Branch updated: ${updatedBranch.name} by user: ${user.email}`,
+      `Branch updated: ${updatedBranch.name} by user: ${user.email}. Available messages: ${updatedBranch.availableMessages}`,
     );
 
     return {
