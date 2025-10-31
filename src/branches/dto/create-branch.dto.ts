@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsOptional, IsString } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsString, IsNumber } from 'class-validator';
 
 export class CreateBranchDto {
   @IsString()
@@ -22,4 +22,8 @@ export class CreateBranchDto {
   @IsString()
   @IsOptional()
   assistantId?: string;
+
+  @IsOptional()
+  @IsNumber()
+  availableMessages?: number;
 }
