@@ -6,7 +6,7 @@ import {
 } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Branch } from './entities/branch.entity';
-import { ILike, Repository } from 'typeorm';
+import { FindOptionsWhere, ILike, Repository } from 'typeorm';
 import { TranslationService } from '../common/services/translation.service';
 import { CreateBranchDto } from './dto/create-branch.dto';
 import { Readable } from 'stream';
@@ -251,13 +251,16 @@ export class BranchesService {
     };
   }
 
-  async findByTerm(term: string, restaurantId: string) {
-    const whereCondition = isUUID(term)
-      ? [
-          { id: term, restaurant: { id: restaurantId } },
-          { name: term, restaurant: { id: restaurantId } },
-        ]
-      : [{ name: term, restaurant: { id: restaurantId } }];
+  async findByTerm(term: string, restaurantId?: string) {
+    let whereCondition: FindOptionsWhere<Branch>[];
+
+    if (restaurantId && isUUID(term)) {
+      whereCondition = [{ id: term, restaurant: { id: restaurantId } }];
+    } else if (restaurantId) {
+      whereCondition = [{ name: term, restaurant: { id: restaurantId } }];
+    } else {
+      whereCondition = [{ id: term }, { name: term }];
+    }
 
     return await this.branchRepository.findOne({
       where: whereCondition,

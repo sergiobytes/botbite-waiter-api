@@ -16,6 +16,7 @@ import { MenusModule } from './menus/menus.module';
 import { OrdersModule } from './orders/orders.module';
 import { CustomersModule } from './customers/customers.module';
 import { MessagesModule } from './messages/messages.module';
+import { OpenAIModule } from './openai/openai.module';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { MessagesModule } from './messages/messages.module';
     OrdersModule,
     CustomersModule,
     MessagesModule,
+    OpenAIModule,
   ],
   controllers: [AppController],
   providers: [AppService],

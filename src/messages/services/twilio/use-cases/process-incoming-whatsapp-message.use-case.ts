@@ -5,7 +5,7 @@ export const processIncomingWhatsappMessageUseCase = (
   logger: Logger,
   webhookData: WebhookDataTwilio,
 ) => {
-  const { From: from, To: to } = webhookData;
+  const { from, to } = webhookData;
 
   try {
     const toPhoneNumber = to.startsWith('whatsapp:')
@@ -19,8 +19,9 @@ export const processIncomingWhatsappMessageUseCase = (
     return {
       from: fromPhoneNumber,
       to: toPhoneNumber,
-      message: webhookData.Body,
-      messageSid: webhookData.MessageSid,
+      message: webhookData.body,
+      messageSid: webhookData.messageSid,
+      profileName: webhookData.profileName,
       timestamp: new Date().toISOString(),
     };
   } catch (error) {

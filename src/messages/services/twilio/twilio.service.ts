@@ -3,6 +3,8 @@ import { Injectable, Logger } from '@nestjs/common';
 import * as twilio from 'twilio';
 import { processIncomingWhatsappMessageUseCase } from './use-cases/process-incoming-whatsapp-message.use-case';
 import { WebhookDataTwilio } from '../../models/webhook-data.twilio';
+import { sendWhatsappMessageUseCase } from './use-cases/send-whatsapp-message.use-case';
+import { MessageInstance } from 'twilio/lib/rest/api/v2010/account/message';
 
 @Injectable()
 export class TwilioService {
@@ -15,5 +17,21 @@ export class TwilioService {
     if (!this.client) throw new Error('Twilio client not initialized');
 
     return processIncomingWhatsappMessageUseCase(this.logger, webhookData);
+  }
+
+  async sendWhatsAppMessage(
+    to: string,
+    message: string,
+    from: string,
+  ): Promise<MessageInstance> {
+    if (!this.client) throw new Error('Twilio client not initialized');
+
+    return sendWhatsappMessageUseCase(
+      to,
+      message,
+      from,
+      this.logger,
+      this.client,
+    );
   }
 }
