@@ -1,4 +1,6 @@
 import {
+  BeforeInsert,
+  BeforeUpdate,
   Column,
   CreateDateColumn,
   Entity,
@@ -25,4 +27,11 @@ export class Category {
 
   @UpdateDateColumn()
   updatedAt: Date;
+
+  @BeforeInsert()
+  @BeforeUpdate()
+  toUpperCaseFields() {
+    if (this.name) this.name = this.name.toUpperCase();
+    if (this.description) this.description = this.description.toUpperCase();
+  }
 }

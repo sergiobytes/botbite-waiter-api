@@ -59,6 +59,7 @@ export class MessagesService {
         this.translationService.translate('errors.branch_not_found', 'en'),
       );
     }
+    
     // Validate branch balance
 
     const isAdmin = messageData.from === branch.phoneNumberReception;
