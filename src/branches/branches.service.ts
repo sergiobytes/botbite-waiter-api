@@ -132,7 +132,6 @@ export class BranchesService {
       );
     }
 
-
     if (updateBranchDto.availableMessages !== undefined) {
       const { availableMessages } = updateBranchDto;
       branch.availableMessages += availableMessages;
@@ -141,7 +140,7 @@ export class BranchesService {
     }
 
     Object.assign(branch, updateBranchDto);
-    
+
     const updatedBranch = await this.branchRepository.save(branch);
 
     this.logger.log(
@@ -288,6 +287,7 @@ export class BranchesService {
         phoneNumberAssistant: true,
         phoneNumberReception: true,
         qrUrl: true,
+        availableMessages: true,
         restaurant: {
           name: true,
           user: {
