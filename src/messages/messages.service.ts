@@ -104,6 +104,15 @@ export class MessagesService {
         branch,
       );
     }
+
+    // Si el cliente solicita la cuenta, notificar al cajero
+    if (this.isBillRequest(messageData.message, response)) {
+      await this.notifyCashierAboutBillRequest(
+        messageData.from,
+        customer,
+        branch,
+      );
+    }
   }
 
   private async findOrCreateCustomer(
@@ -356,5 +365,71 @@ export class MessagesService {
     }
 
     await this.orderService.updateOrder(order.order.id, { total }, 'es');
+  }
+
+  private isBillRequest(
+    clientMessage: string,
+    assistantResponse: string,
+  ): boolean {
+    const billKeywords = [
+      'cuenta',
+      'bill',
+      'factura',
+      'pagar',
+      'cobrar',
+      'total',
+      'cuanto',
+      'cuánto',
+      'debo',
+      'owe',
+      'check',
+    ];
+
+    const clientLower = clientMessage.toLowerCase();
+    const responseLower = assistantResponse.toLowerCase();
+
+    const clientContainsBillKeyword = billKeywords.some((keyword) =>
+      clientLower.includes(keyword),
+    );
+
+    const responseContainsBillInfo =
+      responseLower.includes('total') ||
+      responseLower.includes('cuenta') ||
+      responseLower.includes('pagar') ||
+      (responseLower.includes('$') && responseLower.includes('total'));
+
+    return clientContainsBillKeyword && responseContainsBillInfo;
+  }
+
+  private async notifyCashierAboutBillRequest(
+    customerPhone: string,
+    customer: Customer,
+    branch: Branch,
+  ) {
+    try {
+      const conversation =
+        await this.conversationService.getOrCreateConversation(
+          customerPhone,
+          branch.id,
+        );
+
+      const tableInfo = await this.extractTableInfoFromConversation(
+        conversation.conversationId,
+      );
+
+      const cashierMessage = `El cliente ${customer.name} en ${tableInfo}, ha solicitado la cuenta.`;
+
+      await this.sendMessage(
+        branch.phoneNumberReception,
+        cashierMessage,
+        branch.phoneNumberAssistant,
+      );
+
+      this.logger.log(
+        `Bill request notification sent to cashier for customer ${customer.name}`,
+      );
+    } catch (error) {
+      this.logger.error('Error notifying cashier about bill request:', error);
+    }
   }
 }
