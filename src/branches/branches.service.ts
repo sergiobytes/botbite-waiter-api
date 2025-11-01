@@ -268,7 +268,7 @@ export class BranchesService {
     } else if (restaurantId) {
       whereCondition = [{ name: term, restaurant: { id: restaurantId } }];
     } else {
-      whereCondition = [{ id: term }, { name: term }];
+      whereCondition = [{ name: term }, { phoneNumberAssistant: term }];
     }
 
     return await this.branchRepository.findOne({
@@ -276,6 +276,12 @@ export class BranchesService {
       relations: {
         restaurant: {
           user: true,
+        },
+        menus: {
+          menuItems: {
+            category: true,
+            product: true,
+          },
         },
       },
       select: {
@@ -294,6 +300,7 @@ export class BranchesService {
             id: true,
           },
         },
+        menus: true,
       },
     });
   }

@@ -8,6 +8,10 @@ import { OpenAIModule } from '../openai/openai.module';
 import { CommonModule } from '../common/common.module';
 import { ProductsModule } from '../products/products.module';
 import { OrdersModule } from '../orders/orders.module';
+import { ConversationService } from './services/conversation/conversation.service';
+import { TypeOrmModule } from '@nestjs/typeorm';
+import { Conversation } from './entities/conversation.entity';
+import { ConversationMessage } from './entities/conversation-message.entity';
 
 @Module({
   imports: [
@@ -17,9 +21,10 @@ import { OrdersModule } from '../orders/orders.module';
     OpenAIModule,
     OrdersModule,
     ProductsModule,
+    TypeOrmModule.forFeature([Conversation, ConversationMessage]),
   ],
   controllers: [MessagesController],
-  providers: [MessagesService, TwilioService],
-  exports: [MessagesService, TwilioService],
+  providers: [MessagesService, TwilioService, ConversationService],
+  exports: [TypeOrmModule, MessagesService, TwilioService, ConversationService],
 })
 export class MessagesModule {}

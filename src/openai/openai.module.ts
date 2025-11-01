@@ -6,7 +6,7 @@ import { ProductsModule } from '../products/products.module';
 import { OrdersModule } from '../orders/orders.module';
 
 @Module({
-  imports: [MenusModule, ProductsModule, OrdersModule, OrdersModule],
+  imports: [MenusModule, ProductsModule, OrdersModule],
   providers: [OpenAIService, AssistantService],
   exports: [OpenAIService, AssistantService],
 })

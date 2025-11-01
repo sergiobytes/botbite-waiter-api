@@ -11,13 +11,11 @@ import { Customer } from '../customers/entities/customer.entity';
 import { CustomersService } from '../customers/customers.service';
 import { TranslationService } from '../common/services/translation.service';
 import { AssistantService } from '../openai/assistant.service';
-import { splitMessages } from '../common/utils/split-messages';
-import { MessageInstance } from 'twilio/lib/rest/api/v2010/account/message';
-import { hasRequestedBill } from '../common/utils/has-requested-bill';
 import { Branch } from '../branches/entities/branch.entity';
 import { ProductsService } from '../products/products.service';
 import { extractOrderDataFromMessage } from '../common/utils/extract-order-data-from-message';
 import { OrdersService } from '../orders/orders.service';
+import { ConversationService } from './services/conversation/conversation.service';
 
 @Injectable()
 export class MessagesService {
@@ -25,6 +23,7 @@ export class MessagesService {
 
   constructor(
     private readonly twilioService: TwilioService,
+    private readonly conversationService: ConversationService,
     private readonly translationService: TranslationService,
     private readonly branchService: BranchesService,
     private readonly customerService: CustomersService,
@@ -48,10 +47,8 @@ export class MessagesService {
   }
 
   async processIncomingMessage(body: WebhookDataTwilio) {
-    // Use TwilioService to process the incoming WhatsApp message
     const messageData = this.twilioService.processIncomingWhatsappMessage(body);
 
-    // Validate the 'to' number against existing branches
     const branch = await this.branchService.findByTerm(messageData.to);
 
     if (!branch) {
@@ -59,14 +56,12 @@ export class MessagesService {
         this.translationService.translate('errors.branch_not_found', 'en'),
       );
     }
-    
+
     // Validate branch balance
 
     const isAdmin = messageData.from === branch.phoneNumberReception;
 
     let customer: Customer;
-    let assistantResponse: string | null;
-    let threadId: string | null;
 
     if (!isAdmin) {
       customer = await this.findOrCreateCustomer(
@@ -85,67 +80,123 @@ export class MessagesService {
       };
     }
 
-    if (branch.assistantId) {
-      const assistantResult = await this.assistantService.processMessage(
-        branch,
-        customer,
-        messageData.message,
-        customer.threadId,
-      );
+    const response = await this.conversationService.processMessage(
+      messageData.from,
+      messageData.message,
+      branch.id,
+      customer,
+      branch,
+    );
 
-      assistantResponse = assistantResult.response;
-      threadId = assistantResult.threadId;
-
-      if (!isAdmin) {
-        await this.customerService.update(customer.phone, { threadId }, 'en');
-      }
-
-      customer.threadId = threadId;
-
-      if (assistantResponse.includes('### CAJA')) {
-        const { client, cashier } = splitMessages(assistantResponse);
-
-        const messages: Promise<MessageInstance>[] = [];
-
-        if (client) {
-          messages.push(
-            this.sendMessage(
-              customer.phone,
-              client,
-              branch.phoneNumberAssistant,
-            ),
-          );
-        }
-
-        for (const block of cashier) {
-          messages.push(
-            this.sendMessage(
-              branch.phoneNumberReception,
-              block,
-              branch.phoneNumberAssistant,
-            ),
-          );
-        }
-
-        await Promise.all(messages);
-
-        // Create Ordeer after client confirmation
-        if (hasRequestedBill(cashier)) {
-          await this.saveOrder(branch, customer.id, client!);
-          await this.customerService.update(
-            customer.phone,
-            { threadId: '' },
-            'en',
-          );
-        }
-      }
-    }
+    await this.sendMessage(
+      customer.phone,
+      response,
+      branch.phoneNumberAssistant,
+    );
   }
 
-  private async findOrCreateCustomer(phone: string, profileName: string) {
+  // async processIncomingMessageOriginal(body: WebhookDataTwilio) {
+  //   // Use TwilioService to process the incoming WhatsApp message (BAJA SALDO)
+  //   const messageData = this.twilioService.processIncomingWhatsappMessage(body);
+
+  //   // Validate the 'to' number against existing branches
+  //   const branch = await this.branchService.findByTerm(messageData.to);
+
+  //   if (!branch) {
+  //     throw new NotFoundException(
+  //       this.translationService.translate('errors.branch_not_found', 'en'),
+  //     );
+  //   }
+
+  //   // Validate branch balance
+
+  //   const isAdmin = messageData.from === branch.phoneNumberReception;
+
+  //   let customer: Customer;
+  //   let assistantResponse: string | null;
+  //   let threadId: string | null;
+
+  //   if (!isAdmin) {
+  //     customer = await this.findOrCreateCustomer(
+  //       messageData.from,
+  //       messageData.profileName,
+  //     );
+  //   } else {
+  //     customer = {
+  //       id: 'xxxx',
+  //       name: messageData.profileName,
+  //       phone: messageData.from,
+  //       createdAt: new Date(),
+  //       updatedAt: new Date(),
+  //       isActive: true,
+  //       threadId: undefined,
+  //     };
+  //   }
+
+  //   if (branch.assistantId) {
+  //     const assistantResult = await this.assistantService.processMessage(
+  //       branch,
+  //       customer,
+  //       messageData.message,
+  //       customer.threadId,
+  //     );
+
+  //     assistantResponse = assistantResult.response;
+  //     threadId = assistantResult.threadId;
+
+  //     if (!isAdmin) {
+  //       await this.customerService.update(customer.phone, { threadId }, 'en');
+  //     }
+
+  //     customer.threadId = threadId;
+
+  //     if (assistantResponse.includes('### CAJA')) {
+  //       const { client, cashier } = splitMessages(assistantResponse);
+
+  //       const messages: Promise<MessageInstance>[] = [];
+
+  //       if (client) {
+  //         messages.push(
+  //           this.sendMessage(
+  //             customer.phone,
+  //             client,
+  //             branch.phoneNumberAssistant,
+  //           ),
+  //         );
+  //       }
+
+  //       for (const block of cashier) {
+  //         messages.push(
+  //           this.sendMessage(
+  //             branch.phoneNumberReception,
+  //             block,
+  //             branch.phoneNumberAssistant,
+  //           ),
+  //         );
+  //       }
+
+  //       await Promise.all(messages);
+
+  //       // Create Ordeer after client confirmation
+  //       if (hasRequestedBill(cashier)) {
+  //         await this.saveOrder(branch, customer.id, client!);
+  //         await this.customerService.update(
+  //           customer.phone,
+  //           { threadId: '' },
+  //           'en',
+  //         );
+  //       }
+  //     }
+  //   }
+  // }
+
+  private async findOrCreateCustomer(
+    phone: string,
+    profileName: string,
+  ): Promise<Customer> {
     const existingCustomer = await this.customerService.findByTerm(phone, 'en');
 
-    if (existingCustomer) return existingCustomer.customer;
+    if (existingCustomer.customer) return existingCustomer.customer;
 
     const customer = await this.customerService.create(
       {

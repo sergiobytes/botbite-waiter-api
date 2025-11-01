@@ -5,27 +5,27 @@ export const processIncomingWhatsappMessageUseCase = (
   logger: Logger,
   webhookData: WebhookDataTwilio,
 ) => {
-  const { from, to } = webhookData;
+  const { From, To } = webhookData;
 
   try {
-    const toPhoneNumber = to.startsWith('whatsapp:')
-      ? to.replace('whatsapp:', '')
-      : to;
+    const toPhoneNumber = To.startsWith('whatsapp:')
+      ? To.replace('whatsapp:', '')
+      : To;
 
-    const fromPhoneNumber = from.startsWith('whatsapp:')
-      ? from.replace('whatsapp:', '')
-      : from;
+    const fromPhoneNumber = From.startsWith('whatsapp:')
+      ? From.replace('whatsapp:', '')
+      : From;
 
     return {
       from: fromPhoneNumber,
       to: toPhoneNumber,
-      message: webhookData.body,
-      messageSid: webhookData.messageSid,
-      profileName: webhookData.profileName,
+      message: webhookData.Body,
+      messageSid: webhookData.MessageSid,
+      profileName: webhookData.ProfileName,
       timestamp: new Date().toISOString(),
     };
   } catch (error) {
-    logger.error(`Error sending WhatsApp message to ${to}:`, error);
+    logger.error(`Error sending WhatsApp message to ${To}:`, error);
     throw error;
   }
 };

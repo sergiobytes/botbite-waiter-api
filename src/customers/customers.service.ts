@@ -26,7 +26,7 @@ export class CustomersService {
   async create(dto: CreateCustomerDto, lang: string) {
     const exists = await this.findByTerm(dto.phone, lang);
 
-    if (exists) {
+    if (exists.customer) {
       this.logger.warn(
         `Create failed - Customer already exists with phone: ${dto.phone}`,
       );
@@ -79,13 +79,6 @@ export class CustomersService {
         : { phone: term, isActive: true },
     });
 
-    if (!customer) {
-      this.logger.warn(`Customer not found: ${term}`);
-      throw new NotFoundException(
-        this.translationService.translate('customers.customer_not_found', lang),
-      );
-    }
-
     return {
       customer,
       message: this.translationService.translate(
@@ -97,6 +90,13 @@ export class CustomersService {
 
   async update(phone: string, dto: UpdateCustomerDto, lang: string) {
     const customer = await this.findByTerm(phone, lang);
+
+    if (!customer.customer) {
+      throw new NotFoundException(
+        this.translationService.translate('customers.customer_not_found', lang),
+      );
+    }
+
     Object.assign(customer, dto);
     const updatedCustomer = await this.customerRepo.save(customer.customer);
 
@@ -113,6 +113,12 @@ export class CustomersService {
 
   async remove(phone: string, lang: string) {
     const customer = await this.findByTerm(phone, lang);
+
+    if (!customer.customer) {
+      throw new NotFoundException(
+        this.translationService.translate('customers.customer_not_found', lang),
+      );
+    }
 
     customer.customer.isActive = false;
 
