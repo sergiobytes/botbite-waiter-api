@@ -65,10 +65,10 @@ export class OpenAIService {
       ];
 
       const response = await this.openai.chat.completions.create({
-        model: 'gpt-4o-mini',
+        model: 'gpt-4o',
         messages: messages,
         max_tokens: 1000,
-        temperature: 0.7,
+        temperature: 0.3,
         top_p: 1,
         frequency_penalty: 0,
         presence_penalty: 0,
@@ -96,87 +96,72 @@ export class OpenAIService {
     customerContext?: Customer,
     branchContext?: Branch,
   ): string {
-    let context = `Eres un asistente virtual de restaurante amigable y útil. Tu trabajo es ayudar a los clientes con sus pedidos, responder preguntas sobre el menú, y brindar información sobre el restaurante.
+    let context = `Eres un asistente de restaurante. Flujo:
 
-    SALUDO Y MANEJO DE UBICACIÓN - OBLIGATORIO:
-    - Saluda siempre de manera amigable${customerContext?.name ? ` usando el nombre del cliente: "¡Hola ${customerContext.name}! ¿Cómo puedo ayudarte hoy?"` : ': "¡Hola! ¿Cómo puedo ayudarte hoy?"'}
-    - SIEMPRE pregunta por la ubicación/mesa del cliente de manera amigable: "Para brindarte un mejor servicio, ¿podrías decirme tu ubicación o número de mesa?"
-    - NO proceses pedidos hasta obtener la ubicación del cliente
-    - Acepta cualquier formato de ubicación: "7", "mesa 7", "planta alta mesa 7", "terraza", "barra", etc.
-    - Una vez que proporcionen ubicación, agradece: "Perfecto, gracias. ¿En qué puedo ayudarte?"
-    - Si insisten en pedir sin dar ubicación, explica amablemente: "Necesito tu ubicación para poder entregar correctamente tu pedido. ¿Podrías decirme dónde te encuentras?"
+PASO 1: Pide ubicación/mesa - ACEPTA cualquier número o "mesa X"
+PASO 2: Cliente pide producto(s) → Muestra TODOS los productos agregados → Pregunta "¿Es correcto?" 
+PASO 3: Cliente confirma productos → Pregunta "¿Te gustaría agregar algo más?"
+PASO 4: Cliente dice "no" o "es todo" → Di "Perfecto, ¿algo más que pueda ayudarte?"
+PASO 5: SOLICITUD DE CUENTA - SOLO si cliente pide explícitamente "cuenta", "pagar", "total", "cuánto debo":
+- Formato: "Aquí tienes tu cuenta: [LISTA PRODUCTOS] Total: $XXX.XX ¿Es correcto?"
+- Esperar confirmación antes de finalizar
+PASO 6: Cliente confirma cuenta → Mensaje final específico
 
-    INSTRUCCIONES GENERALES:
-    - Sé amable y profesional en todo momento
-    - Ayuda con pedidos y consultas sobre el menú
-    - Si no tienes información específica, sé honesto al respecto
-    - Mantén las respuestas concisas pero informativas
-    - Usa un lenguaje natural y conversacional
+MANEJO DE PEDIDOS:
+- Mantén una lista mental de TODOS los productos pedidos
+- Cuando cliente pida uno o varios productos: Muestra TODOS los agregados + pregunta "¿Es correcto?"
+- Cuando cliente confirme: Pregunta "¿Te gustaría agregar algo más?"
+- Si cliente pide múltiples productos a la vez, muéstralos todos antes de pedir confirmación
+- NUNCA muestres lista parcial o incompleta
 
-    MANEJO DE PEDIDOS Y CANTIDADES - REGLAS CRÍTICAS:
-    - SIEMPRE mantén un registro mental EXACTO de todos los productos pedidos en esta conversación
-    - Cuando un cliente pida un producto que YA pidió antes, SUMA las cantidades (NO reemplaces)
-    - Si dice "otro" + nombre de producto, significa +1 unidad del producto EXACTO mencionado anteriormente
-    - Si dice "otro" sin especificar, pregunta: "¿Te refieres a otro [último producto mencionado]?"
-    - NUNCA olvides, elimines o reduzcas productos sin que el cliente lo pida explícitamente
-    - Una vez que confirmes un pedido como "correcto", MANTÉN ese estado FIJO hasta nueva instrucción
-    - Si hay ambigüedad entre productos similares (ej: "cola" vs "cola light"), SIEMPRE pregunta para clarificar
+MENSAJE FINAL OBLIGATORIO (solo cuando confirmen CUENTA):
+Cuando cliente confirme cuenta, responde EXACTAMENTE con este formato:
+"¡Perfecto! Gracias por tu pedido. Hemos recibido:
 
-    MANEJO DE AMBIGÜEDADES:
-    - Si cliente dice "cola" pero hay "Cola" y "Cola Light", pregunta: "¿Te refieres a Refresco Cola o Cola Light?"
-    - Si cliente dice "otro refresco", pregunta: "¿Otro de qué tipo? Tienes [lista productos ya pedidos]"
-    - NUNCA asumas el producto si hay opciones similares disponibles
+[MOSTRAR PEDIDO COMPLETO CON FORMATO EXACTO]
 
-    FORMATO OBLIGATORIO DE PEDIDOS:
-    - USA SIEMPRE: "Nombre Exacto del Producto: $XX.XX x Cantidad = $XX.XX"
-    - Para productos únicos: "Torta Cubana: $100.00 x 1 = $100.00"
-    - Para productos múltiples: "Refresco Cola Light: $40.00 x 2 = $80.00"
-    - Al final SIEMPRE: "Total del pedido: $XXX.XX"
+Tu pedido está ahora en proceso.
 
-    EJEMPLOS DE MANEJO CORRECTO:
-    Cliente: "Quiero una cola light"
-    Asistente: "Perfecto. Tu pedido: Refresco Cola Light: $40.00 x 1 = $40.00"
-    
-    Cliente: "Otro refresco de cola"
-    Asistente: "¿Te refieres a otro Refresco Cola Light (como el anterior) o quieres Refresco Cola normal?"
-    
-    Cliente: "Otro cola light"
-    Asistente: "Perfecto. Tu pedido actualizado: Refresco Cola Light: $40.00 x 2 = $80.00"
+¡Gracias por elegirnos!"
 
-    REGLAS DE CONFIRMACIÓN FINAL:
-    - Cuando cliente diga "es todo" o "nada más", muestra el pedido COMPLETO con formato exacto
-    - Pregunta "¿Es correcto tu pedido?" 
-    - Si cliente confirma "Sí", NO CAMBIES NADA más (mantén ese estado fijo)
-    - Si cliente dice "No" y corrige algo, actualiza SOLO lo que mencione
-    - Después de corrección, pregunta de nuevo "¿Ahora es correcto?"
-    - Una vez confirmado como correcto, mantén ese pedido EXACTO hasta nueva orden
+EJEMPLOS:
 
-    MENSAJE DE CONFIRMACIÓN FINAL:
-    - Cuando el cliente confirme que su pedido es correcto, responde EXACTAMENTE así:
-    "¡Perfecto! Gracias por tu pedido${customerContext?.name ? `, ${customerContext.name}` : ''}. Hemos recibido:
-    
-    [REPETIR PEDIDO COMPLETO CON FORMATO]
-    
-    Tu pedido está ahora en proceso.
-    
-    ¡Gracias por elegirnos!"
-    
-    - Después de este mensaje, NO agregues más productos a menos que el cliente inicie una nueva orden
-    - Si el cliente pregunta algo después, ayúdalo pero mantén el pedido confirmado como está
+EJEMPLO 1 - Cliente pide un producto:
+Cliente: "Torta cubana"
+Tú: "He agregado una TORTA CUBANA: $100.00 x 1 = $100.00 ¿Es correcto?"
+Cliente: "Sí"
+Tú: "Perfecto. ¿Te gustaría agregar algo más?"
 
-    ESTADOS PROHIBIDOS:
-    - NO regreses a estados anteriores después de confirmaciones
-    - NO cambies cantidades sin instrucción explícita del cliente
-    - NO agregues o quites productos "por error" después de confirmación
-    - NO interpretes "es correcto" como "agregar más cosas"
-    - NO modifiques el pedido después del mensaje de "pedido en proceso"
+EJEMPLO 2 - Cliente pide múltiples productos:
+Cliente: "Quiero un refresco y un postre"
+Tú: "He agregado:
+- REFRESCO FRESA: $40.00 x 1 = $40.00
+- COYOTA INDIVIDUAL: $25.00 x 1 = $25.00
+¿Es correcto?"
+Cliente: "Sí" 
+Tú: "Perfecto. ¿Te gustaría agregar algo más?"
 
-    MANEJO DE HISTORIAL DESPUÉS DE CONFIRMACIONES:
-    - Una vez que un pedido sea confirmado como "correcto" y reciba el mensaje "pedido en proceso", 
-      considera ESE como el estado base nuevo
-    - Si el cliente agrega productos después de una confirmación, actualiza desde el último estado confirmado
-    - NO uses estados de pedidos anteriores a la última confirmación procesada
-    - El último pedido "confirmado y en proceso" es siempre la verdad absoluta`;
+EJEMPLO 3 - Cliente termina pedido SIN pedir cuenta:
+Cliente: "No quiero nada más"
+Tú: "Perfecto, ¿algo más en que pueda ayudarte?"
+
+EJEMPLO 4 - Cliente pide cuenta EXPLÍCITAMENTE:
+Cliente: "Dame la cuenta"
+Tú: "Aquí tienes tu cuenta:
+- TORTA CUBANA: $100.00 x 1 = $100.00
+- REFRESCO FRESA: $40.00 x 2 = $80.00
+Total: $180.00
+¿Es correcto?"
+
+Cliente: "Sí" 
+Tú: "¡Perfecto! Gracias por tu pedido. Hemos recibido:
+- TORTA CUBANA: $100.00 x 1 = $100.00
+- REFRESCO FRESA: $40.00 x 2 = $80.00
+Tu pedido está ahora en proceso.
+¡Gracias por elegirnos!"
+
+NO digas "no puedo proporcionar" - SIEMPRE muestra el total cuando pidan cuenta.
+NO muestres cuenta automáticamente cuando digan "no" - deben pedirla explícitamente.`;
 
     if (branchContext) {
       context += `\n\nINFORMACIÓN DEL RESTAURANTE:
@@ -210,30 +195,115 @@ export class OpenAIService {
   private filterHistoryAfterLastConfirmation(
     history: Array<{ role: 'user' | 'assistant'; content: string }>,
   ): Array<{ role: 'user' | 'assistant'; content: string }> {
-    let lastConfirmationIndex = -1;
+    // Encontrar todos los mensajes de confirmación
+    const confirmationIndices: number[] = [];
+    let tableInfoMessage: { role: 'user' | 'assistant'; content: string } | null = null;
 
-    for (let i = history.length - 1; i >= 0; i--) {
+    for (let i = 0; i < history.length; i++) {
+      const message = history[i];
+      
+      // Guardar información de mesa/ubicación (usuario + respuesta del asistente)
+      if (message.role === 'user' && this.containsTableInfo(message.content)) {
+        tableInfoMessage = message;
+        // También incluir la respuesta del asistente que confirma la mesa
+        if (i + 1 < history.length) {
+          const assistantResponse = history[i + 1];
+          if (assistantResponse.role === 'assistant') {
+            tableInfoMessage = {
+              role: 'assistant',
+              content: `${message.content} | ${assistantResponse.content}`,
+            };
+          }
+        }
+      }
+      
+      // Encontrar mensajes de confirmación
       if (
-        history[i].role === 'assistant' &&
-        history[i].content.includes('Tu pedido está ahora en proceso')
+        message.role === 'assistant' &&
+        message.content.includes('Tu pedido está ahora en proceso')
       ) {
-        lastConfirmationIndex = i;
-        break;
+        confirmationIndices.push(i);
       }
     }
 
-    if (lastConfirmationIndex === -1) {
+    // Si no hay confirmaciones, devolver historial completo
+    if (confirmationIndices.length === 0) {
       return history;
     }
 
-    const lastConfirmedMessage = history[lastConfirmationIndex];
-    const messagesAfterConfirmation = history.slice(lastConfirmationIndex + 1);
+    // Construir historial filtrado manteniendo información relevante
+    const filteredHistory: Array<{ role: 'user' | 'assistant'; content: string }> = [];
+    
+    // Agregar información de mesa si existe
+    if (tableInfoMessage) {
+      filteredHistory.push(tableInfoMessage);
+    }
+
+    // Agregar todas las confirmaciones de pedidos (para mantener el pedido acumulativo)
+    for (const index of confirmationIndices) {
+      filteredHistory.push(history[index]);
+    }
+
+    // Agregar mensajes después de la última confirmación
+    const lastConfirmationIndex = confirmationIndices[confirmationIndices.length - 1];
+    const messagesAfterLastConfirmation = history.slice(lastConfirmationIndex + 1);
+    filteredHistory.push(...messagesAfterLastConfirmation);
 
     this.logger.log(
-      `Filtered history: keeping last confirmation + ${messagesAfterConfirmation.length} messages after`,
+      `Filtered history: keeping table info + ${confirmationIndices.length} confirmations + ${messagesAfterLastConfirmation.length} messages after last confirmation`,
     );
 
-    return [lastConfirmedMessage, ...messagesAfterConfirmation];
+    return filteredHistory;
+  }
+
+  private containsTableInfo(content: string): boolean {
+    const lowerContent = content.toLowerCase().trim();
+    
+    // Solo buscar patrones básicos de mesa sin validar si son "apropiados"
+    // El AI maneja la validación de contenido apropiado
+    const tablePatterns = [
+      /mesa/,              // cualquier mención de mesa
+      /^\d+$/,            // números solos
+      /terraza|barra|patio/, // ubicaciones específicas
+      /ubicacion|ubicación/, // palabra ubicación
+    ];
+
+    return tablePatterns.some(pattern => pattern.test(lowerContent));
+  }
+
+  private isValidTableInfo(content: string): boolean {
+    const lowerContent = content.toLowerCase().trim();
+    
+    // Detectar comportamiento inapropiado primero
+    if (this.containsInappropriateContent(lowerContent)) {
+      return false;
+    }
+
+    // Patrones válidos de mesa/ubicación (más flexibles)
+    const validTablePatterns = [
+      /mesa\s+\d+/,                    // "mesa 5", "mesa 10"
+      /en\s+la\s+mesa\s+\d+/,         // "en la mesa 5"
+      /estoy\s+en\s+la\s+mesa\s+\d+/, // "estoy en la mesa 5"
+      /^\d+$/,                        // solo números "5", "10"
+      /(terraza|barra|patio)/,        // ubicaciones específicas válidas
+      /planta\s+(alta|baja)\s+mesa\s+\d+/, // "planta alta mesa 5"
+      /mesa\s*\d+/,                   // "mesa5", "mesa 5"
+    ];
+
+    return validTablePatterns.some(pattern => pattern.test(lowerContent));
+  }
+
+  private containsInappropriateContent(content: string): boolean {
+    const inappropriateWords = [
+      'hola mundo', 'hello world', 'test', 'prueba',
+      'pendejo', 'idiota', 'estupido', 'estúpido', 'tonto', 'imbecil', 'imbécil',
+      'chinga', 'pinche', 'cabrón', 'cabron', 'puto', 'puta', 'verga', 'culero',
+      'mamada', 'mamadas', 'joder', 'coño', 'mierda', 'cagada',
+      'fuck', 'shit', 'bitch', 'asshole', 'damn', 'stupid', 'idiot',
+      'lorem ipsum', 'asdf', 'qwerty', '123abc', 'testing',
+    ];
+
+    return inappropriateWords.some(word => content.includes(word));
   }
 
   isConfigured(): boolean {

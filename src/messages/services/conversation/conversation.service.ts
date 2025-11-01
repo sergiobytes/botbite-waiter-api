@@ -93,6 +93,7 @@ export class ConversationService {
       );
       const history = await this.getConversationHistory(
         conversation.conversationId,
+        50, // Aumentar límite para conversaciones más largas
       );
 
       await this.saveMessage(conversation.conversationId, 'user', userMessage);

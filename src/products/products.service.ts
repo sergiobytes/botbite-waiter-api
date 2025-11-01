@@ -312,6 +312,7 @@ export class ProductsService {
         name: true,
         description: true,
         isActive: true,
+        createdAt: true,
         restaurant: {
           name: true,
         },

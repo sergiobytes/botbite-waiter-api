@@ -335,6 +335,7 @@ export class BranchesService {
         name: true,
         address: true,
         isActive: true,
+        createdAt: true, // Necesario para el ordenamiento
         restaurant: {
           name: true,
         },
@@ -385,6 +386,11 @@ export class BranchesService {
     return {
       qrUrl: uploadedImageUrl,
     };
+  }
+
+  async updateAvailableMessages(branch: Branch) {
+    branch.availableMessages -= 1;
+    await this.branchRepository.save(branch);
   }
 
   private parseCsvFile(stream: Readable): Promise<CreateBranchDto[]> {
