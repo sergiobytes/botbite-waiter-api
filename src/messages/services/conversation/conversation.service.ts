@@ -137,10 +137,8 @@ export class ConversationService {
 
   async deleteConversation(conversationId: string): Promise<void> {
     try {
-      // Primero eliminamos todos los mensajes de la conversación
       await this.messageRepository.delete({ conversationId });
       
-      // Luego eliminamos la conversación
       await this.conversationRepository.delete({ conversationId });
       
       this.logger.log(

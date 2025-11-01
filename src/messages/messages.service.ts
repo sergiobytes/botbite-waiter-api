@@ -460,9 +460,8 @@ export class MessagesService {
         `Order created successfully from bill request: ${order.order.id}, Total: $${totalAmount}`,
       );
 
-      // Eliminar la conversación ya que ya no es necesaria después de crear la orden
       await this.conversationService.deleteConversation(conversationId);
-      
+
       this.logger.log(
         `Conversation ${conversationId} deleted after successful order creation`,
       );
