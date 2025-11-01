@@ -20,6 +20,9 @@ export class Conversation extends BaseEntity {
   @Column({ type: 'timestamp', default: () => 'CURRENT_TIMESTAMP' })
   lastActivity: Date;
 
+  @Column({ type: 'json', nullable: true })
+  lastOrderSentToCashier?: Record<string, { price: number; quantity: number }>;
+
   @OneToMany(() => ConversationMessage, (message) => message.conversation, {
     cascade: true,
   })

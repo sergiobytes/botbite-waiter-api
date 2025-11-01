@@ -120,4 +120,18 @@ export class ConversationService {
       throw error;
     }
   }
+
+  async updateLastOrderSentToCashier(
+    conversationId: string,
+    orderData: Record<string, { price: number; quantity: number }>,
+  ): Promise<void> {
+    await this.conversationRepository.update(
+      { conversationId },
+      { lastOrderSentToCashier: orderData },
+    );
+
+    this.logger.log(
+      `Updated last order sent to cashier for conversation: ${conversationId}`,
+    );
+  }
 }

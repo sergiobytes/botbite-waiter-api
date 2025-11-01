@@ -88,107 +88,23 @@ export class MessagesService {
       branch,
     );
 
+    // Enviar respuesta al cliente
     await this.sendMessage(
       customer.phone,
       response,
       branch.phoneNumberAssistant,
     );
+
+    // Si el pedido fue confirmado, notificar al cajero
+    if (response.includes('Tu pedido está ahora en proceso')) {
+      await this.notifyCashierAboutOrder(
+        messageData.from,
+        response,
+        customer,
+        branch,
+      );
+    }
   }
-
-  // async processIncomingMessageOriginal(body: WebhookDataTwilio) {
-  //   // Use TwilioService to process the incoming WhatsApp message (BAJA SALDO)
-  //   const messageData = this.twilioService.processIncomingWhatsappMessage(body);
-
-  //   // Validate the 'to' number against existing branches
-  //   const branch = await this.branchService.findByTerm(messageData.to);
-
-  //   if (!branch) {
-  //     throw new NotFoundException(
-  //       this.translationService.translate('errors.branch_not_found', 'en'),
-  //     );
-  //   }
-
-  //   // Validate branch balance
-
-  //   const isAdmin = messageData.from === branch.phoneNumberReception;
-
-  //   let customer: Customer;
-  //   let assistantResponse: string | null;
-  //   let threadId: string | null;
-
-  //   if (!isAdmin) {
-  //     customer = await this.findOrCreateCustomer(
-  //       messageData.from,
-  //       messageData.profileName,
-  //     );
-  //   } else {
-  //     customer = {
-  //       id: 'xxxx',
-  //       name: messageData.profileName,
-  //       phone: messageData.from,
-  //       createdAt: new Date(),
-  //       updatedAt: new Date(),
-  //       isActive: true,
-  //       threadId: undefined,
-  //     };
-  //   }
-
-  //   if (branch.assistantId) {
-  //     const assistantResult = await this.assistantService.processMessage(
-  //       branch,
-  //       customer,
-  //       messageData.message,
-  //       customer.threadId,
-  //     );
-
-  //     assistantResponse = assistantResult.response;
-  //     threadId = assistantResult.threadId;
-
-  //     if (!isAdmin) {
-  //       await this.customerService.update(customer.phone, { threadId }, 'en');
-  //     }
-
-  //     customer.threadId = threadId;
-
-  //     if (assistantResponse.includes('### CAJA')) {
-  //       const { client, cashier } = splitMessages(assistantResponse);
-
-  //       const messages: Promise<MessageInstance>[] = [];
-
-  //       if (client) {
-  //         messages.push(
-  //           this.sendMessage(
-  //             customer.phone,
-  //             client,
-  //             branch.phoneNumberAssistant,
-  //           ),
-  //         );
-  //       }
-
-  //       for (const block of cashier) {
-  //         messages.push(
-  //           this.sendMessage(
-  //             branch.phoneNumberReception,
-  //             block,
-  //             branch.phoneNumberAssistant,
-  //           ),
-  //         );
-  //       }
-
-  //       await Promise.all(messages);
-
-  //       // Create Ordeer after client confirmation
-  //       if (hasRequestedBill(cashier)) {
-  //         await this.saveOrder(branch, customer.id, client!);
-  //         await this.customerService.update(
-  //           customer.phone,
-  //           { threadId: '' },
-  //           'en',
-  //         );
-  //       }
-  //     }
-  //   }
-  // }
 
   private async findOrCreateCustomer(
     phone: string,
@@ -228,6 +144,165 @@ export class MessagesService {
       this.logger.error(`Failed to send message to ${to}:`, error);
       throw error;
     }
+  }
+
+  private async notifyCashierAboutOrder(
+    customerPhone: string,
+    assistantResponse: string,
+    customer: Customer,
+    branch: Branch,
+  ) {
+    try {
+      const conversation =
+        await this.conversationService.getOrCreateConversation(
+          customerPhone,
+          branch.id,
+        );
+
+      const currentOrder = this.extractOrderFromResponse(assistantResponse);
+
+      if (!currentOrder) {
+        this.logger.warn('Could not extract order from assistant response');
+        return;
+      }
+
+      const lastSentOrder = conversation.lastOrderSentToCashier || {};
+
+      const orderChanges = this.calculateOrderChanges(
+        lastSentOrder,
+        currentOrder,
+      );
+
+      if (Object.keys(orderChanges).length === 0) {
+        this.logger.log('No changes to notify cashier about');
+        return;
+      }
+
+      const tableInfo = await this.extractTableInfoFromConversation(
+        conversation.conversationId,
+      );
+
+      const cashierMessage = this.generateCashierMessage(
+        customer.name,
+        tableInfo,
+        orderChanges,
+      );
+
+      await this.sendMessage(
+        branch.phoneNumberReception,
+        cashierMessage,
+        branch.phoneNumberAssistant,
+      );
+
+      await this.conversationService.updateLastOrderSentToCashier(
+        conversation.conversationId,
+        currentOrder,
+      );
+
+      this.logger.log(
+        `Cashier notification sent for customer ${customer.name}`,
+      );
+    } catch (error) {
+      this.logger.error('Error notifying cashier about order:', error);
+    }
+  }
+
+  private extractOrderFromResponse(
+    response: string,
+  ): Record<string, { price: number; quantity: number }> {
+    const order: Record<string, { price: number; quantity: number }> = {};
+
+    const orderRegex =
+      /[-•]\s*\*?\*?([^:]+):\s*\$(\d+(?:\.\d{2})?)\s*x\s*(\d+)\s*=\s*\$(\d+(?:\.\d{2})?)/g;
+
+    let match;
+    while ((match = orderRegex.exec(response)) !== null) {
+      const productName = match[1].trim().replace(/\*\*/g, ''); // Remover asteriscos de formato
+      const price = parseFloat(match[2]);
+      const quantity = parseInt(match[3]);
+
+      order[productName] = { price, quantity };
+    }
+
+    return order;
+  }
+
+  private calculateOrderChanges(
+    lastOrder: Record<string, { price: number; quantity: number }>,
+    currentOrder: Record<string, { price: number; quantity: number }>,
+  ): Record<string, { price: number; quantity: number }> {
+    const changes: Record<string, { price: number; quantity: number }> = {};
+
+    for (const [productName, current] of Object.entries(currentOrder)) {
+      const last = lastOrder[productName];
+
+      if (!last) {
+        changes[productName] = current;
+      } else if (current.quantity > last.quantity) {
+        changes[productName] = {
+          price: current.price,
+          quantity: current.quantity - last.quantity,
+        };
+      }
+    }
+
+    return changes;
+  }
+
+  private async extractTableInfoFromConversation(
+    conversationId: string,
+  ): Promise<string> {
+    try {
+      const history = await this.conversationService.getConversationHistory(
+        conversationId,
+        50,
+      );
+
+      for (const message of history) {
+        if (message.role === 'user') {
+          const content = message.content.toLowerCase();
+
+          const tablePatterns = [
+            /mesa\s+(\d+)/,
+            /table\s+(\d+)/,
+            /^(\d+)$/,
+            /(planta\s+\w+\s+mesa\s+\d+)/,
+            /(terraza|barra|patio)/,
+          ];
+
+          for (const pattern of tablePatterns) {
+            const match = content.match(pattern);
+            if (match) {
+              return match[1] || match[0];
+            }
+          }
+        }
+      }
+
+      return 'ubicación no especificada';
+    } catch (error) {
+      this.logger.warn(
+        'Could not extract table info from conversation:',
+        error,
+      );
+      return 'ubicación no especificada';
+    }
+  }
+
+  private generateCashierMessage(
+    customerName: string,
+    tableInfo: string,
+    orderChanges: Record<string, { price: number; quantity: number }>,
+  ): string {
+    let message = `El cliente ${customerName} que se encuentra en ${tableInfo}, ha pedido:\n\n`;
+
+    for (const [productName, { price, quantity }] of Object.entries(
+      orderChanges,
+    )) {
+      message += `• ${productName}: $${price.toFixed(2)} x ${quantity} = $${(price * quantity).toFixed(2)}\n`;
+    }
+
+    return message.trim();
   }
 
   private async saveOrder(
