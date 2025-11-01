@@ -1,9 +1,4 @@
-import {
-  BadRequestException,
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { WebhookDataTwilio } from './models/webhook-data.twilio';
 import { TwilioService } from './services/twilio/twilio.service';
 import { BranchesService } from '../branches/branches.service';
@@ -13,7 +8,6 @@ import { TranslationService } from '../common/services/translation.service';
 import { AssistantService } from '../openai/assistant.service';
 import { Branch } from '../branches/entities/branch.entity';
 import { ProductsService } from '../products/products.service';
-import { extractOrderDataFromMessage } from '../common/utils/extract-order-data-from-message';
 import { OrdersService } from '../orders/orders.service';
 import { ConversationService } from './services/conversation/conversation.service';
 
@@ -88,14 +82,12 @@ export class MessagesService {
       branch,
     );
 
-    // Enviar respuesta al cliente
     await this.sendMessage(
       customer.phone,
       response,
       branch.phoneNumberAssistant,
     );
 
-    // Si el pedido fue confirmado, notificar al cajero
     if (response.includes('Tu pedido está ahora en proceso')) {
       await this.notifyCashierAboutOrder(
         messageData.from,
@@ -105,10 +97,10 @@ export class MessagesService {
       );
     }
 
-    // Si el cliente solicita la cuenta, notificar al cajero
     if (this.isBillRequest(messageData.message, response)) {
       await this.notifyCashierAboutBillRequest(
         messageData.from,
+        response,
         customer,
         branch,
       );
@@ -314,59 +306,6 @@ export class MessagesService {
     return message.trim();
   }
 
-  private async saveOrder(
-    branch: Branch,
-    customerId: string,
-    clientMessage: string,
-  ) {
-    const menuItems = branch.menus[0].menuItems;
-    const products = await this.productsService.findAllByRestaurant(
-      branch.restaurantId,
-      { limit: menuItems.length },
-    );
-
-    const parsedOrderData = extractOrderDataFromMessage(clientMessage);
-
-    if (!parsedOrderData) throw new BadRequestException('Invalid order data');
-
-    const order = await this.orderService.createOrder(
-      {
-        branchId: branch.id,
-        customerId,
-        orderItems: [],
-      },
-      'en',
-    );
-
-    let total = 0;
-
-    for (const item of parsedOrderData) {
-      const product = products.products.find(
-        (p) => p.name.toLowerCase() === item.productName.toLowerCase(),
-      );
-
-      if (!product) continue;
-
-      const menuItem = menuItems.find((m) => m.productId === product.id);
-
-      if (!menuItem) continue;
-
-      total += menuItem.price * item.quantity;
-
-      await this.orderService.addOrderItem(
-        order.order.id,
-        {
-          menuItemId: menuItem.id,
-          price: menuItem.price,
-          notes: '',
-        },
-        'es',
-      );
-    }
-
-    await this.orderService.updateOrder(order.order.id, { total }, 'es');
-  }
-
   private isBillRequest(
     clientMessage: string,
     assistantResponse: string,
@@ -403,6 +342,7 @@ export class MessagesService {
 
   private async notifyCashierAboutBillRequest(
     customerPhone: string,
+    assistantResponse: string,
     customer: Customer,
     branch: Branch,
   ) {
@@ -425,11 +365,112 @@ export class MessagesService {
         branch.phoneNumberAssistant,
       );
 
+      await this.createOrderFromBillRequest(
+        assistantResponse,
+        customer.id,
+        branch,
+        conversation.conversationId,
+      );
+
       this.logger.log(
-        `Bill request notification sent to cashier for customer ${customer.name}`,
+        `Bill request notification sent to cashier and order created for customer ${customer.name}`,
       );
     } catch (error) {
       this.logger.error('Error notifying cashier about bill request:', error);
+    }
+  }
+
+  private async createOrderFromBillRequest(
+    assistantResponse: string,
+    customerId: string,
+    branch: Branch,
+    conversationId: string,
+  ) {
+    try {
+      const orderItems = this.extractOrderFromResponse(assistantResponse);
+
+      if (!orderItems || Object.keys(orderItems).length === 0) {
+        this.logger.warn(
+          'No order items found in assistant response for bill request',
+        );
+        return;
+      }
+
+      const products = await this.productsService.findAllByRestaurant(
+        branch.restaurantId,
+        { limit: 100 },
+      );
+
+      if (!branch.menus || branch.menus.length === 0) {
+        this.logger.warn('No menus found for branch');
+        return;
+      }
+
+      const menuItems = branch.menus[0].menuItems;
+
+      const order = await this.orderService.createOrder(
+        {
+          branchId: branch.id,
+          customerId,
+          orderItems: [],
+        },
+        'es',
+      );
+
+      let totalAmount = 0;
+
+      for (const [productName, orderItem] of Object.entries(orderItems)) {
+        const product = products.products.find(
+          (p) => p.name.toLowerCase() === productName.toLowerCase().trim(),
+        );
+
+        if (!product) {
+          this.logger.warn(`Product not found: ${productName}`);
+          continue;
+        }
+
+        const menuItem = menuItems.find((m) => m.productId === product.id);
+
+        if (!menuItem) {
+          this.logger.warn(`Menu item not found for product: ${productName}`);
+          continue;
+        }
+
+        for (let i = 0; i < orderItem.quantity; i++) {
+          await this.orderService.addOrderItem(
+            order.order.id,
+            {
+              menuItemId: menuItem.id,
+              price: orderItem.price,
+            },
+            'es',
+          );
+
+          totalAmount += orderItem.price;
+        }
+      }
+
+      await this.orderService.updateOrder(
+        order.order.id,
+        { total: totalAmount },
+        'es',
+      );
+
+      this.logger.log(
+        `Order created successfully from bill request: ${order.order.id}, Total: $${totalAmount}`,
+      );
+
+      // Eliminar la conversación ya que ya no es necesaria después de crear la orden
+      await this.conversationService.deleteConversation(conversationId);
+      
+      this.logger.log(
+        `Conversation ${conversationId} deleted after successful order creation`,
+      );
+
+      return order.order;
+    } catch (error) {
+      this.logger.error('Error creating order from bill request:', error);
+      throw error;
     }
   }
 }
