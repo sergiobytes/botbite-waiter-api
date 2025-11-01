@@ -9,9 +9,6 @@ export class Conversation extends BaseEntity {
   conversationId: string;
 
   @Column({ nullable: true })
-  customerId?: string;
-
-  @Column({ nullable: true })
   branchId?: string;
 
   @Column({ nullable: true })
