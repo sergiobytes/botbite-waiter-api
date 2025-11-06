@@ -85,7 +85,7 @@ export class MessagesService {
         customer,
         branch,
       );
-      
+
       await this.sendMessage(
         customer.phone,
         'Su comunicación ha sido terminada por comportamiento inapropiado. El personal ha sido notificado.',
@@ -103,7 +103,9 @@ export class MessagesService {
     );
 
     // Verificar si el AI detectó comportamiento inapropiado
-    if (response.includes('COMUNICACIÓN TERMINADA POR COMPORTAMIENTO INAPROPIADO')) {
+    if (
+      response.includes('COMUNICACIÓN TERMINADA POR COMPORTAMIENTO INAPROPIADO')
+    ) {
       await this.notifyCashierAboutInappropriateBehavior(
         messageData.from,
         messageData.message,
@@ -123,9 +125,8 @@ export class MessagesService {
 
     // 1. Notificar cuando se confirma pedido inicial
     if (this.isInitialOrderConfirmation(response)) {
-      await this.notifyCashierAboutOrder(
+      await this.notifyCashierAboutConfirmedProducts(
         messageData.from,
-        response,
         customer,
         branch,
       );
@@ -143,9 +144,8 @@ export class MessagesService {
 
     // 3. Solo ejecutar notificación y creación de orden después de confirmación de cuenta
     if (this.isBillConfirmation(messageData.message, response)) {
-      await this.notifyCashierAboutBillRequest(
+      await this.notifyCashierAboutConfirmedBill(
         messageData.from,
-        response,
         customer,
         branch,
       );
@@ -193,68 +193,7 @@ export class MessagesService {
     }
   }
 
-  private async notifyCashierAboutOrder(
-    customerPhone: string,
-    assistantResponse: string,
-    customer: Customer,
-    branch: Branch,
-  ) {
-    try {
-      const conversation =
-        await this.conversationService.getOrCreateConversation(
-          customerPhone,
-          branch.id,
-        );
 
-      const currentOrder = this.extractOrderFromResponse(assistantResponse);
-
-      if (!currentOrder) {
-        this.logger.warn('Could not extract order from assistant response');
-        return;
-      }
-
-      const lastSentOrder = conversation.lastOrderSentToCashier || {};
-
-      const orderChanges = this.calculateOrderChanges(
-        lastSentOrder,
-        currentOrder,
-      );
-
-      if (Object.keys(orderChanges).length === 0) {
-        this.logger.log('No changes to notify cashier about');
-        return;
-      }
-
-      const tableInfo = await this.extractTableInfoFromConversation(
-        conversation.conversationId,
-      );
-
-      const cashierMessage = this.generateCashierMessage(
-        customer.name,
-        tableInfo,
-        orderChanges,
-      );
-
-      await this.sendMessage(
-        branch.phoneNumberReception,
-        cashierMessage,
-        branch.phoneNumberAssistant,
-      );
-
-      await this.branchService.updateAvailableMessages(branch);
-
-      await this.conversationService.updateLastOrderSentToCashier(
-        conversation.conversationId,
-        currentOrder,
-      );
-
-      this.logger.log(
-        `Cashier notification sent for customer ${customer.name}`,
-      );
-    } catch (error) {
-      this.logger.error('Error notifying cashier about order:', error);
-    }
-  }
 
   private extractOrderFromResponse(
     response: string,
@@ -266,10 +205,21 @@ export class MessagesService {
 
     let match;
     while ((match = orderRegex.exec(response)) !== null) {
-      const productName = match[1].trim().replace(/\*\*/g, ''); // Remover asteriscos de formato
+      const productName = match[1].trim()
+        .replace(/\*\*/g, '') // Remover asteriscos de formato
+        .replace(/^[•-]\s*/, '') // Remover bullet points al inicio
+        .trim();
+      
       const price = parseFloat(match[2]);
       // Si no hay cantidad específica (formato simple), asumir 1
       const quantity = match[3] ? parseInt(match[3]) : 1;
+
+      // Excluir "Total" y otros elementos que no son productos
+      if (productName.toLowerCase() === 'total' || 
+          productName.toLowerCase().includes('**total') ||
+          productName.toLowerCase().startsWith('total')) {
+        continue;
+      }
 
       // Si el producto ya existe, sumar las cantidades
       if (order[productName]) {
@@ -322,7 +272,7 @@ export class MessagesService {
           if (mesaMatch) {
             return `la mesa ${mesaMatch[1]}`;
           }
-          
+
           const enLaMesaMatch = content.match(/en\s+la\s+mesa\s+(\d+)/);
           if (enLaMesaMatch) {
             return `la mesa ${enLaMesaMatch[1]}`;
@@ -380,8 +330,10 @@ export class MessagesService {
     clientMessage: string,
     assistantResponse: string,
   ): boolean {
-    return this.isInitialBillRequest(clientMessage, assistantResponse) || 
-           this.isBillConfirmation(clientMessage, assistantResponse);
+    return (
+      this.isInitialBillRequest(clientMessage, assistantResponse) ||
+      this.isBillConfirmation(clientMessage, assistantResponse)
+    );
   }
 
   private isInitialBillRequest(
@@ -410,19 +362,26 @@ export class MessagesService {
     );
 
     const responseContainsBillInfo =
+      responseLower.includes('aquí tienes tu cuenta:') || // Nuevo formato
       responseLower.includes('total') ||
       responseLower.includes('cuenta') ||
       responseLower.includes('pagar') ||
       (responseLower.includes('$') && responseLower.includes('total'));
 
-    // Solo es solicitud inicial si NO contiene confirmación final
+    // Solo es solicitud inicial si NO contiene confirmación final (nuevo formato)
     const responseContainsFinalConfirmation =
+      responseLower.includes(
+        'en unos momentos se acercará alguien de nuestro personal para apoyarte con el pago',
+      ) ||
+      responseLower.includes('gracias por tu preferencia') ||
       responseLower.includes('gracias por tu pedido') ||
-      responseLower.includes('¡perfecto!') ||
-      responseLower.includes('tu orden está confirmada') ||
-      responseLower.includes('procederemos con tu cuenta');
+      responseLower.includes('tu orden está confirmada');
 
-    return clientContainsBillKeyword && responseContainsBillInfo && !responseContainsFinalConfirmation;
+    return (
+      clientContainsBillKeyword &&
+      responseContainsBillInfo &&
+      !responseContainsFinalConfirmation
+    );
   }
 
   private isBillConfirmation(
@@ -449,22 +408,27 @@ export class MessagesService {
       clientLower.includes(keyword),
     );
 
-    // Verificar si la respuesta contiene confirmación final
+    // Verificar si la respuesta contiene confirmación final de cuenta (nuevo prompt optimizado)
     const responseContainsFinalConfirmation =
+      responseLower.includes(
+        'en unos momentos se acercará alguien de nuestro personal para apoyarte con el pago',
+      ) ||
+      responseLower.includes('gracias por tu preferencia') ||
       responseLower.includes('gracias por tu pedido') ||
-      responseLower.includes('¡perfecto!') ||
-      responseLower.includes('tu orden está confirmada') ||
-      responseLower.includes('procederemos con tu cuenta');
+      responseLower.includes('tu orden está confirmada');
 
     return clientContainsConfirmation && responseContainsFinalConfirmation;
   }
 
   private isInitialOrderConfirmation(assistantResponse: string): boolean {
     const responseLower = assistantResponse.toLowerCase();
-    
-    // Detecta cuando el cliente confirma su pedido inicial
-    return responseLower.includes('¡perfecto! gracias por tu pedido. hemos recibido:') ||
-           responseLower.includes('tu pedido está ahora en proceso');
+
+    // Detecta cuando el cliente confirma su pedido inicial (nuevo prompt optimizado)
+    return (
+      responseLower.includes(
+        'perfecto, gracias por confirmar, tu pedido está ahora en proceso',
+      ) || responseLower.includes('tu pedido está ahora en proceso')
+    );
   }
 
   private isProductConfirmation(
@@ -473,7 +437,7 @@ export class MessagesService {
   ): boolean {
     const confirmationKeywords = [
       'si',
-      'sí', 
+      'sí',
       'yes',
       'correcto',
       'correct',
@@ -492,12 +456,14 @@ export class MessagesService {
       clientLower.includes(keyword),
     );
 
-    // AI responde preguntando por más productos (indica que confirmó productos)
-    const aiAsksForMore = 
+    // AI responde preguntando por más productos (nuevo prompt optimizado)
+    const aiAsksForMore =
+      responseLower.includes(
+        'es correcta la orden o te gustaría agregar algo más',
+      ) ||
       responseLower.includes('te gustaría agregar algo más') ||
       responseLower.includes('hay algo más que te gustaría ordenar') ||
-      responseLower.includes('algo más que pueda ayudarte') ||
-      (responseLower.includes('perfecto') && responseLower.includes('algo más'));
+      responseLower.includes('algo más que pueda ayudarte');
 
     return clientConfirms && aiAsksForMore;
   }
@@ -514,25 +480,30 @@ export class MessagesService {
           branch.id,
         );
 
-      // Obtener historial de conversación
+      // Obtener historial de conversación completo
       const history = await this.conversationService.getConversationHistory(
         conversation.conversationId,
       );
 
-      // Encontrar el último mensaje del asistente que contiene productos
+      // Encontrar el último mensaje del asistente que contiene productos (nuevo formato)
       let productMessage: string | null = null;
       for (let i = history.length - 1; i >= 0; i--) {
         const message = history[i];
-        if (message.role === 'assistant' && 
-            (message.content.includes('He agregado') || 
-             message.content.includes('Aquí tienes tu lista'))) {
+        if (
+          message.role === 'assistant' &&
+          (message.content.includes('• ') || // Nuevo formato con bullet points
+            message.content.includes('He agregado') || // Formato anterior (compatibilidad)
+            message.content.includes('Aquí tienes tu lista'))
+        ) {
           productMessage = message.content;
           break;
         }
       }
 
       if (!productMessage) {
-        this.logger.warn('Could not find product message in conversation history');
+        this.logger.warn(
+          'Could not find product message in conversation history',
+        );
         return;
       }
 
@@ -571,19 +542,23 @@ export class MessagesService {
         branch.phoneNumberAssistant,
       );
 
-      // Actualizar la última orden enviada
-      conversation.lastOrderSentToCashier = currentOrder;
-      // Note: La conversación ya se actualizará con lastActivity en getOrCreateConversation
+      // Actualizar la última orden enviada al cajero
+      await this.conversationService.updateLastOrderSentToCashier(
+        conversation.conversationId,
+        currentOrder,
+      );
 
       this.logger.log('Cashier notified about confirmed products successfully');
     } catch (error) {
-      this.logger.error('Error notifying cashier about confirmed products:', error);
+      this.logger.error(
+        'Error notifying cashier about confirmed products:',
+        error,
+      );
     }
   }
 
-  private async notifyCashierAboutBillRequest(
+  private async notifyCashierAboutConfirmedBill(
     customerPhone: string,
-    assistantResponse: string,
     customer: Customer,
     branch: Branch,
   ) {
@@ -594,11 +569,36 @@ export class MessagesService {
           branch.id,
         );
 
+      // Obtener historial de conversación completo
+      const history = await this.conversationService.getConversationHistory(
+        conversation.conversationId,
+      );
+
+      // Encontrar el último mensaje del asistente que contiene la cuenta
+      let billMessage: string | null = null;
+      for (let i = history.length - 1; i >= 0; i--) {
+        const message = history[i];
+        if (
+          message.role === 'assistant' &&
+          (message.content.includes('Aquí tienes tu cuenta:') || // Nuevo formato
+            (message.content.includes('cuenta') &&
+              message.content.includes('• ')))
+        ) {
+          billMessage = message.content;
+          break;
+        }
+      }
+
+      if (!billMessage) {
+        this.logger.warn('Could not find bill message in conversation history');
+        return;
+      }
+
       const tableInfo = await this.extractTableInfoFromConversation(
         conversation.conversationId,
       );
 
-      const cashierMessage = `El cliente ${customer.name} en ${tableInfo}, ha solicitado la cuenta.`;
+      const cashierMessage = `El cliente ${customer.name} en ${tableInfo}, ha confirmado su cuenta y está listo para pagar.`;
 
       await this.sendMessage(
         branch.phoneNumberReception,
@@ -608,18 +608,23 @@ export class MessagesService {
 
       await this.branchService.updateAvailableMessages(branch);
 
+      // Crear orden usando el mensaje que contiene los productos de la cuenta
       await this.createOrderFromBillRequest(
-        assistantResponse,
+        billMessage,
         customer.id,
         branch,
+      );
+
+      // Limpiar conversación después de confirmar cuenta
+      await this.conversationService.deleteConversation(
         conversation.conversationId,
       );
 
       this.logger.log(
-        `Bill request notification sent to cashier and order created for customer ${customer.name}`,
+        `Bill confirmation notification sent and order created for customer ${customer.name}`,
       );
     } catch (error) {
-      this.logger.error('Error notifying cashier about bill request:', error);
+      this.logger.error('Error notifying cashier about confirmed bill:', error);
     }
   }
 
@@ -627,7 +632,6 @@ export class MessagesService {
     assistantResponse: string,
     customerId: string,
     branch: Branch,
-    conversationId: string,
   ) {
     try {
       const orderItems = this.extractOrderFromResponse(assistantResponse);
@@ -668,14 +672,14 @@ export class MessagesService {
         );
 
         if (!product) {
-          this.logger.warn(`Product not found: ${productName}`);
+          this.logger.warn(`Product not found: "${productName}"`);
           continue;
         }
 
         const menuItem = menuItems.find((m) => m.productId === product.id);
 
         if (!menuItem) {
-          this.logger.warn(`Menu item not found for product: ${productName}`);
+          this.logger.warn(`Menu item not found for product: "${productName}"`);
           continue;
         }
 
@@ -703,12 +707,6 @@ export class MessagesService {
         `Order created successfully from bill request: ${order.order.id}, Total: $${totalAmount}`,
       );
 
-      await this.conversationService.deleteConversation(conversationId);
-
-      this.logger.log(
-        `Conversation ${conversationId} deleted after successful order creation`,
-      );
-
       return order.order;
     } catch (error) {
       this.logger.error('Error creating order from bill request:', error);
@@ -718,14 +716,45 @@ export class MessagesService {
 
   private detectInappropriateBehavior(message: string): boolean {
     const lowerMessage = message.toLowerCase().trim();
-    
+
     const inappropriateWords = [
-      'hola mundo', 'hello world', 'test', 'prueba',
-      'pendejo', 'idiota', 'estupido', 'estúpido', 'tonto', 'imbecil', 'imbécil',
-      'chinga', 'pinche', 'cabrón', 'cabron', 'puto', 'puta', 'verga', 'culero',
-      'mamada', 'mamadas', 'joder', 'coño', 'mierda', 'cagada',
-      'fuck', 'shit', 'bitch', 'asshole', 'damn', 'stupid', 'idiot',
-      'lorem ipsum', 'asdf', 'qwerty', '123abc', 'testing',
+      'hola mundo',
+      'hello world',
+      'test',
+      'prueba',
+      'pendejo',
+      'idiota',
+      'estupido',
+      'estúpido',
+      'tonto',
+      'imbecil',
+      'imbécil',
+      'chinga',
+      'pinche',
+      'cabrón',
+      'cabron',
+      'puto',
+      'puta',
+      'verga',
+      'culero',
+      'mamada',
+      'mamadas',
+      'joder',
+      'coño',
+      'mierda',
+      'cagada',
+      'fuck',
+      'shit',
+      'bitch',
+      'asshole',
+      'damn',
+      'stupid',
+      'idiot',
+      'lorem ipsum',
+      'asdf',
+      'qwerty',
+      '123abc',
+      'testing',
     ];
 
     // Detectar ubicaciones inválidas cuando se pregunta por mesa
@@ -734,12 +763,12 @@ export class MessagesService {
       /en\s+la\s+mesa\s+(hola|mundo|test|prueba)/,
     ];
 
-    const hasInappropriateWords = inappropriateWords.some(word => 
-      lowerMessage.includes(word)
+    const hasInappropriateWords = inappropriateWords.some((word) =>
+      lowerMessage.includes(word),
     );
 
-    const hasInvalidTableResponse = invalidTableResponses.some(pattern => 
-      pattern.test(lowerMessage)
+    const hasInvalidTableResponse = invalidTableResponses.some((pattern) =>
+      pattern.test(lowerMessage),
     );
 
     return hasInappropriateWords || hasInvalidTableResponse;
@@ -771,7 +800,10 @@ Revisar si es necesario tomar acción adicional.`;
         `Inappropriate behavior detected from ${customerPhone}: "${message}"`,
       );
     } catch (error) {
-      this.logger.error('Error notifying cashier about inappropriate behavior:', error);
+      this.logger.error(
+        'Error notifying cashier about inappropriate behavior:',
+        error,
+      );
     }
   }
 }

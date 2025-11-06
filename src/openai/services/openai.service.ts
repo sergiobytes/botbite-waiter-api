@@ -96,100 +96,62 @@ export class OpenAIService {
     customerContext?: Customer,
     branchContext?: Branch,
   ): string {
-    let context = `Eres un asistente de restaurante. Flujo:
+    return `
+Eres un asistente virtual de restaurante. Actúa siempre con tono amable y profesional.
 
-PASO 1: Pide ubicación/mesa - ACEPTA cualquier número o "mesa X"
-PASO 2: Cliente pide producto(s) → Muestra TODOS los productos agregados → Pregunta "¿Es correcto?" 
-PASO 3: Cliente confirma productos → Pregunta "¿Te gustaría agregar algo más?"
-PASO 4: Cliente dice "no" o "es todo" → Di "Perfecto, ¿algo más que pueda ayudarte?"
-PASO 5: SOLICITUD DE CUENTA - SOLO si cliente pide explícitamente "cuenta", "pagar", "total", "cuánto debo":
-- Formato: "Aquí tienes tu cuenta: [LISTA PRODUCTOS] Total: $XXX.XX ¿Es correcto?"
-- Esperar confirmación antes de finalizar
-PASO 6: Cliente confirma cuenta → Mensaje final específico
+🎯 REGLAS:
+- Usa nombres EXACTOS del menú, sin mayúsculas extra ni cambios.
+- Formato de línea: "• <Producto>: $<precio> x <cantidad> = $<subtotal>"
+- Moneda: $MXN con 2 decimales.
+- No inventes productos ni precios.
+- No muestres la cuenta salvo que el cliente la pida.
+- No menciones que eres IA ni uses tecnicismos.
 
-MANEJO DE PEDIDOS:
-- Mantén una lista mental de TODOS los productos pedidos
-- Cuando cliente pida uno o varios productos: Muestra TODOS los agregados + pregunta "¿Es correcto?"
-- Cuando cliente confirme: Pregunta "¿Te gustaría agregar algo más?"
-- Si cliente pide múltiples productos a la vez, muéstralos todos antes de pedir confirmación
-- NUNCA muestres lista parcial o incompleta
+📋 FLUJO:
+1. Si no hay mesa/ubicación, pregunta: “¿Podrías decirme tu número de mesa o en qué parte te encuentras?”
+2. Si el cliente pide productos:
+   - Muestra lista completa con formato estándar.
+   - Pregunta: “¿Es correcta la orden o te gustaría agregar algo más?”
+3. Si confirma → responde: “Perfecto, gracias por confirmar, tu pedido está ahora en proceso.”
+4. Si agrega o cambia → muestra lista actualizada y repite la pregunta.
+5. Si después de un tiempo pide algo nuevo (“otro”, “tráeme”, “agrega”), trátalo como nuevo pedido y usa el mismo flujo.
+6. Si pide la cuenta (“cuánto debo”, “pagar”, “total”):
+   - Muestra: “Aquí tienes tu cuenta:” + lista + total + “¿Es correcto?”
+   - Si confirma → responde: “Perfecto, en unos momentos se acercará alguien de nuestro personal para apoyarte con el pago. Gracias por tu preferencia.”
+   - Si corrige → actualiza y vuelve a preguntar.
+7. Si pregunta por categorías (“¿qué bebidas tienen?”, “¿qué postres hay?”):
+   - Muestra solo esa categoría con nombres y precios.
+   - Cierra con: “¿Cuál te ofrezco? Si gustas, dime tamaño o sabor.”
 
-MENSAJE FINAL OBLIGATORIO (solo cuando confirmen CUENTA):
-Cuando cliente confirme cuenta, responde EXACTAMENTE con este formato:
-"¡Perfecto! Gracias por tu pedido. Hemos recibido:
+🚫 PROHIBIDO:
+- No digas “no puedo proporcionar”.
+- No muestres totales sin que los pidan.
+- No repitas el flujo ni digas que eres un modelo.
 
-[MOSTRAR PEDIDO COMPLETO CON FORMATO EXACTO]
+🏪 RESTAURANTE:
+${
+  branchContext
+    ? `
+- ${branchContext.name}
+- ${branchContext.address}
+- Tel: ${branchContext.phoneNumberReception}
+${
+  branchContext.menus?.length
+    ? branchContext.menus
+        .map(
+          (menu) => `
+${menu.name}:
+${menu.menuItems?.map((item) => `• ${item.product.name}: ${item.product.description} - $${item.price}`).join('\n')}`,
+        )
+        .join('\n')
+    : ''
+}`
+    : ''
+}
 
-Tu pedido está ahora en proceso.
-
-¡Gracias por elegirnos!"
-
-EJEMPLOS:
-
-EJEMPLO 1 - Cliente pide un producto:
-Cliente: "Torta cubana"
-Tú: "He agregado una TORTA CUBANA: $100.00 x 1 = $100.00 ¿Es correcto?"
-Cliente: "Sí"
-Tú: "Perfecto. ¿Te gustaría agregar algo más?"
-
-EJEMPLO 2 - Cliente pide múltiples productos:
-Cliente: "Quiero un refresco y un postre"
-Tú: "He agregado:
-- REFRESCO FRESA: $40.00 x 1 = $40.00
-- COYOTA INDIVIDUAL: $25.00 x 1 = $25.00
-¿Es correcto?"
-Cliente: "Sí" 
-Tú: "Perfecto. ¿Te gustaría agregar algo más?"
-
-EJEMPLO 3 - Cliente termina pedido SIN pedir cuenta:
-Cliente: "No quiero nada más"
-Tú: "Perfecto, ¿algo más en que pueda ayudarte?"
-
-EJEMPLO 4 - Cliente pide cuenta EXPLÍCITAMENTE:
-Cliente: "Dame la cuenta"
-Tú: "Aquí tienes tu cuenta:
-- TORTA CUBANA: $100.00 x 1 = $100.00
-- REFRESCO FRESA: $40.00 x 2 = $80.00
-Total: $180.00
-¿Es correcto?"
-
-Cliente: "Sí" 
-Tú: "¡Perfecto! Gracias por tu pedido. Hemos recibido:
-- TORTA CUBANA: $100.00 x 1 = $100.00
-- REFRESCO FRESA: $40.00 x 2 = $80.00
-Tu pedido está ahora en proceso.
-¡Gracias por elegirnos!"
-
-NO digas "no puedo proporcionar" - SIEMPRE muestra el total cuando pidan cuenta.
-NO muestres cuenta automáticamente cuando digan "no" - deben pedirla explícitamente.`;
-
-    if (branchContext) {
-      context += `\n\nINFORMACIÓN DEL RESTAURANTE:
-      - Nombre: ${branchContext.name}
-      - Dirección: ${branchContext.address}
-      - Teléfono: ${branchContext.phoneNumberReception}`;
-
-      if (branchContext.menus && branchContext.menus.length > 0) {
-        context += `\n\nMENÚ DISPONIBLE:`;
-
-        branchContext.menus.forEach((menu) => {
-          context += `\n${menu.name}`;
-          if (menu.menuItems && menu.menuItems.length > 0) {
-            menu.menuItems.forEach((item) => {
-              context += `\n • ${item.product.name}: ${item.product.description} - $${item.price}`;
-            });
-          }
-        });
-      }
-    }
-
-    if (customerContext) {
-      context += `\n\nINFORMACIÓN DEL CLIENTE:
-      - Nombre: ${customerContext.name}
-      - Teléfono: ${customerContext.phone}`;
-    }
-
-    return context;
+👤 CLIENTE:
+${customerContext ? `${customerContext.name}, Tel: ${customerContext.phone}` : 'Sin datos del cliente'}
+`;
   }
 
   private filterHistoryAfterLastConfirmation(
@@ -197,11 +159,14 @@ NO muestres cuenta automáticamente cuando digan "no" - deben pedirla explícita
   ): Array<{ role: 'user' | 'assistant'; content: string }> {
     // Encontrar todos los mensajes de confirmación
     const confirmationIndices: number[] = [];
-    let tableInfoMessage: { role: 'user' | 'assistant'; content: string } | null = null;
+    let tableInfoMessage: {
+      role: 'user' | 'assistant';
+      content: string;
+    } | null = null;
 
     for (let i = 0; i < history.length; i++) {
       const message = history[i];
-      
+
       // Guardar información de mesa/ubicación (usuario + respuesta del asistente)
       if (message.role === 'user' && this.containsTableInfo(message.content)) {
         tableInfoMessage = message;
@@ -216,7 +181,7 @@ NO muestres cuenta automáticamente cuando digan "no" - deben pedirla explícita
           }
         }
       }
-      
+
       // Encontrar mensajes de confirmación
       if (
         message.role === 'assistant' &&
@@ -232,8 +197,11 @@ NO muestres cuenta automáticamente cuando digan "no" - deben pedirla explícita
     }
 
     // Construir historial filtrado manteniendo información relevante
-    const filteredHistory: Array<{ role: 'user' | 'assistant'; content: string }> = [];
-    
+    const filteredHistory: Array<{
+      role: 'user' | 'assistant';
+      content: string;
+    }> = [];
+
     // Agregar información de mesa si existe
     if (tableInfoMessage) {
       filteredHistory.push(tableInfoMessage);
@@ -245,8 +213,11 @@ NO muestres cuenta automáticamente cuando digan "no" - deben pedirla explícita
     }
 
     // Agregar mensajes después de la última confirmación
-    const lastConfirmationIndex = confirmationIndices[confirmationIndices.length - 1];
-    const messagesAfterLastConfirmation = history.slice(lastConfirmationIndex + 1);
+    const lastConfirmationIndex =
+      confirmationIndices[confirmationIndices.length - 1];
+    const messagesAfterLastConfirmation = history.slice(
+      lastConfirmationIndex + 1,
+    );
     filteredHistory.push(...messagesAfterLastConfirmation);
 
     this.logger.log(
@@ -258,22 +229,22 @@ NO muestres cuenta automáticamente cuando digan "no" - deben pedirla explícita
 
   private containsTableInfo(content: string): boolean {
     const lowerContent = content.toLowerCase().trim();
-    
+
     // Solo buscar patrones básicos de mesa sin validar si son "apropiados"
     // El AI maneja la validación de contenido apropiado
     const tablePatterns = [
-      /mesa/,              // cualquier mención de mesa
-      /^\d+$/,            // números solos
+      /mesa/, // cualquier mención de mesa
+      /^\d+$/, // números solos
       /terraza|barra|patio/, // ubicaciones específicas
       /ubicacion|ubicación/, // palabra ubicación
     ];
 
-    return tablePatterns.some(pattern => pattern.test(lowerContent));
+    return tablePatterns.some((pattern) => pattern.test(lowerContent));
   }
 
   private isValidTableInfo(content: string): boolean {
     const lowerContent = content.toLowerCase().trim();
-    
+
     // Detectar comportamiento inapropiado primero
     if (this.containsInappropriateContent(lowerContent)) {
       return false;
@@ -281,29 +252,60 @@ NO muestres cuenta automáticamente cuando digan "no" - deben pedirla explícita
 
     // Patrones válidos de mesa/ubicación (más flexibles)
     const validTablePatterns = [
-      /mesa\s+\d+/,                    // "mesa 5", "mesa 10"
-      /en\s+la\s+mesa\s+\d+/,         // "en la mesa 5"
+      /mesa\s+\d+/, // "mesa 5", "mesa 10"
+      /en\s+la\s+mesa\s+\d+/, // "en la mesa 5"
       /estoy\s+en\s+la\s+mesa\s+\d+/, // "estoy en la mesa 5"
-      /^\d+$/,                        // solo números "5", "10"
-      /(terraza|barra|patio)/,        // ubicaciones específicas válidas
+      /^\d+$/, // solo números "5", "10"
+      /(terraza|barra|patio)/, // ubicaciones específicas válidas
       /planta\s+(alta|baja)\s+mesa\s+\d+/, // "planta alta mesa 5"
-      /mesa\s*\d+/,                   // "mesa5", "mesa 5"
+      /mesa\s*\d+/, // "mesa5", "mesa 5"
     ];
 
-    return validTablePatterns.some(pattern => pattern.test(lowerContent));
+    return validTablePatterns.some((pattern) => pattern.test(lowerContent));
   }
 
   private containsInappropriateContent(content: string): boolean {
     const inappropriateWords = [
-      'hola mundo', 'hello world', 'test', 'prueba',
-      'pendejo', 'idiota', 'estupido', 'estúpido', 'tonto', 'imbecil', 'imbécil',
-      'chinga', 'pinche', 'cabrón', 'cabron', 'puto', 'puta', 'verga', 'culero',
-      'mamada', 'mamadas', 'joder', 'coño', 'mierda', 'cagada',
-      'fuck', 'shit', 'bitch', 'asshole', 'damn', 'stupid', 'idiot',
-      'lorem ipsum', 'asdf', 'qwerty', '123abc', 'testing',
+      'hola mundo',
+      'hello world',
+      'test',
+      'prueba',
+      'pendejo',
+      'idiota',
+      'estupido',
+      'estúpido',
+      'tonto',
+      'imbecil',
+      'imbécil',
+      'chinga',
+      'pinche',
+      'cabrón',
+      'cabron',
+      'puto',
+      'puta',
+      'verga',
+      'culero',
+      'mamada',
+      'mamadas',
+      'joder',
+      'coño',
+      'mierda',
+      'cagada',
+      'fuck',
+      'shit',
+      'bitch',
+      'asshole',
+      'damn',
+      'stupid',
+      'idiot',
+      'lorem ipsum',
+      'asdf',
+      'qwerty',
+      '123abc',
+      'testing',
     ];
 
-    return inappropriateWords.some(word => content.includes(word));
+    return inappropriateWords.some((word) => content.includes(word));
   }
 
   isConfigured(): boolean {

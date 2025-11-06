@@ -65,13 +65,19 @@ export class ConversationService {
 
   async getConversationHistory(
     conversationId: string,
-    limit: number = 10,
+    limit?: number,
   ): Promise<Array<{ role: 'user' | 'assistant'; content: string }>> {
-    const messages = await this.messageRepository.find({
+    const findOptions: any = {
       where: { conversationId },
       order: { createdAt: 'ASC' },
-      take: limit,
-    });
+    };
+
+    // Solo aplicar límite si se especifica explícitamente
+    if (limit !== undefined) {
+      findOptions.take = limit;
+    }
+
+    const messages = await this.messageRepository.find(findOptions);
 
     return messages.map((msg) => ({
       role: msg.role,
