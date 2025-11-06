@@ -193,8 +193,6 @@ export class MessagesService {
     }
   }
 
-
-
   private extractOrderFromResponse(
     response: string,
   ): Record<string, { price: number; quantity: number }> {
@@ -205,19 +203,22 @@ export class MessagesService {
 
     let match;
     while ((match = orderRegex.exec(response)) !== null) {
-      const productName = match[1].trim()
+      const productName = match[1]
+        .trim()
         .replace(/\*\*/g, '') // Remover asteriscos de formato
         .replace(/^[•-]\s*/, '') // Remover bullet points al inicio
         .trim();
-      
+
       const price = parseFloat(match[2]);
       // Si no hay cantidad específica (formato simple), asumir 1
       const quantity = match[3] ? parseInt(match[3]) : 1;
 
       // Excluir "Total" y otros elementos que no son productos
-      if (productName.toLowerCase() === 'total' || 
-          productName.toLowerCase().includes('**total') ||
-          productName.toLowerCase().startsWith('total')) {
+      if (
+        productName.toLowerCase() === 'total' ||
+        productName.toLowerCase().includes('**total') ||
+        productName.toLowerCase().startsWith('total')
+      ) {
         continue;
       }
 
@@ -324,64 +325,6 @@ export class MessagesService {
     }
 
     return message.trim();
-  }
-
-  private isBillRequest(
-    clientMessage: string,
-    assistantResponse: string,
-  ): boolean {
-    return (
-      this.isInitialBillRequest(clientMessage, assistantResponse) ||
-      this.isBillConfirmation(clientMessage, assistantResponse)
-    );
-  }
-
-  private isInitialBillRequest(
-    clientMessage: string,
-    assistantResponse: string,
-  ): boolean {
-    const billKeywords = [
-      'cuenta',
-      'bill',
-      'factura',
-      'pagar',
-      'cobrar',
-      'total',
-      'cuanto',
-      'cuánto',
-      'debo',
-      'owe',
-      'check',
-    ];
-
-    const clientLower = clientMessage.toLowerCase();
-    const responseLower = assistantResponse.toLowerCase();
-
-    const clientContainsBillKeyword = billKeywords.some((keyword) =>
-      clientLower.includes(keyword),
-    );
-
-    const responseContainsBillInfo =
-      responseLower.includes('aquí tienes tu cuenta:') || // Nuevo formato
-      responseLower.includes('total') ||
-      responseLower.includes('cuenta') ||
-      responseLower.includes('pagar') ||
-      (responseLower.includes('$') && responseLower.includes('total'));
-
-    // Solo es solicitud inicial si NO contiene confirmación final (nuevo formato)
-    const responseContainsFinalConfirmation =
-      responseLower.includes(
-        'en unos momentos se acercará alguien de nuestro personal para apoyarte con el pago',
-      ) ||
-      responseLower.includes('gracias por tu preferencia') ||
-      responseLower.includes('gracias por tu pedido') ||
-      responseLower.includes('tu orden está confirmada');
-
-    return (
-      clientContainsBillKeyword &&
-      responseContainsBillInfo &&
-      !responseContainsFinalConfirmation
-    );
   }
 
   private isBillConfirmation(
@@ -609,11 +552,7 @@ export class MessagesService {
       await this.branchService.updateAvailableMessages(branch);
 
       // Crear orden usando el mensaje que contiene los productos de la cuenta
-      await this.createOrderFromBillRequest(
-        billMessage,
-        customer.id,
-        branch,
-      );
+      await this.createOrderFromBillRequest(billMessage, customer.id, branch);
 
       // Limpiar conversación después de confirmar cuenta
       await this.conversationService.deleteConversation(
