@@ -16,6 +16,7 @@ export const AppDataSource = new DataSource({
       process.env.NODE_ENV === 'production'
         ? { rejectUnauthorized: false }
         : null,
+    timezone: 'UTC', // Forzar UTC en PostgreSQL
   },
   synchronize: false,
   entities: ['src/**/*.entity.ts'],

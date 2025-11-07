@@ -36,6 +36,19 @@ export class OrdersController {
     return this.ordersService.findAllOrders(branchId, lang);
   }
 
+  @Get('by-date')
+  @Auth([UserRoles.SUPER, UserRoles.ADMIN])
+  findByDate(
+    @Query('branchId', ParseUUIDPipe) branchId: string,
+    @Lang() lang: string,
+    @Query('date') date?: string,
+    @Query('timezone') timezone?: string,
+  ) {
+    // Si no se proporciona fecha, usar la fecha actual
+    const targetDate = date || new Date().toISOString().split('T')[0];
+    return this.ordersService.findOrdersByDate(branchId, targetDate, lang, timezone);
+  }
+
   @Get(':id')
   @Auth([UserRoles.SUPER, UserRoles.ADMIN, UserRoles.CLIENT])
   findOne(@Param('id', ParseUUIDPipe) id: string, @Lang() lang: string) {

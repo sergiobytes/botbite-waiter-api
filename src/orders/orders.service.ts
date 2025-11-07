@@ -49,6 +49,54 @@ export class OrdersService {
     };
   }
 
+  async findOrdersByDate(
+    branchId: string,
+    date: string,
+    lang: string,
+    timezone?: string,
+  ) {
+    const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+    if (!dateRegex.test(date)) {
+      throw new NotFoundException(
+        this.translationService.translate('orders.invalid_date_format', lang) ||
+          'Invalid date format. Use YYYY-MM-DD',
+      );
+    }
+
+    const timezoneOffset = this.parseTimezoneOffset(timezone);
+
+    const startOfDay = new Date(date + 'T00:00:00.000Z');
+    const endOfDay = new Date(date + 'T23:59:59.999Z');
+
+    if (timezone) {
+      const offsetHours = Math.abs(timezoneOffset);
+
+      if (timezoneOffset > 0) {
+        startOfDay.setUTCHours(startOfDay.getUTCHours() + offsetHours);
+        endOfDay.setUTCHours(endOfDay.getUTCHours() + offsetHours);
+      } else {
+        startOfDay.setUTCHours(startOfDay.getUTCHours() - offsetHours);
+        endOfDay.setUTCHours(endOfDay.getUTCHours() - offsetHours);
+      }
+    }
+
+    const orders = await this.orderRepository
+      .createQueryBuilder('order')
+      .leftJoinAndSelect('order.orderItems', 'orderItems')
+      .where('order.branchId = :branchId', { branchId })
+      .andWhere('order.createdAt >= :startOfDay', { startOfDay })
+      .andWhere('order.createdAt <= :endOfDay', { endOfDay })
+      .orderBy('order.createdAt', 'DESC')
+      .getMany();
+
+    return {
+      orders,
+      date,
+      count: orders.length,
+      message: this.translationService.translate('orders.orders_found', lang),
+    };
+  }
+
   async findOneOrder(id: string, lang: string) {
     const order = await this.orderRepository.findOne({
       where: { id },
@@ -142,5 +190,51 @@ export class OrdersService {
         lang,
       ),
     };
+  }
+
+  private parseTimezoneOffset(timezone?: string): number {
+    if (!timezone) return 0;
+
+    timezone = timezone.trim();
+    if (timezone.toUpperCase().startsWith('UTC')) {
+      const offsetPart = timezone.substring(3);
+      if (offsetPart.startsWith('+')) {
+        return -parseFloat(offsetPart.substring(1));
+      } else if (offsetPart.startsWith('-')) {
+        return parseFloat(offsetPart.substring(1));
+      } else if (offsetPart) {
+        return -parseFloat(offsetPart);
+      }
+    }
+
+    if (timezone.includes(':')) {
+      const parts = timezone.split(':');
+      if (parts.length === 2) {
+        const hoursPart = parts[0];
+        const minutes = parseInt(parts[1]);
+        const isPositive = hoursPart.startsWith('+');
+        const hours = parseInt(hoursPart.replace(/[+-]/, ''));
+        const totalHours = hours + minutes / 60;
+        return isPositive ? -totalHours : totalHours;
+      }
+    }
+
+    // Para formatos simples como "+5", "-6", "6"
+    if (timezone.startsWith('+')) {
+      const hours = parseFloat(timezone.substring(1));
+      return -hours; // Oriental
+    } else if (timezone.startsWith('-')) {
+      const hours = parseFloat(timezone.substring(1));
+      return hours; // Occidental
+    } else {
+      // Solo número sin signo, asumir occidental como México
+      const hours = parseFloat(timezone);
+      if (!isNaN(hours)) {
+        return -hours;
+      }
+    }
+
+    this.logger.warn(`Unrecognized timezone format: ${timezone}, using UTC`);
+    return 0;
   }
 }
