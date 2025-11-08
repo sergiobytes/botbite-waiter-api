@@ -133,7 +133,6 @@ export class OrdersService {
     const { order } = await this.findOneOrder(id, lang);
 
     order.isActive = false;
-    order.closedAt = new Date();
     order.total = order.orderItems.reduce((sum, item) => sum + item.price, 0);
 
     await this.orderRepository.save(order);

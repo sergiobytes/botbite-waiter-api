@@ -73,7 +73,6 @@ export class MessagesService {
         createdAt: new Date(),
         updatedAt: new Date(),
         isActive: true,
-        threadId: undefined,
       };
     }
 
