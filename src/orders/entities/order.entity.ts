@@ -9,14 +9,14 @@ export class Order extends BaseEntity {
   @Column({ type: 'decimal', precision: 10, scale: 2, default: 0 })
   total: number;
 
-  @Column({ type: 'timestamp', nullable: true })
-  closedAt?: Date;
-
   @Column()
   customerId: string;
 
   @Column()
   branchId: string;
+
+  @Column({ type: 'int', default: 0 })
+  interactions: number;
 
   @ManyToOne(() => Customer)
   @JoinColumn({ name: 'customerId' })

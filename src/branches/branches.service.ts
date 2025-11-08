@@ -288,7 +288,6 @@ export class BranchesService {
         id: true,
         name: true,
         address: true,
-        assistantId: true,
         isActive: true,
         phoneNumberAssistant: true,
         phoneNumberReception: true,

@@ -16,22 +16,24 @@ export class Category {
   @Column({ unique: true, length: 100 })
   name: string;
 
-  @Column({ nullable: true, length: 255 })
-  description?: string;
-
   @Column({ default: true, type: 'boolean' })
   isActive: boolean;
 
-  @CreateDateColumn()
+  @CreateDateColumn({
+    type: 'timestamptz',
+    default: () => 'CURRENT_TIMESTAMP',
+  })
   createdAt: Date;
 
-  @UpdateDateColumn()
+  @UpdateDateColumn({
+    type: 'timestamptz',
+    default: () => 'CURRENT_TIMESTAMP',
+  })
   updatedAt: Date;
 
   @BeforeInsert()
   @BeforeUpdate()
   toUpperCaseFields() {
     if (this.name) this.name = this.name.toUpperCase();
-    if (this.description) this.description = this.description.toUpperCase();
   }
 }

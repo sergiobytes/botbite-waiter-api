@@ -18,9 +18,6 @@ export class Branch extends BaseEntity {
   phoneNumberReception: string;
 
   @Column({ nullable: true })
-  assistantId: string;
-
-  @Column({ nullable: true })
   qrUrl: string;
 
   @Column({ type: 'int', default: 0 })

@@ -11,6 +11,9 @@ export class Menu extends BaseEntity {
   @Column()
   branchId: string;
 
+  @Column({ nullable: true })
+  pdfLink?: string;
+
   @ManyToOne(() => Branch, (branch) => branch.menus)
   @JoinColumn({ name: 'branchId' })
   branch: Branch;

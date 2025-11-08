@@ -8,7 +8,4 @@ export class Customer extends BaseEntity {
 
   @Column()
   phone: string;
-
-  @Column({ nullable: true })
-  threadId?: string;
 }
