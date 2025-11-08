@@ -336,6 +336,7 @@ export class BranchesService {
         address: true,
         isActive: true,
         qrUrl: true,
+        availableMessages: true,
         createdAt: true, // Necesario para el ordenamiento
         restaurant: {
           name: true,
