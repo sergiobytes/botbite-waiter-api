@@ -1,4 +1,5 @@
 import {
+  IsBoolean,
   IsNotEmpty,
   IsOptional,
   IsString,
@@ -17,4 +18,8 @@ export class CreateRestaurantDto {
   @IsOptional()
   @IsUrl({}, { message: 'Logo URL must be a valid URL' })
   logoUrl?: string;
+
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
 }
