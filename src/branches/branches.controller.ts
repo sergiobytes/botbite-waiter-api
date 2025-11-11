@@ -95,7 +95,7 @@ export class BranchesController {
 
   @Patch('restaurant/:restaurantId/:branchId')
   @Auth([UserRoles.SUPER, UserRoles.ADMIN, UserRoles.CLIENT])
-  updateProduct(
+  updateBranch(
     @Param('restaurantId', ParseUUIDPipe) restaurantId: string,
     @Param('branchId', ParseUUIDPipe) branchId: string,
     @Body() updateBranchDto: UpdateBranchDto,
