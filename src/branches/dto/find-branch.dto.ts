@@ -15,10 +15,28 @@ export class FindBranchDto extends PaginationDto {
 
   @IsOptional()
   @Transform(({ value }) => {
-    if (value === 'true') return true;
-    if (value === 'false') return false;
-    return value;
-  })
+    if (value === undefined || value === null) {
+      return undefined;
+    }
+    
+    if (typeof value === 'boolean') {
+      return value;
+    }
+    
+    if (typeof value === 'string') {
+      if (value === '' || value === 'undefined') {
+        return undefined;
+      }
+      if (value.toLowerCase() === 'true') {
+        return true;
+      }
+      if (value.toLowerCase() === 'false') {
+        return false;
+      }
+    }
+    
+    return undefined;
+  }, { toClassOnly: true })
   @IsBoolean({ message: 'isActive must be true or false' })
   isActive?: boolean;
 }

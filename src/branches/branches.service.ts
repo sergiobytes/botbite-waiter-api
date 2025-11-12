@@ -306,7 +306,7 @@ export class BranchesService {
 
   async findAllByRestaurant(
     restaurantId: string,
-    paginationDto: PaginationDto,
+    paginationDto: PaginationDto = {},
     findBranchDto: FindBranchDto = {},
   ) {
     const { limit = 10, offset = 0 } = paginationDto;

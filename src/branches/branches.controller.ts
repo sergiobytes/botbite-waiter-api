@@ -72,11 +72,11 @@ export class BranchesController {
     @Param('restaurantId', ParseUUIDPipe) restaurantId: string,
   ) {
     const { limit, offset, ...searchFilters } = findBranchesDto;
-    return this.branchesService.findAllByRestaurant(restaurantId, {
-      limit,
-      offset,
-      ...searchFilters,
-    });
+    return this.branchesService.findAllByRestaurant(
+      restaurantId,
+      { limit, offset },
+      searchFilters,
+    );
   }
 
   @Get('generate-qr/:restaurantId/:branchId')
