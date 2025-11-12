@@ -23,13 +23,13 @@ export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Post('register-user')
-  @Auth([UserRoles.ADMIN])
+  @Auth([UserRoles.SUPER, UserRoles.ADMIN])
   registerUser(@Body() registerUserDto: RegisterUserDto, @Lang() lang: string) {
     return this.usersService.registerUser(registerUserDto, lang);
   }
 
   @Post('register-client')
-  @Auth([UserRoles.ADMIN])
+  @Auth([UserRoles.SUPER, UserRoles.ADMIN])
   registerClient(
     @Body() registerUserDto: RegisterUserDto,
     @Lang() lang: string,
@@ -38,7 +38,7 @@ export class UsersController {
   }
 
   @Delete('deactivate-user/:id')
-  @Auth([UserRoles.ADMIN])
+  @Auth([UserRoles.SUPER, UserRoles.ADMIN])
   deactivateUser(
     @Param('id', ParseUUIDPipe) userId: string,
     @Lang() lang: string,
@@ -47,7 +47,7 @@ export class UsersController {
   }
 
   @Patch('activate-user/:id')
-  @Auth([UserRoles.ADMIN])
+  @Auth([UserRoles.SUPER, UserRoles.ADMIN])
   activateUser(
     @CurrentUser() user: User,
     @Param('id', ParseUUIDPipe) userId: string,
@@ -86,7 +86,7 @@ export class UsersController {
   }
 
   @Get('find-user/:term')
-  @Auth([UserRoles.USER])
+  @Auth([UserRoles.SUPER, UserRoles.ADMIN, UserRoles.USER])
   async findUserByTerm(@CurrentUser() user: User, @Param('term') term: string) {
     if (!user) throw new Error('User not found');
     const userSearch = await this.usersService.findUserByTerm(term);
@@ -96,7 +96,7 @@ export class UsersController {
   }
 
   @Get()
-  @Auth([UserRoles.USER])
+  @Auth([UserRoles.SUPER, UserRoles.ADMIN, UserRoles.USER])
   findAllUsers(@CurrentUser() user: User, @Query() findUserDto: FindUsersDto) {
     const { limit, offset, ...filters } = findUserDto;
 
