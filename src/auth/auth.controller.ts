@@ -40,6 +40,7 @@ export class AuthController {
     return {
       valid: true,
       user: {
+        id: user.id,
         email: user.email,
         roles: user.roles,
       },
