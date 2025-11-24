@@ -72,11 +72,14 @@ export class ProductsController {
     @Param('restaurantId', ParseUUIDPipe) restaurantId: string,
   ) {
     const { limit, offset, ...searchFilters } = findProductsDto;
-    return this.productsService.findAllByRestaurant(restaurantId, {
-      limit,
-      offset,
-      ...searchFilters,
-    });
+    return this.productsService.findAllByRestaurant(
+      restaurantId,
+      {
+        limit,
+        offset,
+      },
+      searchFilters,
+    );
   }
 
   @Patch('restaurant/:restaurantId/:productId')
