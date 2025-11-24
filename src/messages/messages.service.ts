@@ -606,7 +606,9 @@ export class MessagesService {
 
       for (const [productName, orderItem] of Object.entries(orderItems)) {
         const product = products.products.find(
-          (p) => p.name.toLowerCase() === productName.toLowerCase().trim(),
+          (p) =>
+            p.name.toLowerCase() === productName.toLowerCase().trim() ||
+            p.normalizedName.toLowerCase() === productName.toLowerCase().trim(),
         );
 
         if (!product) {
