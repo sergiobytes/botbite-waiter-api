@@ -1,5 +1,11 @@
 import { Type } from 'class-transformer';
-import { IsString, IsNumber, IsPositive } from 'class-validator';
+import {
+  IsString,
+  IsNumber,
+  IsPositive,
+  IsOptional,
+  IsBoolean,
+} from 'class-validator';
 
 export class CreateMenuItemDto {
   @IsString()
@@ -13,4 +19,8 @@ export class CreateMenuItemDto {
   @IsPositive()
   @Type(() => Number)
   price: number;
+
+  @IsOptional()
+  @IsBoolean()
+  isActive?: boolean;
 }

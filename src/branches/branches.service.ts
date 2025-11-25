@@ -41,9 +41,10 @@ export class BranchesService {
       restaurant: { id: restaurantId },
     });
 
-    await this.branchRepository.save(branch);
+    const newBranch = await this.branchRepository.save(branch);
 
     return {
+      branch: newBranch,
       message: this.translationService.translate(
         'branches.branch_created',
         lang,
@@ -200,6 +201,7 @@ export class BranchesService {
     this.logger.log(`Branch activated: ${branch.id} by user: ${user.email}`);
 
     return {
+      branch,
       message: this.translationService.translate(
         'branches.branch_activated',
         lang,
@@ -253,6 +255,7 @@ export class BranchesService {
     this.logger.log(`Branch deactivated: ${branch.id} by user: ${user.email}`);
 
     return {
+      branch,
       message: this.translationService.translate(
         'branches.branch_deactivated',
         lang,
@@ -338,7 +341,7 @@ export class BranchesService {
         availableMessages: true,
         phoneNumberAssistant: true,
         phoneNumberReception: true,
-        createdAt: true, // Necesario para el ordenamiento
+        createdAt: true,
         restaurant: {
           name: true,
         },
