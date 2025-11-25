@@ -6,6 +6,7 @@ import {
   Patch,
   Param,
   Delete,
+  Query,
 } from '@nestjs/common';
 import { CategoriesService } from './categories.service';
 import { CreateCategoryDto } from './dto/create-category.dto';
@@ -13,6 +14,7 @@ import { UpdateCategoryDto } from './dto/update-category.dto';
 import { Lang } from '../common/decorators/lang.decorator';
 import { Auth } from '../auth/decorators/auth.decorator';
 import { UserRoles } from '../users/enums/user-roles';
+import { FindCategoryDto } from './dto/find-category.dto';
 
 @Controller('categories')
 export class CategoriesController {
@@ -20,20 +22,25 @@ export class CategoriesController {
 
   @Post()
   @Auth([UserRoles.SUPER, UserRoles.ADMIN])
-  create(@Body() createCategoryDto: CreateCategoryDto) {
-    return this.categoriesService.create(createCategoryDto);
+  create(@Body() createCategoryDto: CreateCategoryDto, @Lang() lang: string) {
+    return this.categoriesService.create(createCategoryDto, lang);
   }
 
   @Get()
   @Auth([UserRoles.CLIENT, UserRoles.USER])
-  findAll() {
-    return this.categoriesService.findAll();
+  findAll(@Query() findCategoryDto: FindCategoryDto, @Lang() lang: string) {
+    const { limit, offset, ...searchFilters } = findCategoryDto;
+    return this.categoriesService.findAll(
+      { limit, offset },
+      searchFilters,
+      lang,
+    );
   }
 
   @Get(':id')
   @Auth([UserRoles.CLIENT, UserRoles.USER])
-  findOne(@Param('id') id: string) {
-    return this.categoriesService.findOne(+id);
+  findOne(@Param('id') id: string, @Lang() lang: string) {
+    return this.categoriesService.findOne(+id, lang);
   }
 
   @Patch(':id')
@@ -41,8 +48,9 @@ export class CategoriesController {
   update(
     @Param('id') id: string,
     @Body() updateCategoryDto: UpdateCategoryDto,
+    @Lang() lang: string,
   ) {
-    return this.categoriesService.update(+id, updateCategoryDto);
+    return this.categoriesService.update(+id, updateCategoryDto, lang);
   }
 
   @Delete(':id')

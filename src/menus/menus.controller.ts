@@ -7,6 +7,7 @@ import {
   ParseUUIDPipe,
   Patch,
   Post,
+  Query,
 } from '@nestjs/common';
 import { MenusService } from './menus.service';
 import { Auth } from '../auth/decorators/auth.decorator';
@@ -16,6 +17,8 @@ import { Lang } from '../common/decorators/lang.decorator';
 import { UpdateMenuDto } from './dto/update-menu.dto';
 import { CreateMenuItemDto } from './dto/create-menu-item.dto';
 import { UpdateMenuItemDto } from './dto/update-menu-item.dto';
+import { FindMenuDto } from './dto/find-menu.dto';
+import { FindMenuItemDto } from './dto/find-menu-item.dto';
 
 @Controller('menus')
 export class MenusController {
@@ -36,9 +39,16 @@ export class MenusController {
   @Auth([UserRoles.SUPER, UserRoles.ADMIN, UserRoles.CLIENT])
   findMenusByBranch(
     @Param('branchId', ParseUUIDPipe) branchId: string,
+    @Query() findMenuDto: FindMenuDto,
     @Lang() lang: string,
   ) {
-    return this.menusService.findMenusByBranch(branchId, lang);
+    const { limit, offset, ...searchFilters } = findMenuDto;
+    return this.menusService.findMenusByBranch(
+      branchId,
+      { limit, offset },
+      searchFilters,
+      lang,
+    );
   }
 
   @Get('menu/:menuId')
@@ -85,9 +95,16 @@ export class MenusController {
   @Auth([UserRoles.SUPER, UserRoles.ADMIN, UserRoles.CLIENT])
   findMenuItems(
     @Param('menuId', ParseUUIDPipe) menuId: string,
+    @Query() findMenuItemDto: FindMenuItemDto,
     @Lang() lang: string,
   ) {
-    return this.menusService.findMenuItems(menuId, lang);
+    const { limit, offset, ...searchFilters } = findMenuItemDto;
+    return this.menusService.findMenuItems(
+      menuId,
+      { limit, offset },
+      searchFilters,
+      lang,
+    );
   }
 
   @Get('menu/:menuId/items/:itemId')

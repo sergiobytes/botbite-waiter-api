@@ -1,6 +1,6 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { ILike, Repository } from 'typeorm';
 import { Menu } from './entities/menu.entity';
 import { MenuItem } from './entities/menu-item.entity';
 import { TranslationService } from 'src/common/services/translation.service';
@@ -9,6 +9,9 @@ import { UpdateMenuDto } from './dto/update-menu.dto';
 import { CreateMenuItemDto } from './dto/create-menu-item.dto';
 import { UpdateMenuItemDto } from './dto/update-menu-item.dto';
 import { Branch } from '../branches/entities/branch.entity';
+import { PaginationDto } from '../common/dto/pagination.dto';
+import { FindMenuDto } from './dto/find-menu.dto';
+import { FindMenuItemDto } from './dto/find-menu-item.dto';
 
 @Injectable()
 export class MenusService {
@@ -46,17 +49,46 @@ export class MenusService {
     };
   }
 
-  async findMenusByBranch(branchId: string, lang: string) {
+  async findMenusByBranch(
+    branchId: string,
+    paginationDto: PaginationDto = {},
+    findMenuDto: FindMenuDto = {},
+    lang: string,
+  ) {
     await this.validateBranch(branchId, lang);
 
-    const menus = await this.menuRepository.find({
-      where: { branchId },
+    const { limit = 10, offset = 0 } = paginationDto;
+    const { name, search, isActive } = findMenuDto;
+
+    const whereConditions: any = { branchId };
+
+    if (name) {
+      whereConditions.name = ILike(`%${name}%`);
+    } else if (search) {
+      whereConditions.name = ILike(`%${search}%`);
+    }
+
+    if (isActive !== undefined) {
+      whereConditions.isActive = isActive;
+    }
+
+    const [menus, total] = await this.menuRepository.findAndCount({
+      where: whereConditions,
       relations: { menuItems: true },
       order: { createdAt: 'DESC' },
+      skip: offset,
+      take: limit,
     });
 
     return {
       menus,
+      total,
+      pagination: {
+        limit,
+        offset,
+        totalPages: Math.ceil(total / limit),
+        currentPage: Math.floor(offset / limit) + 1,
+      },
       message: this.translationService.translate('menus.menus_found', lang),
     };
   }
@@ -136,16 +168,39 @@ export class MenusService {
     };
   }
 
-  async findMenuItems(menuId: string, lang: string) {
+  async findMenuItems(
+    menuId: string,
+    paginationDto: PaginationDto = {},
+    findMenuItemDto: FindMenuItemDto = {},
+    lang: string,
+  ) {
     const menu = await this.findOneMenu(menuId, lang);
 
-    const items = await this.menuItemRepository.find({
-      where: { menuId: menu.menu.id },
+    const { limit = 10, offset = 0 } = paginationDto;
+    const { search, isActive } = findMenuItemDto;
+
+    const whereConditions: any = { menuId: menu.menu.id };
+
+    if (isActive !== undefined) {
+      whereConditions.isActive = isActive;
+    }
+
+    const [items, total] = await this.menuItemRepository.findAndCount({
+      where: whereConditions,
       order: { createdAt: 'DESC' },
+      skip: offset,
+      take: limit,
     });
 
     return {
       items,
+      total,
+      pagination: {
+        limit,
+        offset,
+        totalPages: Math.ceil(total / limit),
+        currentPage: Math.floor(offset / limit) + 1,
+      },
       message: this.translationService.translate('menus.menuitems_found', lang),
     };
   }

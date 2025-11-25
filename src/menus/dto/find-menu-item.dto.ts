@@ -2,12 +2,7 @@ import { IsBoolean, IsOptional, IsString, MinLength } from 'class-validator';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { Transform } from 'class-transformer';
 
-export class FindRestaurantsDto extends PaginationDto {
-  @IsOptional()
-  @IsString()
-  @MinLength(1, { message: 'Name must have at least 1 character' })
-  name?: string;
-
+export class FindMenuItemDto extends PaginationDto {
   @IsOptional()
   @IsString()
   @MinLength(2, { message: 'Search must have at least 2 characters' })
@@ -39,9 +34,4 @@ export class FindRestaurantsDto extends PaginationDto {
   }, { toClassOnly: true })
   @IsBoolean({ message: 'isActive must be true or false' })
   isActive?: boolean;
-
-  @IsOptional()
-  @IsString()
-  @MinLength(1, { message: 'User email must have at least 1 character' })
-  userEmail?: string;
 }
