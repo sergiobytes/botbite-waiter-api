@@ -58,13 +58,11 @@ export class MenusService {
     await this.validateBranch(branchId, lang);
 
     const { limit = 10, offset = 0 } = paginationDto;
-    const { name, search, isActive } = findMenuDto;
+    const { search, isActive } = findMenuDto;
 
     const whereConditions: any = { branchId };
 
-    if (name) {
-      whereConditions.name = ILike(`%${name}%`);
-    } else if (search) {
+    if (search) {
       whereConditions.name = ILike(`%${search}%`);
     }
 
