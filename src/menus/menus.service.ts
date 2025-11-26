@@ -179,18 +179,27 @@ export class MenusService {
     const { limit = 10, offset = 0 } = paginationDto;
     const { search, isActive } = findMenuItemDto;
 
-    const whereConditions: any = { menuId: menu.menu.id };
+    const queryBuilder = this.menuItemRepository
+      .createQueryBuilder('menuItem')
+      .leftJoinAndSelect('menuItem.product', 'product')
+      .where('menuItem.menuId = :menuId', { menuId: menu.menu.id });
 
     if (isActive !== undefined) {
-      whereConditions.isActive = isActive;
+      queryBuilder.andWhere('menuItem.isActive = :isActive', { isActive });
     }
 
-    const [items, total] = await this.menuItemRepository.findAndCount({
-      where: whereConditions,
-      order: { createdAt: 'DESC' },
-      skip: offset,
-      take: limit,
-    });
+    if (search) {
+      queryBuilder.andWhere(
+        '(product.name ILIKE :search OR product.normalizedName ILIKE :search)',
+        { search: `%${search}%` },
+      );
+    }
+
+    const [items, total] = await queryBuilder
+      .orderBy('menuItem.createdAt', 'DESC')
+      .skip(offset)
+      .take(limit)
+      .getManyAndCount();
 
     return {
       items,
