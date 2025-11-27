@@ -180,6 +180,7 @@ export class MenusService {
     const queryBuilder = this.menuItemRepository
       .createQueryBuilder('menuItem')
       .leftJoinAndSelect('menuItem.product', 'product')
+      .leftJoinAndSelect('menuItem.category', 'category')
       .where('menuItem.menuId = :menuId', { menuId: menu.menu.id });
 
     if (isActive !== undefined) {
