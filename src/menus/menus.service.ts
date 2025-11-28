@@ -241,7 +241,7 @@ export class MenusService {
   ) {
     const menuItem = await this.findOneMenuItem(menuId, itemId, lang);
 
-    Object.assign(menuItem, dto);
+    Object.assign(menuItem.menuItem, dto);
     const updatedMenuItem = await this.menuItemRepository.save(
       menuItem.menuItem,
     );
