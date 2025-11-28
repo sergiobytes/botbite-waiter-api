@@ -80,7 +80,8 @@
     "menuitem_created": "Item de menú creado exitosamente",
     "menuitem_updated": "Item de menú actualizado exitosamente",
     "menuitem_deleted": "Item de menú eliminado exitosamente",
-    "menuitem_not_found": "Item de menú no encontrado"
+    "menuitem_not_found": "Item de menú no encontrado",
+    "menu_file_uploaded": "Archivo de menú subido exitosamente"
   },
   "customers": {
     "customer_created": "Cliente creado exitosamente",

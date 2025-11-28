@@ -12,6 +12,7 @@ import { Branch } from '../branches/entities/branch.entity';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { FindMenuDto } from './dto/find-menu.dto';
 import { FindMenuItemDto } from './dto/find-menu-item.dto';
+import { uploadToCloudinary } from '../common/utils/upload-to-cloudinary';
 
 @Injectable()
 export class MenusService {
@@ -109,6 +110,31 @@ export class MenusService {
     return {
       menu,
       message: this.translationService.translate('menus.menu_found', lang),
+    };
+  }
+
+  async uploadMenuFile(
+    menuId: string,
+    file: Express.Multer.File,
+    lang: string,
+  ) {
+    const menu = await this.findOneMenu(menuId, lang);
+
+    const uploadedMenuUrl = await uploadToCloudinary(
+      file.buffer,
+      'botbite/menus',
+      `menu-${menuId}`,
+    );
+
+    menu.menu.pdfLink = uploadedMenuUrl;
+    const updatedMenu = await this.menuRepository.save(menu.menu);
+
+    return {
+      menu: updatedMenu,
+      message: this.translationService.translate(
+        'menus.menu_file_uploaded',
+        lang,
+      ),
     };
   }
 

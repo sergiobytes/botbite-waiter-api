@@ -1,4 +1,5 @@
 import {
+  BadRequestException,
   Body,
   Controller,
   Delete,
@@ -8,17 +9,20 @@ import {
   Patch,
   Post,
   Query,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
-import { MenusService } from './menus.service';
-import { Auth } from '../auth/decorators/auth.decorator';
+import { FileInterceptor } from '@nestjs/platform-express';
 import { UserRoles } from 'src/users/enums/user-roles';
-import { CreateMenuDto } from './dto/create-menu.dto';
+import { Auth } from '../auth/decorators/auth.decorator';
 import { Lang } from '../common/decorators/lang.decorator';
-import { UpdateMenuDto } from './dto/update-menu.dto';
 import { CreateMenuItemDto } from './dto/create-menu-item.dto';
-import { UpdateMenuItemDto } from './dto/update-menu-item.dto';
-import { FindMenuDto } from './dto/find-menu.dto';
+import { CreateMenuDto } from './dto/create-menu.dto';
 import { FindMenuItemDto } from './dto/find-menu-item.dto';
+import { FindMenuDto } from './dto/find-menu.dto';
+import { UpdateMenuItemDto } from './dto/update-menu-item.dto';
+import { UpdateMenuDto } from './dto/update-menu.dto';
+import { MenusService } from './menus.service';
 
 @Controller('menus')
 export class MenusController {
@@ -58,6 +62,26 @@ export class MenusController {
     @Lang() lang: string,
   ) {
     return this.menusService.findOneMenu(menuId, lang);
+  }
+
+  @Post('menu/upload-file/:menuId')
+  @Auth([UserRoles.SUPER, UserRoles.ADMIN, UserRoles.CLIENT])
+  @UseInterceptors(FileInterceptor('file'))
+  uploadMenuFile(
+    @Param('menuId', ParseUUIDPipe) menuId: string,
+    @UploadedFile() file: Express.Multer.File,
+    @Lang() lang: string,
+  ) {
+    if (!file) throw new BadRequestException('File is required');
+
+    if (
+      file.mimetype !== 'application/pdf' &&
+      !file.originalname.endsWith('.pdf')
+    ) {
+      throw new BadRequestException('Only PDF files are allowed');
+    }
+
+    return this.menusService.uploadMenuFile(menuId, file, lang);
   }
 
   @Patch('menu/:menuId')

@@ -79,7 +79,8 @@
     "menuitem_created": "Menu item created successfully",
     "menuitem_updated": "Menu item updated successfully",
     "menuitem_deleted": "Menu item deleted successfully",
-    "menuitem_not_found": "Menu item not found"
+    "menuitem_not_found": "Menu item not found",
+    "menu_file_uploaded": "Menu file uploaded successfully"
   },
   "customers": {
     "customer_created": "Customer created successfully",
