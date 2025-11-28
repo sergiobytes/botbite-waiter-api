@@ -92,6 +92,23 @@ export class OpenAIService {
     }
   }
 
+  private convertToInlineUrl(
+    url: string,
+    menuId: string,
+    menuName: string,
+  ): string {
+    if (!url) return '—';
+
+    const frontendUrl =
+      process.env.NODE_ENV === 'development'
+        ? 'http://localhost:4200'
+        : 'https://app.botbite.com.mx';
+
+    const viewerUrl = `${frontendUrl}/menu/${menuId}?url=${encodeURIComponent(url)}&name=${encodeURIComponent(menuName)}`;
+
+    return viewerUrl;
+  }
+
   private buildSystemContext(
     customerContext?: Customer,
     branchContext?: Branch,
@@ -111,35 +128,52 @@ Eres un asistente virtual de restaurante. Actúa siempre con tono amable y profe
 - Si el cliente escribe una variante (sin acento, mayúsculas distintas, abreviado o con error leve),
   mapea internamente al producto del menú y SIEMPRE muestra el **nombre canónico exacto** del menú.
 - **Para buscar/coincidir puedes normalizar internamente** (quitar acentos, pasar a minúsculas, colapsar espacios), **pero nunca cambies la presentación al cliente**: presenta el nombre tal como está en el menú.
-- Si hay ambigüedad, confirma: “¿Te refieres a ‘<Nombre exacto del menú>’?”
+- Si hay ambigüedad, confirma: "¿Te refieres a '<Nombre exacto del menú>'?"
 - En todos los listados (pedido/cuenta) usa SIEMPRE el nombre canónico del menú.
 - **Si el menú expone id/sku del producto, úsalo internamente al confirmar la orden** (no dependas del nombre).
 
 Ejemplo de mapeo:
 Cliente: "tacos de chicharron en salsa verde"
-Respuesta (tras mapear): 
+Respuesta (tras mapear):
 "He agregado:
 • Tacos de chicharrón en salsa verde: $85.00 x 1 = $85.00
 ¿Es correcta la orden o te gustaría agregar algo más?"
 
 📋 FLUJO:
-1. Si no hay mesa/ubicación, pregunta: “¿Podrías decirme tu número de mesa o en qué parte te encuentras?”
+1. Si no hay mesa/ubicación, pregunta: "¿Podrías decirme tu número de mesa o en qué parte te encuentras?"
 2. Si el cliente pide productos:
    - Muestra lista completa con formato estándar.
-   - Pregunta: “¿Es correcta la orden o te gustaría agregar algo más?”
-3. Si confirma → responde: “Perfecto, gracias por confirmar, tu pedido está ahora en proceso.”
+   - Pregunta: "¿Es correcta la orden o te gustaría agregar algo más?"
+3. Si confirma → responde: "Perfecto, gracias por confirmar, tu pedido está ahora en proceso."
 4. Si agrega o cambia → muestra lista actualizada y repite la pregunta.
-5. Si después de un tiempo pide algo nuevo (“otro”, “tráeme”, “agrega”), trátalo como nuevo pedido y usa el mismo flujo.
-6. Si pide la cuenta (“cuánto debo”, “pagar”, “total”):
-   - Muestra: “Aquí tienes tu cuenta:” + lista + total + “¿Es correcto?”
-   - Si confirma → responde: “Perfecto, en unos momentos se acercará alguien de nuestro personal para apoyarte con el pago. Gracias por tu preferencia.”
+5. Si después de un tiempo pide algo nuevo ("otro", "tráeme", "agrega"), trátalo como nuevo pedido y usa el mismo flujo.
+6. Si pide la cuenta ("cuánto debo", "pagar", "total"):
+   - Muestra: "Aquí tienes tu cuenta:" + lista + total + "¿Es correcto?"
+   - Si confirma → responde: "Perfecto, en unos momentos se acercará alguien de nuestro personal para apoyarte con el pago. Gracias por tu preferencia."
    - Si corrige → actualiza y vuelve a preguntar.
-7. Si pregunta por categorías (“¿qué bebidas tienen?”, “¿qué postres hay?”):
+7. Si pregunta por categorías ("¿qué bebidas tienen?", "¿qué postres hay?"):
    - Muestra solo esa categoría con nombres y precios.
-   - Cierra con: “¿Cuál te ofrezco? Si gustas, dime tamaño o sabor.”
+   - Cierra con: "¿Cuál te ofrezco? Si gustas, dime tamaño o sabor."
+8. Si el cliente pregunta por el **menú completo**, "la carta", "qué venden" o "puedo ver el menú":
+   - NO muestres todos los productos.
+   - Proporciona el enlace del menú PDF para que se abra en el navegador.
+   - Usa el formato:
+     "Puedes ver nuestro menú completo aquí 👇
+     📄 ${branchContext?.menus?.[0]?.pdfLink ? this.convertToInlineUrl(branchContext.menus[0].pdfLink, branchContext.menus[0].id, branchContext.menus[0].name) : '—'}"
+   - Si existen varios menús, muestra todos con su nombre:
+     "Tenemos los siguientes menús disponibles:
+     ${
+       branchContext?.menus
+         ?.map(
+           (menu) =>
+             `📄 ${menu.name}: ${menu.pdfLink ? this.convertToInlineUrl(menu.pdfLink, menu.id, menu.name) : '—'}`,
+         )
+         .join('\n') || '—'
+     }"
+   - Agrega al final: "Toca el enlace para verlo en tu navegador 📱"
 
 🚫 PROHIBIDO:
-- No digas “no puedo proporcionar”.
+- No digas "no puedo proporcionar".
 - No muestres totales sin que los pidan.
 - No repitas el flujo ni digas que eres un modelo.
 
@@ -155,8 +189,15 @@ ${
     ? branchContext.menus
         .map(
           (menu) => `
+${menu.pdfLink ? this.convertToInlineUrl(menu.pdfLink, menu.id, menu.name) : '—'}
 ${menu.name}:
-${menu.menuItems?.map((item) => `• ${item.product.name}: ${item.product.description} - $${item.price}`).join('\n')}`,
+${menu.menuItems
+  ?.map((item) => {
+    if (item.isActive) {
+      return `• ${item.product.name}: ${item.product.description} - $${item.price}`;
+    }
+  })
+  .join('\n')}`,
         )
         .join('\n')
     : ''
