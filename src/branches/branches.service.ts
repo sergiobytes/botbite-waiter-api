@@ -19,7 +19,7 @@ import { UserRoles } from '../users/enums/user-roles';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { FindBranchDto } from './dto/find-branch.dto';
 import { createQr } from '../common/utils/create-qr';
-import { uploadToCloudinary } from '../common/utils/upload-to-cloudinary';
+import { uploadQRToCloudinary } from '../common/utils/upload-to-cloudinary';
 
 @Injectable()
 export class BranchesService {
@@ -380,7 +380,7 @@ export class BranchesService {
     const targetUrl = `https://wa.me/${branch.phoneNumberAssistant}?text=Hola!`;
 
     const finalImage = await createQr(targetUrl);
-    const uploadedImageUrl = await uploadToCloudinary(
+    const uploadedImageUrl = await uploadQRToCloudinary(
       finalImage,
       'botbite/branches',
       `qr-${branch.id}`,

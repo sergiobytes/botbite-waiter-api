@@ -12,7 +12,7 @@ import { Branch } from '../branches/entities/branch.entity';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { FindMenuDto } from './dto/find-menu.dto';
 import { FindMenuItemDto } from './dto/find-menu-item.dto';
-import { uploadToCloudinary } from '../common/utils/upload-to-cloudinary';
+import { uploadPdfToCloudinary } from '../common/utils/upload-to-cloudinary';
 
 @Injectable()
 export class MenusService {
@@ -120,7 +120,7 @@ export class MenusService {
   ) {
     const menu = await this.findOneMenu(menuId, lang);
 
-    const uploadedMenuUrl = await uploadToCloudinary(
+    const uploadedMenuUrl = await uploadPdfToCloudinary(
       file.buffer,
       'botbite/menus',
       `menu-${menuId}`,
