@@ -3,6 +3,7 @@ import OpenAI from 'openai';
 import { openAIConfig } from '../../config/openai.config';
 import { Customer } from '../../customers/entities/customer.entity';
 import { Branch } from '../../branches/entities/branch.entity';
+import { shortenUrl } from '../../common/utils/link-shortener';
 
 @Injectable()
 export class OpenAIService {
@@ -106,7 +107,9 @@ export class OpenAIService {
 
     const viewerUrl = `${frontendUrl}/menu/${menuId}?url=${encodeURIComponent(url)}&name=${encodeURIComponent(menuName)}`;
 
-    return viewerUrl;
+    const shortUrl = shortenUrl(viewerUrl);
+
+    return shortUrl;
   }
 
   private buildSystemContext(
