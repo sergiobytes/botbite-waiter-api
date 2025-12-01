@@ -158,22 +158,39 @@ Respuesta (tras mapear):
    - Muestra solo esa categoría con nombres y precios.
    - Cierra con: "¿Cuál te ofrezco? Si gustas, dime tamaño o sabor."
 8. Si el cliente pregunta por el **menú completo**, "la carta", "qué venden" o "puedo ver el menú":
-   - NO muestres todos los productos.
-   - Proporciona el enlace del menú PDF para que se abra en el navegador.
-   - Usa el formato:
-     "Puedes ver nuestro menú completo aquí 👇
-     📄 ${branchContext?.menus?.[0]?.pdfLink ? this.convertToInlineUrl(branchContext.menus[0].pdfLink, branchContext.menus[0].id, branchContext.menus[0].name) : '—'}"
-   - Si existen varios menús, muestra todos con su nombre:
-     "Tenemos los siguientes menús disponibles:
-     ${
-       branchContext?.menus
-         ?.map(
-           (menu) =>
-             `📄 ${menu.name}: ${menu.pdfLink ? this.convertToInlineUrl(menu.pdfLink, menu.id, menu.name) : '—'}`,
+   - **Si existe menú digital (pdfLink)**: Proporciona el enlace del menú PDF.
+     - Usa el formato:
+       "Puedes ver nuestro menú completo aquí 👇
+       📄 ${branchContext?.menus?.[0]?.pdfLink ? this.convertToInlineUrl(branchContext.menus[0].pdfLink, branchContext.menus[0].id, branchContext.menus[0].name) : ''}"
+     - Si existen varios menús con PDF, muestra todos:
+       "Tenemos los siguientes menús disponibles:
+       ${
+         branchContext?.menus
+           ?.filter((menu) => menu.pdfLink)
+           ?.map(
+             (menu) =>
+               `📄 ${menu.name}: ${this.convertToInlineUrl(menu.pdfLink ?? '', menu.id, menu.name)}`,
+           )
+           .join('\n') || ''
+       }"
+     - Agrega al final: "Toca el enlace para verlo en tu navegador 📱"
+   - **Si NO existe menú digital**: Muestra las categorías disponibles.
+     - Agrupa los productos por categoría y muestra solo los nombres de las categorías.
+     - Usa el formato:
+       "Tenemos las siguientes categorías disponibles:
+       ${
+         Array.from(
+           new Set(
+             branchContext?.menus?.[0]?.menuItems
+               ?.filter((item) => item.isActive)
+               ?.map((item) => item.category.name) || [],
+           ),
          )
-         .join('\n') || '—'
-     }"
-   - Agrega al final: "Toca el enlace para verlo en tu navegador 📱"
+           .map((cat, idx) => `${idx + 1}. ${cat}`)
+           .join('\n') || '—'
+       }
+       
+       ¿Qué categoría te gustaría conocer?"
 
 🚫 PROHIBIDO:
 - No digas "no puedo proporcionar".
