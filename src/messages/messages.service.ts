@@ -552,7 +552,15 @@ export class MessagesService {
         conversation.conversationId,
       );
 
-      const cashierMessage = `El cliente ${customer.name} en ${tableInfo}, ha confirmado su cuenta y está listo para pagar.`;
+      // Calcular el total de la orden
+      let totalAmount = 0;
+      for (const [, { price, quantity }] of Object.entries(orderFromField)) {
+        totalAmount += price * quantity;
+      }
+
+      const cashierMessage = `El cliente ${customer.name} en ${tableInfo}, ha solicitado su cuenta y está listo para pagar.
+
+Total: $${totalAmount.toFixed(2)}`;
 
       await this.sendMessage(
         branch.phoneNumberReception,
@@ -571,7 +579,9 @@ export class MessagesService {
         (msg) => msg.role === 'assistant',
       ).length;
 
-      this.logger.log(`Assistant interactions in conversation: ${assistantInteractions}`);
+      this.logger.log(
+        `Assistant interactions in conversation: ${assistantInteractions}`,
+      );
 
       // Crear orden usando lastOrderSentToCashier directamente
       const order = await this.createOrderFromLastOrder(
@@ -587,7 +597,9 @@ export class MessagesService {
           { interactions: assistantInteractions },
           'es',
         );
-        this.logger.log(`Order ${order.id} updated with ${assistantInteractions} interactions`);
+        this.logger.log(
+          `Order ${order.id} updated with ${assistantInteractions} interactions`,
+        );
       }
 
       // Limpiar conversación después de confirmar cuenta
