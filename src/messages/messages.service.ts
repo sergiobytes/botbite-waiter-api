@@ -141,8 +141,8 @@ export class MessagesService {
       );
     }
 
-    // 3. Solo ejecutar notificación y creación de orden después de confirmación de cuenta
-    if (this.isBillConfirmation(messageData.message, response)) {
+    // 3. Detectar cuando pide la cuenta (sin necesidad de confirmación)
+    if (this.isBillRequest(messageData.message, response)) {
       await this.notifyCashierAboutConfirmedBill(
         messageData.from,
         customer,
@@ -331,40 +331,57 @@ export class MessagesService {
     return message.trim();
   }
 
-  private isBillConfirmation(
+  private isBillRequest(
     clientMessage: string,
     assistantResponse: string,
   ): boolean {
-    const confirmationKeywords = [
-      'si',
-      'sí',
-      'yes',
-      'correcto',
-      'correct',
-      'ok',
-      'está bien',
-      'perfecto',
-      'de acuerdo',
-      'exacto',
-    ];
-
     const clientLower = clientMessage.toLowerCase();
     const responseLower = assistantResponse.toLowerCase();
 
-    const clientContainsConfirmation = confirmationKeywords.some((keyword) =>
+    // Palabras clave para solicitar cuenta (no solo total)
+    const billKeywords = [
+      'la cuenta',
+      'cuenta por favor',
+      'quiero pagar',
+      'cuánto debo',
+      'cuanto debo',
+      'mi cuenta',
+      'pagar',
+      'cuenta',
+    ];
+
+    // Palabras clave solo para consultar total (NO es cuenta)
+    const totalOnlyKeywords = [
+      'cuánto llevo',
+      'cuanto llevo',
+      'cuánto va',
+      'cuanto va',
+      'cuánto es lo que llevo',
+      'cuanto es lo que llevo',
+    ];
+
+    // Si solo pregunta por el total, NO es una solicitud de cuenta
+    const isOnlyTotalRequest = totalOnlyKeywords.some((keyword) =>
       clientLower.includes(keyword),
     );
 
-    // Verificar si la respuesta contiene confirmación final de cuenta (nuevo prompt optimizado)
-    const responseContainsFinalConfirmation =
+    if (isOnlyTotalRequest) {
+      return false; // No es cuenta, solo quiere saber cuánto lleva
+    }
+
+    // Cliente pide la cuenta con palabras clave
+    const clientRequestsBill = billKeywords.some((keyword) =>
+      clientLower.includes(keyword),
+    );
+
+    // Respuesta del asistente contiene la confirmación de cuenta
+    const responseContainsBillConfirmation =
+      responseLower.includes('aquí tienes tu cuenta:') &&
       responseLower.includes(
         'en unos momentos se acercará alguien de nuestro personal para apoyarte con el pago',
-      ) ||
-      responseLower.includes('gracias por tu preferencia') ||
-      responseLower.includes('gracias por tu pedido') ||
-      responseLower.includes('tu orden está confirmada');
+      );
 
-    return clientContainsConfirmation && responseContainsFinalConfirmation;
+    return clientRequestsBill && responseContainsBillConfirmation;
   }
 
   private isInitialOrderConfirmation(assistantResponse: string): boolean {
