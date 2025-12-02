@@ -6,9 +6,9 @@ import { Customer } from '../customers/entities/customer.entity';
 import { CustomersService } from '../customers/customers.service';
 import { TranslationService } from '../common/services/translation.service';
 import { Branch } from '../branches/entities/branch.entity';
-import { ProductsService } from '../products/products.service';
 import { OrdersService } from '../orders/orders.service';
 import { ConversationService } from './services/conversation/conversation.service';
+import { MenusService } from './../menus/menus.service';
 
 @Injectable()
 export class MessagesService {
@@ -20,7 +20,7 @@ export class MessagesService {
     private readonly translationService: TranslationService,
     private readonly branchService: BranchesService,
     private readonly customerService: CustomersService,
-    private readonly productsService: ProductsService,
+    private readonly menusService: MenusService,
     private readonly orderService: OrdersService,
   ) {}
 
@@ -114,9 +114,12 @@ export class MessagesService {
       return; // No enviar la respuesta del AI, ya enviamos mensaje personalizado
     }
 
+    // Limpiar los IDs de los productos antes de enviar al cliente
+    const cleanResponse = this.removeMenuItemIds(response);
+
     await this.sendMessage(
       customer.phone,
-      response,
+      cleanResponse,
       branch.phoneNumberAssistant,
     );
 
@@ -194,24 +197,28 @@ export class MessagesService {
 
   private extractOrderFromResponse(
     response: string,
-  ): Record<string, { price: number; quantity: number }> {
-    const order: Record<string, { price: number; quantity: number }> = {};
+  ): Record<string, { price: number; quantity: number; menuItemId?: string }> {
+    const order: Record<
+      string,
+      { price: number; quantity: number; menuItemId?: string }
+    > = {};
 
-    // Regex mejorada para capturar el formato: • PRODUCTO: $precio x cantidad = $subtotal
-    // También soporta formato sin subtotal: • PRODUCTO: $precio x cantidad
-    // Y formato simple: • PRODUCTO: $precio
+    // Regex mejorada para capturar el formato: • [ID:xxx] PRODUCTO (CATEGORÍA): $precio x cantidad = $subtotal
+    // También soporta formato sin ID, sin categoría, sin subtotal y sin cantidad
     const orderRegex =
-      /[•-]\s*([^:]+?):\s*\$(\d+(?:\.\d{2})?)(?:\s*x\s*(\d+)(?:\s*=\s*\$(\d+(?:\.\d{2})?))?)?/gi;
+      /[•-]\s*(?:\[ID:([^\]]+)\]\s*)?([^:(]+?)(?:\s*\(([^)]+)\))?\s*:\s*\$(\d+(?:\.\d{2})?)(?:\s*x\s*(\d+)(?:\s*=\s*\$(\d+(?:\.\d{2})?))?)?/gi;
 
     let match;
     while ((match = orderRegex.exec(response)) !== null) {
-      const productName = match[1]
+      const menuItemId = match[1]?.trim(); // Capturar ID si existe
+      const productName = match[2]
         .trim()
         .replace(/\*\*/g, '') // Remover asteriscos de formato markdown
         .trim();
+      // const category = match[3]?.trim(); // Capturar categoría si existe (no se usa por ahora)
 
-      const price = parseFloat(match[2]);
-      const quantity = match[3] ? parseInt(match[3]) : 1;
+      const price = parseFloat(match[4]);
+      const quantity = match[5] ? parseInt(match[5]) : 1;
 
       // Excluir "Total" y líneas que claramente no son productos
       const lowerName = productName.toLowerCase();
@@ -229,7 +236,7 @@ export class MessagesService {
       if (order[productName]) {
         order[productName].quantity += quantity;
       } else {
-        order[productName] = { price, quantity };
+        order[productName] = { price, quantity, menuItemId };
       }
     }
 
@@ -238,10 +245,19 @@ export class MessagesService {
   }
 
   private calculateOrderChanges(
-    lastOrder: Record<string, { price: number; quantity: number }>,
-    currentOrder: Record<string, { price: number; quantity: number }>,
-  ): Record<string, { price: number; quantity: number }> {
-    const changes: Record<string, { price: number; quantity: number }> = {};
+    lastOrder: Record<
+      string,
+      { price: number; quantity: number; menuItemId?: string }
+    >,
+    currentOrder: Record<
+      string,
+      { price: number; quantity: number; menuItemId?: string }
+    >,
+  ): Record<string, { price: number; quantity: number; menuItemId?: string }> {
+    const changes: Record<
+      string,
+      { price: number; quantity: number; menuItemId?: string }
+    > = {};
 
     for (const [productName, current] of Object.entries(currentOrder)) {
       const last = lastOrder[productName];
@@ -315,17 +331,39 @@ export class MessagesService {
     }
   }
 
-  private generateCashierMessage(
+  private async generateCashierMessage(
     customerName: string,
     tableInfo: string,
-    orderChanges: Record<string, { price: number; quantity: number }>,
-  ): string {
+    orderChanges: Record<
+      string,
+      { price: number; quantity: number; menuItemId?: string }
+    >,
+    branchId: string,
+  ): Promise<string> {
     let message = `El cliente ${customerName} que se encuentra en ${tableInfo}, ha pedido:\n\n`;
 
-    for (const [productName, { price, quantity }] of Object.entries(
+    // Obtener todos los productos del menú para acceder a las categorías
+    const { items: menuItems } = await this.menusService.findMenuItems(
+      branchId,
+      { limit: 200 },
+      {},
+      'es',
+    );
+
+    for (const [productName, { price, quantity, menuItemId }] of Object.entries(
       orderChanges,
     )) {
-      message += `• ${productName}: $${price.toFixed(2)} x ${quantity} = $${(price * quantity).toFixed(2)}\n`;
+      let categoryInfo = '';
+
+      // Encontrar el producto por ID para obtener su categoría
+      if (menuItemId) {
+        const menuItem = menuItems.find((item) => item.id === menuItemId);
+        if (menuItem && menuItem.category) {
+          categoryInfo = ` (${menuItem.category.name})`;
+        }
+      }
+
+      message += `• ${productName}${categoryInfo}: $${price.toFixed(2)} x ${quantity} = $${(price * quantity).toFixed(2)}\n`;
     }
 
     return message.trim();
@@ -497,10 +535,11 @@ export class MessagesService {
         conversation.conversationId,
       );
 
-      const message = this.generateCashierMessage(
+      const message = await this.generateCashierMessage(
         customer.name,
         tableInfo,
         orderChanges,
+        branch.id,
       );
 
       await this.sendMessage(
@@ -616,7 +655,10 @@ Total: $${totalAmount.toFixed(2)}`;
   }
 
   private async createOrderFromLastOrder(
-    orderItems: Record<string, { price: number; quantity: number }>,
+    orderItems: Record<
+      string,
+      { price: number; quantity: number; menuItemId?: string }
+    >,
     customerId: string,
     branch: Branch,
   ) {
@@ -631,11 +673,6 @@ Total: $${totalAmount.toFixed(2)}`;
 
       this.logger.log(
         `Processing ${Object.keys(orderItems).length} items from lastOrderSentToCashier`,
-      );
-
-      const products = await this.productsService.findAllByRestaurant(
-        branch.restaurantId,
-        { limit: 100 },
       );
 
       if (!branch.menus || branch.menus.length === 0) {
@@ -659,28 +696,29 @@ Total: $${totalAmount.toFixed(2)}`;
 
       for (const [productName, orderItem] of Object.entries(orderItems)) {
         this.logger.debug(
-          `Processing product: "${productName}" - Price: $${orderItem.price} - Quantity: ${orderItem.quantity}`,
+          `Processing product: "${productName}" - Price: $${orderItem.price} - Quantity: ${orderItem.quantity} - MenuItemId: ${orderItem.menuItemId || 'N/A'}`,
         );
 
-        const product = products.products.find(
-          (p) =>
-            p.name.toLowerCase() === productName.toLowerCase().trim() ||
-            p.normalizedName.toLowerCase() === productName.toLowerCase().trim(),
-        );
-
-        if (!product) {
-          this.logger.warn(`Product not found in database: "${productName}"`);
-          continue;
-        }
-
-        const menuItem = menuItems.find((m) => m.productId === product.id);
-
-        if (!menuItem) {
+        // Buscar por menuItemId
+        if (!orderItem.menuItemId) {
           this.logger.warn(
-            `Menu item not found for product: "${productName}" (ID: ${product.id})`,
+            `No menuItemId provided for product: "${productName}". Skipping.`,
           );
           continue;
         }
+
+        const menuItem = menuItems.find((m) => m.id === orderItem.menuItemId);
+
+        if (!menuItem) {
+          this.logger.warn(
+            `Menu item not found by ID: ${orderItem.menuItemId} for product "${productName}"`,
+          );
+          continue;
+        }
+
+        this.logger.debug(
+          `Found menu item by ID: ${orderItem.menuItemId} - ${menuItem.product.name}`,
+        );
 
         for (let i = 0; i < orderItem.quantity; i++) {
           await this.orderService.addOrderItem(
@@ -812,5 +850,16 @@ Revisar si es necesario tomar acción adicional.`;
         error,
       );
     }
+  }
+
+  /**
+   * Elimina los IDs de los productos del mensaje antes de enviarlo al cliente
+   * Mantiene la categoría para ayudar al cliente a confirmar el producto correcto
+   * Convierte: "• [ID:xxx] Tacos de Pastor (TACOS): $85.00"
+   * A: "• Tacos de Pastor (TACOS): $85.00"
+   */
+  private removeMenuItemIds(message: string): string {
+    // Regex para encontrar y remover el patrón [ID:xxx] seguido de espacio
+    return message.replace(/\[ID:[^\]]+\]\s*/g, '');
   }
 }

@@ -6,12 +6,12 @@ import { BranchesModule } from '../branches/branches.module';
 import { CustomersModule } from '../customers/customers.module';
 import { OpenAIModule } from '../openai/openai.module';
 import { CommonModule } from '../common/common.module';
-import { ProductsModule } from '../products/products.module';
 import { OrdersModule } from '../orders/orders.module';
 import { ConversationService } from './services/conversation/conversation.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Conversation } from './entities/conversation.entity';
 import { ConversationMessage } from './entities/conversation-message.entity';
+import { MenusModule } from '../menus/menus.module';
 
 @Module({
   imports: [
@@ -20,7 +20,7 @@ import { ConversationMessage } from './entities/conversation-message.entity';
     CommonModule,
     OpenAIModule,
     OrdersModule,
-    ProductsModule,
+    MenusModule,
     TypeOrmModule.forFeature([Conversation, ConversationMessage]),
   ],
   controllers: [MessagesController],

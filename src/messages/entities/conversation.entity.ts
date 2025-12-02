@@ -18,7 +18,10 @@ export class Conversation extends BaseEntity {
   lastActivity: Date;
 
   @Column({ type: 'json', nullable: true })
-  lastOrderSentToCashier?: Record<string, { price: number; quantity: number }>;
+  lastOrderSentToCashier?: Record<
+    string,
+    { price: number; quantity: number; menuItemId?: string }
+  >;
 
   @OneToMany(() => ConversationMessage, (message) => message.conversation, {
     cascade: true,

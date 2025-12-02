@@ -130,7 +130,10 @@ export class ConversationService {
 
   async updateLastOrderSentToCashier(
     conversationId: string,
-    orderData: Record<string, { price: number; quantity: number }>,
+    orderData: Record<
+      string,
+      { price: number; quantity: number; menuItemId?: string }
+    >,
   ): Promise<void> {
     await this.conversationRepository.update(
       { conversationId },
