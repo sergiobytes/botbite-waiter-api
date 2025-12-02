@@ -521,33 +521,15 @@ export class MessagesService {
 
       // Usar lastOrderSentToCashier como fuente principal de la orden
       const orderFromField = conversation.lastOrderSentToCashier;
-      
-      // Obtener historial como fallback si no hay orden guardada
-      const history = await this.conversationService.getConversationHistory(
-        conversation.conversationId,
-        30, // Limitar búsqueda
-      );
 
-      // Encontrar el último mensaje del asistente que contiene la cuenta
-      let billMessage: string | null = null;
-      for (let i = history.length - 1; i >= 0; i--) {
-        const message = history[i];
-        if (
-          message.role === 'assistant' &&
-          (message.content.includes('Aquí tienes tu cuenta:') || // Formato de cuenta
-            (message.content.includes('cuenta') &&
-              message.content.includes('• ') &&
-              message.content.includes('Total')))
-        ) {
-          billMessage = message.content;
-          break;
-        }
-      }
-
-      if (!billMessage) {
-        this.logger.warn('Could not find bill message in conversation history');
+      if (!orderFromField || Object.keys(orderFromField).length === 0) {
+        this.logger.warn('No order found in lastOrderSentToCashier field');
         return;
       }
+
+      this.logger.log(
+        `Using order from lastOrderSentToCashier: ${JSON.stringify(orderFromField)}`,
+      );
 
       const tableInfo = await this.extractTableInfoFromConversation(
         conversation.conversationId,
@@ -563,8 +545,8 @@ export class MessagesService {
 
       await this.branchService.updateAvailableMessages(branch);
 
-      // Crear orden usando el mensaje que contiene los productos de la cuenta
-      await this.createOrderFromBillRequest(billMessage, customer.id, branch);
+      // Crear orden usando lastOrderSentToCashier directamente
+      await this.createOrderFromLastOrder(orderFromField, customer.id, branch);
 
       // Limpiar conversación después de confirmar cuenta
       await this.conversationService.deleteConversation(
@@ -579,26 +561,23 @@ export class MessagesService {
     }
   }
 
-  private async createOrderFromBillRequest(
-    assistantResponse: string,
+  private async createOrderFromLastOrder(
+    orderItems: Record<string, { price: number; quantity: number }>,
     customerId: string,
     branch: Branch,
   ) {
     try {
-      this.logger.log('Creating order from bill request...');
-      this.logger.debug(`Assistant response: ${assistantResponse}`);
-      
-      const orderItems = this.extractOrderFromResponse(assistantResponse);
+      this.logger.log('Creating order from lastOrderSentToCashier...');
+      this.logger.debug(`Order items: ${JSON.stringify(orderItems)}`);
 
       if (!orderItems || Object.keys(orderItems).length === 0) {
-        this.logger.error(
-          'No order items found in assistant response for bill request',
-        );
-        this.logger.debug(`Response text was: ${assistantResponse}`);
+        this.logger.error('No order items in lastOrderSentToCashier');
         return;
       }
 
-      this.logger.log(`Extracted ${Object.keys(orderItems).length} items from response`);
+      this.logger.log(
+        `Processing ${Object.keys(orderItems).length} items from lastOrderSentToCashier`,
+      );
 
       const products = await this.productsService.findAllByRestaurant(
         branch.restaurantId,
@@ -625,8 +604,10 @@ export class MessagesService {
       let itemsAdded = 0;
 
       for (const [productName, orderItem] of Object.entries(orderItems)) {
-        this.logger.debug(`Processing product: "${productName}" - Price: $${orderItem.price} - Quantity: ${orderItem.quantity}`);
-        
+        this.logger.debug(
+          `Processing product: "${productName}" - Price: $${orderItem.price} - Quantity: ${orderItem.quantity}`,
+        );
+
         const product = products.products.find(
           (p) =>
             p.name.toLowerCase() === productName.toLowerCase().trim() ||
@@ -641,7 +622,9 @@ export class MessagesService {
         const menuItem = menuItems.find((m) => m.productId === product.id);
 
         if (!menuItem) {
-          this.logger.warn(`Menu item not found for product: "${productName}" (ID: ${product.id})`);
+          this.logger.warn(
+            `Menu item not found for product: "${productName}" (ID: ${product.id})`,
+          );
           continue;
         }
 
@@ -660,7 +643,9 @@ export class MessagesService {
         }
       }
 
-      this.logger.log(`Added ${itemsAdded} items to order. Total: $${totalAmount}`);
+      this.logger.log(
+        `Added ${itemsAdded} items to order. Total: $${totalAmount}`,
+      );
 
       await this.orderService.updateOrder(
         order.order.id,
@@ -669,12 +654,15 @@ export class MessagesService {
       );
 
       this.logger.log(
-        `Order created successfully from bill request: ${order.order.id}, Total: $${totalAmount}`,
+        `Order created successfully from lastOrderSentToCashier: ${order.order.id}, Total: $${totalAmount}`,
       );
 
       return order.order;
     } catch (error) {
-      this.logger.error('Error creating order from bill request:', error);
+      this.logger.error(
+        'Error creating order from lastOrderSentToCashier:',
+        error,
+      );
       throw error;
     }
   }
