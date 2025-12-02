@@ -338,13 +338,13 @@ export class MessagesService {
       string,
       { price: number; quantity: number; menuItemId?: string }
     >,
-    branchId: string,
+    menuId: string,
   ): Promise<string> {
     let message = `El cliente ${customerName} que se encuentra en ${tableInfo}, ha pedido:\n\n`;
 
     // Obtener todos los productos del menú para acceder a las categorías
     const { items: menuItems } = await this.menusService.findMenuItems(
-      branchId,
+      menuId,
       { limit: 200 },
       {},
       'es',
@@ -539,7 +539,7 @@ export class MessagesService {
         customer.name,
         tableInfo,
         orderChanges,
-        branch.id,
+        branch.menus[0].id,
       );
 
       await this.sendMessage(
