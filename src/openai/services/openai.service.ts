@@ -186,7 +186,8 @@ Cliente: "2 tostadas de ceviche"
    - Muestra solo esa categoría con nombres y precios.
    - Cierra con: "¿Cuál te ofrezco? Si gustas, dime tamaño o sabor."
 10. Si el cliente pregunta por el **menú completo**, "la carta", "qué venden" o "puedo ver el menú":
-   - **Si existe menú digital (pdfLink)**: Proporciona el enlace del menú PDF.
+   - **IMPORTANTE**: Primero verifica si existe un enlace PDF válido en branchContext.menus[].pdfLink
+   - **Si existe menú digital (pdfLink NO es null ni vacío)**: Proporciona el enlace del menú PDF.
      - Usa el formato:
        "Puedes ver nuestro menú completo aquí 👇
        📄 ${branchContext?.menus?.[0]?.pdfLink ? this.convertToInlineUrl(branchContext.menus[0].pdfLink, branchContext.menus[0].id, branchContext.menus[0].name) : ''}"
@@ -202,7 +203,8 @@ Cliente: "2 tostadas de ceviche"
            .join('\n') || ''
        }"
      - Agrega al final: "Toca el enlace para verlo en tu navegador 📱"
-   - **Si NO existe menú digital**: Muestra las categorías disponibles.
+   - **Si NO existe menú digital (pdfLink es null o vacío)**: Muestra ÚNICAMENTE las categorías disponibles.
+     - **NO inventes ni proporciones ningún enlace**.
      - Agrupa los productos por categoría y muestra solo los nombres de las categorías.
      - Usa el formato:
        "Tenemos las siguientes categorías disponibles:

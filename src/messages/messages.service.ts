@@ -125,8 +125,29 @@ export class MessagesService {
 
     await this.branchService.updateAvailableMessages(branch);
 
-    // 1. Notificar cuando se confirma pedido inicial
-    if (this.isInitialOrderConfirmation(response)) {
+    // Obtener conversación para verificar si es orden inicial o actualización
+    const conversation =
+      await this.conversationService.getOrCreateConversation(
+        messageData.from,
+        branch.id,
+      );
+
+    // Verificar si hay confirmación de productos
+    const hasConfirmation =
+      this.isInitialOrderConfirmation(response) ||
+      this.isProductConfirmation(messageData.message, response);
+
+    if (hasConfirmation) {
+      const isInitialOrder =
+        !conversation.lastOrderSentToCashier ||
+        Object.keys(conversation.lastOrderSentToCashier).length === 0;
+
+      if (isInitialOrder) {
+        this.logger.log('Detected initial order confirmation (lastOrderSentToCashier is empty)');
+      } else {
+        this.logger.log('Detected product update confirmation (lastOrderSentToCashier has data)');
+      }
+
       await this.notifyCashierAboutConfirmedProducts(
         messageData.from,
         customer,
@@ -134,17 +155,7 @@ export class MessagesService {
       );
     }
 
-    // 2. Notificar cuando cliente confirma productos agregados/modificados
-    if (this.isProductConfirmation(messageData.message, response)) {
-      // Necesitamos la conversación para obtener el mensaje anterior con los productos
-      await this.notifyCashierAboutConfirmedProducts(
-        messageData.from,
-        customer,
-        branch,
-      );
-    }
-
-    // 3. Detectar cuando pide la cuenta (sin necesidad de confirmación)
+    // Detectar cuando pide la cuenta (sin necesidad de confirmación)
     if (this.isBillRequest(messageData.message, response)) {
       await this.notifyCashierAboutConfirmedBill(
         messageData.from,
@@ -240,7 +251,6 @@ export class MessagesService {
       }
     }
 
-    this.logger.debug(`Extracted order: ${JSON.stringify(order)}`);
     return order;
   }
 
@@ -425,11 +435,10 @@ export class MessagesService {
   private isInitialOrderConfirmation(assistantResponse: string): boolean {
     const responseLower = assistantResponse.toLowerCase();
 
-    // Detecta cuando el cliente confirma su pedido inicial (nuevo prompt optimizado)
-    return (
-      responseLower.includes(
-        'perfecto, gracias por confirmar, tu pedido está ahora en proceso',
-      ) || responseLower.includes('tu pedido está ahora en proceso')
+    // Detecta cuando el cliente confirma su pedido inicial
+    // Debe contener la frase completa específica para evitar falsos positivos
+    return responseLower.includes(
+      'perfecto, gracias por confirmar, tu pedido está ahora en proceso',
     );
   }
 
@@ -445,6 +454,8 @@ export class MessagesService {
       'correct',
       'ok',
       'está bien',
+      'asi esta bien',
+      'así está bien',
       'perfecto',
       'de acuerdo',
       'exacto',
@@ -458,7 +469,7 @@ export class MessagesService {
       clientLower.includes(keyword),
     );
 
-    // AI responde preguntando por más productos (nuevo prompt optimizado)
+    // AI responde preguntando por más productos O agradeciendo la confirmación
     const aiAsksForMore =
       responseLower.includes(
         'es correcta la orden o te gustaría agregar algo más',
@@ -467,7 +478,11 @@ export class MessagesService {
       responseLower.includes('hay algo más que te gustaría ordenar') ||
       responseLower.includes('algo más que pueda ayudarte');
 
-    return clientConfirms && aiAsksForMore;
+    const aiConfirmsOrder =
+      responseLower.includes('perfecto, gracias por confirmar') ||
+      responseLower.includes('gracias por confirmar');
+
+    return clientConfirms && (aiAsksForMore || aiConfirmsOrder);
   }
 
   private async notifyCashierAboutConfirmedProducts(
@@ -482,25 +497,37 @@ export class MessagesService {
           branch.id,
         );
 
-      // Obtener historial de conversación (limitado a últimos 20 mensajes para performance)
+      // Obtener historial de conversación completo (sin límite para asegurar que encontramos el mensaje correcto)
       const history = await this.conversationService.getConversationHistory(
         conversation.conversationId,
-        20,
       );
 
-      // Encontrar el último mensaje del asistente que contiene productos
+      // Buscar el último mensaje del asistente que tiene productos
+      // Debe ser el penúltimo mensaje (el anterior a "Perfecto, gracias por confirmar")
       let productMessage: string | null = null;
+      
+      // Buscar desde el final, saltando el último mensaje del asistente (que es la confirmación)
+      let assistantMessagesFound = 0;
       for (let i = history.length - 1; i >= 0; i--) {
         const message = history[i];
-        if (
-          message.role === 'assistant' &&
-          message.content.includes('• ') && // Debe tener productos en formato bullet
-          (message.content.includes('He agregado') ||
-            message.content.includes('He actualizado') ||
-            message.content.includes('Aquí tienes'))
-        ) {
-          productMessage = message.content;
-          break;
+        if (message.role === 'assistant') {
+          assistantMessagesFound++;
+          
+          // Saltar el primer mensaje del asistente (la confirmación actual)
+          if (assistantMessagesFound === 1) {
+            continue;
+          }
+          
+          // El segundo mensaje del asistente debería tener los productos
+          if (
+            message.content.includes('• ') && // Debe tener productos en formato bullet
+            (message.content.includes('He agregado') ||
+              message.content.includes('He actualizado') ||
+              message.content.includes('Aquí tienes'))
+          ) {
+            productMessage = message.content;
+            break;
+          }
         }
       }
 
@@ -664,7 +691,6 @@ Total: $${totalAmount.toFixed(2)}`;
   ) {
     try {
       this.logger.log('Creating order from lastOrderSentToCashier...');
-      this.logger.debug(`Order items: ${JSON.stringify(orderItems)}`);
 
       if (!orderItems || Object.keys(orderItems).length === 0) {
         this.logger.error('No order items in lastOrderSentToCashier');
@@ -695,10 +721,6 @@ Total: $${totalAmount.toFixed(2)}`;
       let itemsAdded = 0;
 
       for (const [productName, orderItem] of Object.entries(orderItems)) {
-        this.logger.debug(
-          `Processing product: "${productName}" - Price: $${orderItem.price} - Quantity: ${orderItem.quantity} - MenuItemId: ${orderItem.menuItemId || 'N/A'}`,
-        );
-
         // Buscar por menuItemId
         if (!orderItem.menuItemId) {
           this.logger.warn(
@@ -715,10 +737,6 @@ Total: $${totalAmount.toFixed(2)}`;
           );
           continue;
         }
-
-        this.logger.debug(
-          `Found menu item by ID: ${orderItem.menuItemId} - ${menuItem.product.name}`,
-        );
 
         for (let i = 0; i < orderItem.quantity; i++) {
           await this.orderService.addOrderItem(
