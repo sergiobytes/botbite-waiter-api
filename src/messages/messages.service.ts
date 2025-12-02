@@ -545,8 +545,33 @@ export class MessagesService {
 
       await this.branchService.updateAvailableMessages(branch);
 
+      // Contar interacciones del asistente antes de crear la orden
+      const history = await this.conversationService.getConversationHistory(
+        conversation.conversationId,
+      );
+
+      const assistantInteractions = history.filter(
+        (msg) => msg.role === 'assistant',
+      ).length;
+
+      this.logger.log(`Assistant interactions in conversation: ${assistantInteractions}`);
+
       // Crear orden usando lastOrderSentToCashier directamente
-      await this.createOrderFromLastOrder(orderFromField, customer.id, branch);
+      const order = await this.createOrderFromLastOrder(
+        orderFromField,
+        customer.id,
+        branch,
+      );
+
+      // Actualizar el campo interactions de la orden
+      if (order) {
+        await this.orderService.updateOrder(
+          order.id,
+          { interactions: assistantInteractions },
+          'es',
+        );
+        this.logger.log(`Order ${order.id} updated with ${assistantInteractions} interactions`);
+      }
 
       // Limpiar conversación después de confirmar cuenta
       await this.conversationService.deleteConversation(
