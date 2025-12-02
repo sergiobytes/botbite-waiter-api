@@ -197,26 +197,30 @@ export class MessagesService {
   ): Record<string, { price: number; quantity: number }> {
     const order: Record<string, { price: number; quantity: number }> = {};
 
+    // Regex mejorada para capturar el formato: • PRODUCTO: $precio x cantidad = $subtotal
+    // También soporta formato sin subtotal: • PRODUCTO: $precio x cantidad
+    // Y formato simple: • PRODUCTO: $precio
     const orderRegex =
-      /[-•]?\s*\*?\*?([^:]+):\s*\$(\d+(?:\.\d{2})?)(?:\s*x\s*(\d+)\s*=\s*\$(\d+(?:\.\d{2})?))?/g;
+      /[•-]\s*([^:]+?):\s*\$(\d+(?:\.\d{2})?)(?:\s*x\s*(\d+)(?:\s*=\s*\$(\d+(?:\.\d{2})?))?)?/gi;
 
     let match;
     while ((match = orderRegex.exec(response)) !== null) {
       const productName = match[1]
         .trim()
-        .replace(/\*\*/g, '') // Remover asteriscos de formato
-        .replace(/^[•-]\s*/, '') // Remover bullet points al inicio
+        .replace(/\*\*/g, '') // Remover asteriscos de formato markdown
         .trim();
 
       const price = parseFloat(match[2]);
-      // Si no hay cantidad específica (formato simple), asumir 1
       const quantity = match[3] ? parseInt(match[3]) : 1;
 
-      // Excluir "Total" y otros elementos que no son productos
+      // Excluir "Total" y líneas que claramente no son productos
+      const lowerName = productName.toLowerCase();
       if (
-        productName.toLowerCase() === 'total' ||
-        productName.toLowerCase().includes('**total') ||
-        productName.toLowerCase().startsWith('total')
+        lowerName === 'total' ||
+        lowerName.includes('total:') ||
+        lowerName.startsWith('total') ||
+        lowerName.includes('subtotal') ||
+        productName.length === 0
       ) {
         continue;
       }
@@ -229,6 +233,7 @@ export class MessagesService {
       }
     }
 
+    this.logger.debug(`Extracted order: ${JSON.stringify(order)}`);
     return order;
   }
 
@@ -422,20 +427,22 @@ export class MessagesService {
           branch.id,
         );
 
-      // Obtener historial de conversación completo
+      // Obtener historial de conversación (limitado a últimos 20 mensajes para performance)
       const history = await this.conversationService.getConversationHistory(
         conversation.conversationId,
+        20,
       );
 
-      // Encontrar el último mensaje del asistente que contiene productos (nuevo formato)
+      // Encontrar el último mensaje del asistente que contiene productos
       let productMessage: string | null = null;
       for (let i = history.length - 1; i >= 0; i--) {
         const message = history[i];
         if (
           message.role === 'assistant' &&
-          (message.content.includes('• ') || // Nuevo formato con bullet points
-            message.content.includes('He agregado') || // Formato anterior (compatibilidad)
-            message.content.includes('Aquí tienes tu lista'))
+          message.content.includes('• ') && // Debe tener productos en formato bullet
+          (message.content.includes('He agregado') ||
+            message.content.includes('He actualizado') ||
+            message.content.includes('Aquí tienes'))
         ) {
           productMessage = message.content;
           break;
@@ -451,11 +458,12 @@ export class MessagesService {
 
       const currentOrder = this.extractOrderFromResponse(productMessage);
 
-      if (!currentOrder) {
+      if (!currentOrder || Object.keys(currentOrder).length === 0) {
         this.logger.warn('Could not extract order from product message');
         return;
       }
 
+      // Usar lastOrderSentToCashier para comparar cambios
       const lastSentOrder = conversation.lastOrderSentToCashier || {};
 
       const orderChanges = this.calculateOrderChanges(
@@ -511,9 +519,13 @@ export class MessagesService {
           branch.id,
         );
 
-      // Obtener historial de conversación completo
+      // Usar lastOrderSentToCashier como fuente principal de la orden
+      const orderFromField = conversation.lastOrderSentToCashier;
+      
+      // Obtener historial como fallback si no hay orden guardada
       const history = await this.conversationService.getConversationHistory(
         conversation.conversationId,
+        30, // Limitar búsqueda
       );
 
       // Encontrar el último mensaje del asistente que contiene la cuenta
@@ -522,9 +534,10 @@ export class MessagesService {
         const message = history[i];
         if (
           message.role === 'assistant' &&
-          (message.content.includes('Aquí tienes tu cuenta:') || // Nuevo formato
+          (message.content.includes('Aquí tienes tu cuenta:') || // Formato de cuenta
             (message.content.includes('cuenta') &&
-              message.content.includes('• ')))
+              message.content.includes('• ') &&
+              message.content.includes('Total')))
         ) {
           billMessage = message.content;
           break;
@@ -572,14 +585,20 @@ export class MessagesService {
     branch: Branch,
   ) {
     try {
+      this.logger.log('Creating order from bill request...');
+      this.logger.debug(`Assistant response: ${assistantResponse}`);
+      
       const orderItems = this.extractOrderFromResponse(assistantResponse);
 
       if (!orderItems || Object.keys(orderItems).length === 0) {
-        this.logger.warn(
+        this.logger.error(
           'No order items found in assistant response for bill request',
         );
+        this.logger.debug(`Response text was: ${assistantResponse}`);
         return;
       }
+
+      this.logger.log(`Extracted ${Object.keys(orderItems).length} items from response`);
 
       const products = await this.productsService.findAllByRestaurant(
         branch.restaurantId,
@@ -603,8 +622,11 @@ export class MessagesService {
       );
 
       let totalAmount = 0;
+      let itemsAdded = 0;
 
       for (const [productName, orderItem] of Object.entries(orderItems)) {
+        this.logger.debug(`Processing product: "${productName}" - Price: $${orderItem.price} - Quantity: ${orderItem.quantity}`);
+        
         const product = products.products.find(
           (p) =>
             p.name.toLowerCase() === productName.toLowerCase().trim() ||
@@ -612,14 +634,14 @@ export class MessagesService {
         );
 
         if (!product) {
-          this.logger.warn(`Product not found: "${productName}"`);
+          this.logger.warn(`Product not found in database: "${productName}"`);
           continue;
         }
 
         const menuItem = menuItems.find((m) => m.productId === product.id);
 
         if (!menuItem) {
-          this.logger.warn(`Menu item not found for product: "${productName}"`);
+          this.logger.warn(`Menu item not found for product: "${productName}" (ID: ${product.id})`);
           continue;
         }
 
@@ -634,8 +656,11 @@ export class MessagesService {
           );
 
           totalAmount += orderItem.price;
+          itemsAdded++;
         }
       }
+
+      this.logger.log(`Added ${itemsAdded} items to order. Total: $${totalAmount}`);
 
       await this.orderService.updateOrder(
         order.order.id,
