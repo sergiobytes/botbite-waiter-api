@@ -10,6 +10,7 @@ import { FindUsersDto } from './dto/find-users.dto';
 
 import * as argon2 from 'argon2';
 import { PaginationDto } from '../common/dto/pagination.dto';
+import { UserResponseSanitized } from './interfaces/userResponseSanitized.interface';
 
 @Injectable()
 export class UsersService {
@@ -295,7 +296,7 @@ export class UsersService {
     };
   }
 
-  sanitizeUserResponse(user: User) {
+  sanitizeUserResponse(user: User): UserResponseSanitized {
     return {
       id: user.id,
       email: user.email,
