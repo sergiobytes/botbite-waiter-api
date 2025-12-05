@@ -136,7 +136,10 @@ export class MessagesService {
 
     // Verificar si hay confirmación de productos
     const isInitialConfirmation = this.isInitialOrderConfirmation(response);
-    const isProductUpdate = this.isProductConfirmation(messageData.message, response);
+    const isProductUpdate = this.isProductConfirmation(
+      messageData.message,
+      response,
+    );
 
     // Solo notificar UNA VEZ si hay confirmación (dar prioridad a isInitialConfirmation)
     if (isInitialConfirmation || isProductUpdate) {
@@ -217,11 +220,11 @@ export class MessagesService {
     response: string,
   ): Record<
     string,
-    { price: number; quantity: number; menuItemId?: string; notes?: string }
+    { price: number; quantity: number; menuItemId: string; notes?: string }
   > {
     const order: Record<
       string,
-      { price: number; quantity: number; menuItemId?: string; notes?: string }
+      { price: number; quantity: number; menuItemId: string; notes?: string }
     > = {};
 
     // Regex mejorada para capturar: • [ID:xxx] PRODUCTO (CATEGORÍA): $precio x cantidad = $subtotal [Nota: observación]
@@ -278,7 +281,10 @@ export class MessagesService {
       string,
       { price: number; quantity: number; menuItemId?: string; notes?: string }
     >,
-  ): Record<string, { price: number; quantity: number; menuItemId?: string; notes?: string }> {
+  ): Record<
+    string,
+    { price: number; quantity: number; menuItemId?: string; notes?: string }
+  > {
     const changes: Record<
       string,
       { price: number; quantity: number; menuItemId?: string; notes?: string }
@@ -306,12 +312,10 @@ export class MessagesService {
     conversationId: string,
   ): Promise<string> {
     try {
-      const history = await this.conversationService.getConversationHistory(
-        conversationId,
-        50,
-      );
+      const { messages } =
+        await this.conversationService.getConversationHistory(conversationId);
 
-      for (const message of history) {
+      for (const message of messages) {
         if (message.role === 'user') {
           const content = message.content.toLowerCase().trim();
 
@@ -377,12 +381,13 @@ export class MessagesService {
       'es',
     );
 
-    for (const [productKey, { price, quantity, menuItemId, notes }] of Object.entries(
-      orderChanges,
-    )) {
+    for (const [
+      productKey,
+      { price, quantity, menuItemId, notes },
+    ] of Object.entries(orderChanges)) {
       // Extraer el nombre del producto de la clave (puede tener formato "producto||observaciones")
       const productName = productKey.split('||')[0];
-      
+
       let categoryInfo = '';
 
       // Encontrar el producto por ID para obtener su categoría
@@ -394,12 +399,12 @@ export class MessagesService {
       }
 
       message += `• ${productName}${categoryInfo}: $${price.toFixed(2)} x ${quantity} = $${(price * quantity).toFixed(2)}`;
-      
+
       // Agregar observaciones si existen
       if (notes) {
         message += ` [Nota: ${notes}]`;
       }
-      
+
       message += `\n`;
     }
 
@@ -515,7 +520,11 @@ export class MessagesService {
       'tu pedido está ahora en proceso',
     );
 
-    return clientConfirms && (aiAsksForMore || aiConfirmsOrder) && !isInitialConfirmation;
+    return (
+      clientConfirms &&
+      (aiAsksForMore || aiConfirmsOrder) &&
+      !isInitialConfirmation
+    );
   }
 
   private async notifyCashierAboutConfirmedProducts(
@@ -531,9 +540,10 @@ export class MessagesService {
         );
 
       // Obtener historial de conversación completo (sin límite para asegurar que encontramos el mensaje correcto)
-      const history = await this.conversationService.getConversationHistory(
-        conversation.conversationId,
-      );
+      const { messages } =
+        await this.conversationService.getConversationHistory(
+          conversation.conversationId,
+        );
 
       // Buscar el último mensaje del asistente que tiene productos
       // Debe ser el penúltimo mensaje (el anterior a "Perfecto, gracias por confirmar")
@@ -541,8 +551,8 @@ export class MessagesService {
 
       // Buscar desde el final, saltando el último mensaje del asistente (que es la confirmación)
       let assistantMessagesFound = 0;
-      for (let i = history.length - 1; i >= 0; i--) {
-        const message = history[i];
+      for (let i = messages.length - 1; i >= 0; i--) {
+        const message = messages[i];
         if (message.role === 'assistant') {
           assistantMessagesFound++;
 
@@ -670,11 +680,12 @@ Total: $${totalAmount.toFixed(2)}`;
       await this.branchService.updateAvailableMessages(branch);
 
       // Contar interacciones del asistente antes de crear la orden
-      const history = await this.conversationService.getConversationHistory(
-        conversation.conversationId,
-      );
+      const { messages } =
+        await this.conversationService.getConversationHistory(
+          conversation.conversationId,
+        );
 
-      const assistantInteractions = history.filter(
+      const assistantInteractions = messages.filter(
         (msg) => msg.role === 'assistant',
       ).length;
 
@@ -756,7 +767,7 @@ Total: $${totalAmount.toFixed(2)}`;
       for (const [productKey, orderItem] of Object.entries(orderItems)) {
         // Extraer el nombre del producto (puede tener formato "producto||observaciones")
         const productName = productKey.split('||')[0];
-        
+
         // Buscar por menuItemId
         if (!orderItem.menuItemId) {
           this.logger.warn(

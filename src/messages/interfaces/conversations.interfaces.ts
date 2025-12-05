@@ -10,3 +10,13 @@ export interface GetCreateConversation {
   service: OpenAIService;
   logger: Logger;
 }
+
+export interface LastOrderSentToCashier {
+  conversationId: string;
+  logger: Logger;
+  repository: Repository<Conversation>;
+  orderData: Record<
+    string,
+    { price: number; quantity: number; menuItemId: string; notes?: string }
+  >;
+}

@@ -7,7 +7,10 @@ import { OpenAIService } from '../../openai/services/openai.service';
 import { Customer } from '../../customers/entities/customer.entity';
 import { Branch } from '../../branches/entities/branch.entity';
 import { getOrCreateConversationUseCase } from '../use-cases/conversations/get-create-conversation.use-case';
-import { saveMessageUseCase } from '../use-cases/messages/save-message.use-case';
+import { ConversationHistoryResponse } from '../interfaces/messages.interfaces';
+import { getConversationHistoryUseCase } from '../use-cases/messages/get-conversation-history.use-case';
+import { processMessageUseCase } from '../use-cases/messages/process-message.use-case';
+import { updateLastOrderSentToCashierUseCase } from '../use-cases/conversations/update-last-order-sent-cashier.use-case';
 
 @Injectable()
 export class ConversationService {
@@ -34,39 +37,13 @@ export class ConversationService {
     });
   }
 
-  async saveMessage(
-    conversationId: string,
-    role: 'user' | 'assistant',
-    content: string,
-  ): Promise<ConversationMessage> {
-    return saveMessageUseCase({
-      conversationId,
-      role,
-      content,
-      repository: this.messageRepository,
-    });
-  }
-
   async getConversationHistory(
     conversationId: string,
-    limit?: number,
-  ): Promise<Array<{ role: 'user' | 'assistant'; content: string }>> {
-    const findOptions: any = {
-      where: { conversationId },
-      order: { createdAt: 'ASC' },
-    };
-
-    // Solo aplicar límite si se especifica explícitamente
-    if (limit !== undefined) {
-      findOptions.take = limit;
-    }
-
-    const messages = await this.messageRepository.find(findOptions);
-
-    return messages.map((msg) => ({
-      role: msg.role,
-      content: msg.content,
-    }));
+  ): Promise<ConversationHistoryResponse> {
+    return getConversationHistoryUseCase({
+      conversationId,
+      repository: this.messageRepository,
+    });
   }
 
   async processMessage(
@@ -76,57 +53,32 @@ export class ConversationService {
     customerContext?: Customer,
     branchContext?: Branch,
   ): Promise<string> {
-    try {
-      const conversation = await this.getOrCreateConversation(
-        phoneNumber,
-        branchId,
-      );
-      const history = await this.getConversationHistory(
-        conversation.conversationId,
-        50, // Aumentar límite para conversaciones más largas
-      );
-
-      await this.saveMessage(conversation.conversationId, 'user', userMessage);
-
-      const assistantResponse = await this.openaiService.sendMessage(
-        conversation.conversationId,
-        userMessage,
-        history,
-        customerContext,
-        branchContext,
-      );
-
-      await this.saveMessage(
-        conversation.conversationId,
-        'assistant',
-        assistantResponse,
-      );
-
-      this.logger.log(
-        `Message processed successfully for conversation: ${conversation.conversationId}`,
-      );
-      return assistantResponse;
-    } catch (error) {
-      this.logger.log('Error processing message: ', error);
-      throw error;
-    }
+    return processMessageUseCase({
+      phoneNumber,
+      userMessage,
+      branchId,
+      customerContext,
+      branchContext,
+      logger: this.logger,
+      conversationRepository: this.conversationRepository,
+      conversationMessageRepository: this.messageRepository,
+      service: this.openaiService,
+    });
   }
 
   async updateLastOrderSentToCashier(
     conversationId: string,
     orderData: Record<
       string,
-      { price: number; quantity: number; menuItemId?: string }
+      { price: number; quantity: number; menuItemId: string; notes?: string }
     >,
   ): Promise<void> {
-    await this.conversationRepository.update(
-      { conversationId },
-      { lastOrderSentToCashier: orderData },
-    );
-
-    this.logger.log(
-      `Updated last order sent to cashier for conversation: ${conversationId}`,
-    );
+    return updateLastOrderSentToCashierUseCase({
+      conversationId,
+      orderData,
+      repository: this.conversationRepository,
+      logger: this.logger,
+    });
   }
 
   async deleteConversation(conversationId: string): Promise<void> {
