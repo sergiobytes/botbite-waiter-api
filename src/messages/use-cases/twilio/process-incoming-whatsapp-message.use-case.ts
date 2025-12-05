@@ -1,5 +1,5 @@
 import { Logger } from '@nestjs/common';
-import { WebhookDataTwilio } from '../../../../messages/models/webhook-data.twilio';
+import { WebhookDataTwilio } from '../../models/webhook-data.twilio';
 
 export const processIncomingWhatsappMessageUseCase = (
   logger: Logger,

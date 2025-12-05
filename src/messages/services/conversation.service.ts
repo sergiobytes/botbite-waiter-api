@@ -1,11 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Conversation } from '../../entities/conversation.entity';
+import { Conversation } from '../entities/conversation.entity';
 import { Repository } from 'typeorm';
-import { ConversationMessage } from '../../entities/conversation-message.entity';
-import { OpenAIService } from '../../../openai/services/openai.service';
-import { Customer } from '../../../customers/entities/customer.entity';
-import { Branch } from '../../../branches/entities/branch.entity';
+import { ConversationMessage } from '../entities/conversation-message.entity';
+import { OpenAIService } from '../../openai/services/openai.service';
+import { Customer } from '../../customers/entities/customer.entity';
+import { Branch } from '../../branches/entities/branch.entity';
 
 @Injectable()
 export class ConversationService {

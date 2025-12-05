@@ -1,11 +1,11 @@
 import { Injectable, Logger } from '@nestjs/common';
 
 import * as twilio from 'twilio';
-import { processIncomingWhatsappMessageUseCase } from './use-cases/process-incoming-whatsapp-message.use-case';
-import { WebhookDataTwilio } from '../../models/webhook-data.twilio';
-import { sendWhatsappMessageUseCase } from './use-cases/send-whatsapp-message.use-case';
+import { processIncomingWhatsappMessageUseCase } from '../use-cases/twilio/process-incoming-whatsapp-message.use-case';
+import { WebhookDataTwilio } from '../models/webhook-data.twilio';
+import { sendWhatsappMessageUseCase } from '../use-cases/twilio/send-whatsapp-message.use-case';
 import { MessageInstance } from 'twilio/lib/rest/api/v2010/account/message';
-import { twilioConfig } from '../../../config/twilio.config';
+import { twilioConfig } from '../../config/twilio.config';
 
 @Injectable()
 export class TwilioService {

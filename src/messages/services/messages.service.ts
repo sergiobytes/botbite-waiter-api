@@ -1,14 +1,14 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { WebhookDataTwilio } from './models/webhook-data.twilio';
-import { TwilioService } from './services/twilio/twilio.service';
-import { BranchesService } from '../branches/branches.service';
-import { Customer } from '../customers/entities/customer.entity';
-import { CustomersService } from '../customers/customers.service';
-import { TranslationService } from '../common/services/translation.service';
-import { Branch } from '../branches/entities/branch.entity';
-import { OrdersService } from '../orders/orders.service';
-import { ConversationService } from './services/conversation/conversation.service';
-import { MenusService } from './../menus/menus.service';
+import { WebhookDataTwilio } from '../models/webhook-data.twilio';
+import { TwilioService } from './twilio.service';
+import { BranchesService } from '../../branches/branches.service';
+import { Customer } from '../../customers/entities/customer.entity';
+import { CustomersService } from '../../customers/customers.service';
+import { TranslationService } from '../../common/services/translation.service';
+import { Branch } from '../../branches/entities/branch.entity';
+import { OrdersService } from '../../orders/orders.service';
+import { ConversationService } from './conversation.service';
+import { MenusService } from '../../menus/menus.service';
 
 @Injectable()
 export class MessagesService {
