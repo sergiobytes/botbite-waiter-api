@@ -11,6 +11,7 @@ import { ConversationHistoryResponse } from '../interfaces/messages.interfaces';
 import { getConversationHistoryUseCase } from '../use-cases/messages/get-conversation-history.use-case';
 import { processMessageUseCase } from '../use-cases/messages/process-message.use-case';
 import { updateLastOrderSentToCashierUseCase } from '../use-cases/conversations/update-last-order-sent-cashier.use-case';
+import { deleteConversationUseCase } from '../use-cases/conversations/delete-conversation.use-case';
 
 @Injectable()
 export class ConversationService {
@@ -82,20 +83,11 @@ export class ConversationService {
   }
 
   async deleteConversation(conversationId: string): Promise<void> {
-    try {
-      await this.messageRepository.delete({ conversationId });
-
-      await this.conversationRepository.delete({ conversationId });
-
-      this.logger.log(
-        `Conversation and all its messages deleted: ${conversationId}`,
-      );
-    } catch (error) {
-      this.logger.error(
-        `Error deleting conversation ${conversationId}:`,
-        error,
-      );
-      throw error;
-    }
+    return deleteConversationUseCase({
+      conversationId,
+      conversationRepository: this.conversationRepository,
+      conversationMessageRepository: this.messageRepository,
+      logger: this.logger,
+    });
   }
 }
