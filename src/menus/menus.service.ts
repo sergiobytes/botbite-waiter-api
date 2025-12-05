@@ -1,6 +1,6 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { ILike, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import { Menu } from './entities/menu.entity';
 import { MenuItem } from './entities/menu-item.entity';
 import { TranslationService } from 'src/common/services/translation.service';
@@ -13,6 +13,10 @@ import { PaginationDto } from '../common/dto/pagination.dto';
 import { FindMenuDto } from './dto/find-menu.dto';
 import { FindMenuItemDto } from './dto/find-menu-item.dto';
 import { uploadPdfToCloudinary } from '../common/utils/upload-to-cloudinary';
+import { MenuListResponse, MenuResponse } from './interfaces/menus.interfaces';
+import { createMenuUseCase } from './use-cases/menus/create-menu.use-case';
+import { findMenusByBranchUseCase } from './use-cases/menus/find-menus-by-branch.use-case';
+import { findOneMenuUseCase } from './use-cases/menus/find-one-menu.use-case';
 
 @Injectable()
 export class MenusService {
@@ -32,22 +36,16 @@ export class MenusService {
     branchId: string,
     createMenuDto: CreateMenuDto,
     lang: string,
-  ) {
-    await this.validateBranch(branchId, lang);
-
-    const menu = this.menuRepository.create({
-      ...createMenuDto,
+  ): Promise<MenuResponse> {
+    return createMenuUseCase({
       branchId,
+      dto: createMenuDto,
+      lang,
+      logger: this.logger,
+      menuRepository: this.menuRepository,
+      branchRepository: this.branchRepository,
+      translationService: this.translationService,
     });
-
-    const savedMenu = await this.menuRepository.save(menu);
-
-    this.logger.log(`Menu created: ${savedMenu.name} for branch: ${branchId}`);
-
-    return {
-      menu: savedMenu,
-      message: this.translationService.translate('menus.menu_created', lang),
-    };
   }
 
   async findMenusByBranch(
@@ -55,62 +53,27 @@ export class MenusService {
     paginationDto: PaginationDto = {},
     findMenuDto: FindMenuDto = {},
     lang: string,
-  ) {
-    await this.validateBranch(branchId, lang);
-
-    const { limit = 10, offset = 0 } = paginationDto;
-    const { search, isActive } = findMenuDto;
-
-    const whereConditions: any = { branchId };
-
-    if (search) {
-      whereConditions.name = ILike(`%${search}%`);
-    }
-
-    if (isActive !== undefined) {
-      whereConditions.isActive = isActive;
-    }
-
-    const [menus, total] = await this.menuRepository.findAndCount({
-      where: whereConditions,
-      relations: { menuItems: true },
-      order: { createdAt: 'DESC' },
-      skip: offset,
-      take: limit,
+  ): Promise<MenuListResponse> {
+    return findMenusByBranchUseCase({
+      branchId,
+      lang,
+      logger: this.logger,
+      menuRepository: this.menuRepository,
+      branchRepository: this.branchRepository,
+      translationService: this.translationService,
+      paginationDto,
+      findMenuDto,
     });
-
-    return {
-      menus,
-      total,
-      pagination: {
-        limit,
-        offset,
-        totalPages: Math.ceil(total / limit),
-        currentPage: Math.floor(offset / limit) + 1,
-      },
-      message: this.translationService.translate('menus.menus_found', lang),
-    };
   }
 
   async findOneMenu(menuId: string, lang: string) {
-    const menu = await this.menuRepository.findOne({
-      where: { id: menuId },
-      relations: { menuItems: true },
+    return findOneMenuUseCase({
+      menuId,
+      lang,
+      logger: this.logger,
+      repository: this.menuRepository,
+      translationService: this.translationService,
     });
-
-    if (!menu) {
-      this.logger.warn(`Menu not found: ${menuId}`);
-      throw new NotFoundException(
-        this.translationService.translate('menus.menu_not_found', lang),
-      );
-    }
-
-    await this.validateBranch(menu.branchId, lang);
-
-    return {
-      menu,
-      message: this.translationService.translate('menus.menu_found', lang),
-    };
   }
 
   async uploadMenuFile(
