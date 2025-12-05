@@ -10,23 +10,21 @@ import {
 export const findOneBranchUseCase = async (
   params: FindBranches,
 ): Promise<BranchResponse> => {
-  const {
-    term,
-    logger,
-    restaurantId,
-    repository,
-    translationService,
-    lang,
-  } = params;
+  const { term, logger, restaurantId, repository, translationService, lang } =
+    params;
 
-  let whereCondition: FindOptionsWhere<Branch>[];
+  const whereCondition: FindOptionsWhere<Branch>[] = [];
 
-  if (restaurantId && isUUID(term)) {
-    whereCondition = [{ id: term, restaurant: { id: restaurantId } }];
-  } else if (restaurantId) {
-    whereCondition = [{ name: term, restaurant: { id: restaurantId } }];
-  } else {
-    whereCondition = [{ name: term }, { phoneNumberAssistant: term }];
+  if (isUUID(term)) {
+    whereCondition.push({ id: term });
+  }
+
+  if (restaurantId) {
+    whereCondition.push({ restaurant: { id: restaurantId } });
+  }
+  
+  if (!isUUID(term)) {
+    whereCondition.push({ name: term, phoneNumberAssistant: term });
   }
 
   const branch = await repository.findOne({
