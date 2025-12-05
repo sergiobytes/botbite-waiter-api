@@ -26,6 +26,7 @@ import { updateMenuUseCase } from './use-cases/menus/update-menu.use-case';
 import { uploadMenuFileUseCase } from './use-cases/menus/upload-menu-file.use-case';
 import { findMenuItemsUseCase } from './use-cases/menu-items/find-menu-items.use-case';
 import { findOneMenuItemUseCase } from './use-cases/menu-items/find-one-menu-item.use-case';
+import { updateMenuItemUseCase } from './use-cases/menu-items/update-menu-item.use-case';
 
 @Injectable()
 export class MenusService {
@@ -161,7 +162,11 @@ export class MenusService {
     });
   }
 
-  async findOneMenuItem(menuId: string, itemId: string, lang: string) {
+  async findOneMenuItem(
+    menuId: string,
+    itemId: string,
+    lang: string,
+  ): Promise<MenuItemResponse> {
     return findOneMenuItemUseCase({
       menuId,
       itemId,
@@ -178,25 +183,17 @@ export class MenusService {
     itemId: string,
     dto: UpdateMenuItemDto,
     lang: string,
-  ) {
-    const menuItem = await this.findOneMenuItem(menuId, itemId, lang);
-
-    Object.assign(menuItem.menuItem, dto);
-    const updatedMenuItem = await this.menuItemRepository.save(
-      menuItem.menuItem,
-    );
-
-    this.logger.log(
-      `Menu item updated: ${updatedMenuItem.id} in menu: ${menuId}`,
-    );
-
-    return {
-      menuItem: updatedMenuItem,
-      message: this.translationService.translate(
-        'menus.menuitem_updated',
-        lang,
-      ),
-    };
+  ): Promise<MenuItemResponse> {
+    return updateMenuItemUseCase({
+      menuId,
+      itemId,
+      dto,
+      lang,
+      logger: this.logger,
+      menuRepository: this.menuRepository,
+      itemRepository: this.menuItemRepository,
+      translationService: this.translationService,
+    });
   }
 
   async removeMenuItem(menuId: string, itemId: string, lang: string) {
