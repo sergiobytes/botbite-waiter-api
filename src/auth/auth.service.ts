@@ -27,7 +27,7 @@ export class AuthService {
     lang: string,
     ip: string,
   ): Promise<LoginResponse> {
-    return await loginUseCase({
+    return loginUseCase({
       dto: loginUserDto,
       logger: this.logger,
       ip,
@@ -44,7 +44,7 @@ export class AuthService {
     currentUser: User,
     lang: string,
   ): Promise<RefreshTokenResponse> {
-    return await refreshTokenUseCase({
+    return refreshTokenUseCase({
       refreshToken,
       lang,
       currentUser,

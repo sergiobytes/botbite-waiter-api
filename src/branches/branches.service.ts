@@ -50,7 +50,7 @@ export class BranchesService {
     file: Express.Multer.File,
     lang: string,
   ): Promise<BulkCreateBranchesResponse> {
-    return await bulkCreateBranchesUseCase({
+    return bulkCreateBranchesUseCase({
       file,
       repository: this.branchRepository,
       logger: this.logger,
@@ -67,7 +67,7 @@ export class BranchesService {
     user: User,
     lang: string,
   ): Promise<BranchResponse> {
-    return await updateBranchUseCase({
+    return updateBranchUseCase({
       dto: updateBranchDto,
       user,
       repository: this.branchRepository,
@@ -85,7 +85,7 @@ export class BranchesService {
     user: User,
     lang: string,
   ): Promise<BranchResponse> {
-    return await changeBranchStatusUseCase({
+    return changeBranchStatusUseCase({
       user,
       repository: this.branchRepository,
       logger: this.logger,
@@ -103,7 +103,7 @@ export class BranchesService {
     user: User,
     lang: string,
   ) {
-    return await changeBranchStatusUseCase({
+    return changeBranchStatusUseCase({
       user,
       repository: this.branchRepository,
       logger: this.logger,
@@ -116,7 +116,7 @@ export class BranchesService {
   }
 
   async findByTerm(term: string, lang: string, restaurantId?: string) {
-    return await findOneBranchUseCase({
+    return findOneBranchUseCase({
       term,
       restaurantId,
       repository: this.branchRepository,
@@ -131,7 +131,7 @@ export class BranchesService {
     paginationDto: PaginationDto = {},
     findBranchDto: FindBranchDto = {},
   ): Promise<BranchListResponse> {
-    return await findAllBranchesByRestaurantUseCase({
+    return findAllBranchesByRestaurantUseCase({
       restaurantId,
       paginationDto,
       findBranchDto,

@@ -17,7 +17,8 @@ export const findAllBranchesByRestaurantUseCase = async (
     restaurant: { id: restaurantId },
   };
 
-  whereCoindition.name = !name ? ILike(`%${search}%`) : name;
+  if (name) whereCoindition.name = name;
+  if (search) whereCoindition.name = ILike(`%${search}%`);
 
   if (isActive !== undefined) whereCoindition.isActive = isActive;
 
