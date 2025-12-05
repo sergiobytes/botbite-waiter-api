@@ -7,6 +7,7 @@ import { OpenAIService } from '../../openai/services/openai.service';
 import { Customer } from '../../customers/entities/customer.entity';
 import { Branch } from '../../branches/entities/branch.entity';
 import { getOrCreateConversationUseCase } from '../use-cases/conversations/get-create-conversation.use-case';
+import { saveMessageUseCase } from '../use-cases/messages/save-message.use-case';
 
 @Injectable()
 export class ConversationService {
@@ -38,13 +39,12 @@ export class ConversationService {
     role: 'user' | 'assistant',
     content: string,
   ): Promise<ConversationMessage> {
-    const message = this.messageRepository.create({
+    return saveMessageUseCase({
       conversationId,
       role,
       content,
+      repository: this.messageRepository,
     });
-
-    return await this.messageRepository.save(message);
   }
 
   async getConversationHistory(
