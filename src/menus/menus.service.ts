@@ -18,15 +18,16 @@ import {
 } from './interfaces/menu-items.interfaces';
 import { MenuListResponse, MenuResponse } from './interfaces/menus.interfaces';
 import { createMenuItemUseCase } from './use-cases/menu-items/create-menu-item.use-case';
+import { findMenuItemsUseCase } from './use-cases/menu-items/find-menu-items.use-case';
+import { findOneMenuItemUseCase } from './use-cases/menu-items/find-one-menu-item.use-case';
+import { removeMenuItemUseCase } from './use-cases/menu-items/remove-menu-item.use-case';
+import { updateMenuItemUseCase } from './use-cases/menu-items/update-menu-item.use-case';
 import { createMenuUseCase } from './use-cases/menus/create-menu.use-case';
 import { findMenusByBranchUseCase } from './use-cases/menus/find-menus-by-branch.use-case';
 import { findOneMenuUseCase } from './use-cases/menus/find-one-menu.use-case';
 import { removeMenuUseCase } from './use-cases/menus/remove-menu.use-case';
 import { updateMenuUseCase } from './use-cases/menus/update-menu.use-case';
 import { uploadMenuFileUseCase } from './use-cases/menus/upload-menu-file.use-case';
-import { findMenuItemsUseCase } from './use-cases/menu-items/find-menu-items.use-case';
-import { findOneMenuItemUseCase } from './use-cases/menu-items/find-one-menu-item.use-case';
-import { updateMenuItemUseCase } from './use-cases/menu-items/update-menu-item.use-case';
 
 @Injectable()
 export class MenusService {
@@ -196,25 +197,20 @@ export class MenusService {
     });
   }
 
-  async removeMenuItem(menuId: string, itemId: string, lang: string) {
-    const menuItem = await this.findOneMenuItem(menuId, itemId, lang);
-
-    menuItem.menuItem.isActive = false;
-    const updatedMenuItem = await this.menuItemRepository.save(
-      menuItem.menuItem,
-    );
-
-    this.logger.log(
-      `Menu item removed: ${updatedMenuItem.id} in menu: ${menuId}`,
-    );
-
-    return {
-      menuItem: updatedMenuItem,
-      message: this.translationService.translate(
-        'menus.menuitem_removed',
-        lang,
-      ),
-    };
+  async removeMenuItem(
+    menuId: string,
+    itemId: string,
+    lang: string,
+  ): Promise<MenuItemResponse> {
+    return removeMenuItemUseCase({
+      menuId,
+      itemId,
+      lang,
+      logger: this.logger,
+      menuRepository: this.menuRepository,
+      itemRepository: this.menuItemRepository,
+      translationService: this.translationService,
+    });
   }
   //#endregion
 }

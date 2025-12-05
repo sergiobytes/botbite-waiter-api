@@ -2,9 +2,9 @@ import { Logger } from '@nestjs/common';
 import { Repository } from 'typeorm';
 import { PaginationDto } from '../../common/dto/pagination.dto';
 import { TranslationService } from '../../common/services/translation.service';
+import { CreateMenuItemDto } from '../dto/create-menu-item.dto';
 import { FindMenuItemDto } from '../dto/find-menu-item.dto';
 import { UpdateMenuItemDto } from '../dto/update-menu-item.dto';
-import { CreateMenuItemDto } from '../dto/create-menu-item.dto';
 import { MenuItem } from '../entities/menu-item.entity';
 import { Menu } from '../entities/menu.entity';
 
@@ -52,6 +52,7 @@ export interface UpdateMenuItem {
 
 export interface RemoveMenuItem {
   menuId: string;
+  itemId: string;
   lang: string;
   logger: Logger;
   menuRepository: Repository<Menu>;
