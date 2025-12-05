@@ -28,13 +28,9 @@ export class CategoriesController {
 
   @Get()
   @Auth([UserRoles.CLIENT, UserRoles.USER])
-  findAll(@Query() findCategoryDto: FindCategoryDto, @Lang() lang: string) {
+  findAll(@Query() findCategoryDto: FindCategoryDto) {
     const { limit, offset, ...searchFilters } = findCategoryDto;
-    return this.categoriesService.findAll(
-      { limit, offset },
-      searchFilters,
-      lang,
-    );
+    return this.categoriesService.findAll({ limit, offset }, searchFilters);
   }
 
   @Get(':id')

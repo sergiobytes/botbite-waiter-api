@@ -1,12 +1,21 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
-import { CreateCategoryDto } from './dto/create-category.dto';
-import { UpdateCategoryDto } from './dto/update-category.dto';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Category } from './entities/category.entity';
-import { ILike, Repository } from 'typeorm';
-import { TranslationService } from '../common/services/translation.service';
+import { Repository } from 'typeorm';
 import { PaginationDto } from '../common/dto/pagination.dto';
+import { TranslationService } from '../common/services/translation.service';
+import { CreateCategoryDto } from './dto/create-category.dto';
 import { FindCategoryDto } from './dto/find-category.dto';
+import { UpdateCategoryDto } from './dto/update-category.dto';
+import { Category } from './entities/category.entity';
+import {
+  CategoryListResponse,
+  CategoryResponse,
+} from './interfaces/categories.interfaces';
+import { createCategoryUseCase } from './use-cases/create-category.use-case';
+import { findAllCategoriesUseCase } from './use-cases/find-all-categories.use-case';
+import { findOneCategoryUseCase } from './use-cases/find-one-category.use-case';
+import { removeCategoryUseCase } from './use-cases/remove-category.use-case';
+import { updateCategoryUseCase } from './use-cases/update-category.use-case';
 
 @Injectable()
 export class CategoriesService {
@@ -18,128 +27,58 @@ export class CategoriesService {
     private readonly translationService: TranslationService,
   ) {}
 
-  async create(createCategoryDto: CreateCategoryDto, lang: string) {
-    const category = this.categoryRepository.create(createCategoryDto);
-    const savedCategory = await this.categoryRepository.save(category);
-
-    this.logger.log(`Category created: ${savedCategory.name}`);
-
-    return {
-      category: savedCategory,
-      message: this.translationService.translate(
-        'categories.category_created',
-        lang,
-      ),
-    };
+  async create(
+    createCategoryDto: CreateCategoryDto,
+    lang: string,
+  ): Promise<CategoryResponse> {
+    return createCategoryUseCase({
+      logger: this.logger,
+      dto: createCategoryDto,
+      lang,
+      repository: this.categoryRepository,
+      translationService: this.translationService,
+    });
   }
 
   async findAll(
     paginationDto: PaginationDto = {},
     findCategoryDto: FindCategoryDto = {},
-    lang: string,
-  ) {
-    const { limit = 10, offset = 0 } = paginationDto;
-    const { name, search, isActive } = findCategoryDto;
-
-    const whereConditions: any = {};
-
-    if (name) {
-      whereConditions.name = ILike(`%${name}%`);
-    } else if (search) {
-      whereConditions.name = ILike(`%${search}%`);
-    }
-
-    if (isActive !== undefined) {
-      whereConditions.isActive = isActive;
-    }
-
-    const [categories, total] = await this.categoryRepository.findAndCount({
-      where: whereConditions,
-      order: { createdAt: 'DESC' },
-      skip: offset,
-      take: limit,
+  ): Promise<CategoryListResponse> {
+    return findAllCategoriesUseCase({
+      paginationDto,
+      findCategoryDto,
+      repository: this.categoryRepository,
     });
-
-    return {
-      categories,
-      total,
-      pagination: {
-        limit,
-        offset,
-        totalPages: Math.ceil(total / limit),
-        currentPage: Math.floor(offset / limit) + 1,
-      },
-      message: this.translationService.translate(
-        'categories.categories_found',
-        lang,
-      ),
-    };
   }
 
   async findOne(id: number, lang: string) {
-    const category = await this.categoryRepository.findOne({ where: { id } });
-
-    if (!category) {
-      this.logger.warn(`Category not found: ${id}`);
-      throw new NotFoundException(
-        this.translationService.translate('errors.category_not_found', lang),
-      );
-    }
-
-    return {
-      category,
-      message: this.translationService.translate(
-        'categories.category_found',
-        lang,
-      ),
-    };
+    return findOneCategoryUseCase({
+      id,
+      lang,
+      repository: this.categoryRepository,
+      translationService: this.translationService,
+      logger: this.logger,
+    });
   }
 
   async update(id: number, updateCategoryDto: UpdateCategoryDto, lang: string) {
-    const category = await this.categoryRepository.findOne({ where: { id } });
-
-    if (!category) {
-      this.logger.warn(`Update failed - Category not found: ${id}`);
-      throw new NotFoundException(
-        this.translationService.translate('errors.category_not_found', lang),
-      );
-    }
-
-    Object.assign(category, updateCategoryDto);
-    const updatedCategory = await this.categoryRepository.save(category);
-
-    this.logger.log(`Category updated: ${updatedCategory.name}`);
-
-    return {
-      category: updatedCategory,
-      message: this.translationService.translate(
-        'categories.category_updated',
-        lang,
-      ),
-    };
+    return updateCategoryUseCase({
+      id,
+      logger: this.logger,
+      dto: updateCategoryDto,
+      lang,
+      repository: this.categoryRepository,
+      translationService: this.translationService,
+    });
   }
 
   async remove(id: number, lang: string) {
-    const category = await this.categoryRepository.findOne({ where: { id } });
-
-    if (!category) {
-      this.logger.warn(`Remove failed - Category not found: ${id}`);
-      throw new NotFoundException(
-        this.translationService.translate('errors.category_not_found', lang),
-      );
-    }
-
-    category.isActive = false;
-    const deactivatedCategory = await this.categoryRepository.save(category);
-
-    this.logger.log(`Category deactivated: ${deactivatedCategory.name}`);
-
-    return {
-      category: deactivatedCategory,
-      message: this.translationService.translate(
-        'categories.category_deactivated',
-        lang,
-      ),
-    };
+    return removeCategoryUseCase({
+      id,
+      logger: this.logger,
+      lang,
+      repository: this.categoryRepository,
+      translationService: this.translationService,
+    });
   }
 }
