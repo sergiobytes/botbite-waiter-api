@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { TranslationService } from 'src/common/services/translation.service';
 import { Repository } from 'typeorm';
@@ -25,6 +25,7 @@ import { removeMenuUseCase } from './use-cases/menus/remove-menu.use-case';
 import { updateMenuUseCase } from './use-cases/menus/update-menu.use-case';
 import { uploadMenuFileUseCase } from './use-cases/menus/upload-menu-file.use-case';
 import { findMenuItemsUseCase } from './use-cases/menu-items/find-menu-items.use-case';
+import { findOneMenuItemUseCase } from './use-cases/menu-items/find-one-menu-item.use-case';
 
 @Injectable()
 export class MenusService {
@@ -161,23 +162,15 @@ export class MenusService {
   }
 
   async findOneMenuItem(menuId: string, itemId: string, lang: string) {
-    await this.findOneMenu(menuId, lang);
-
-    const menuItem = await this.menuItemRepository.findOne({
-      where: { id: itemId, menuId },
+    return findOneMenuItemUseCase({
+      menuId,
+      itemId,
+      lang,
+      logger: this.logger,
+      menuRepository: this.menuRepository,
+      itemRepository: this.menuItemRepository,
+      translationService: this.translationService,
     });
-
-    if (!menuItem) {
-      this.logger.warn(`Menu item not found: ${itemId} in menu: ${menuId}`);
-      throw new NotFoundException(
-        this.translationService.translate('menus.menuitem_not_found', lang),
-      );
-    }
-
-    return {
-      menuItem,
-      message: this.translationService.translate('menus.menuitem_found', lang),
-    };
   }
 
   async updateMenuItem(

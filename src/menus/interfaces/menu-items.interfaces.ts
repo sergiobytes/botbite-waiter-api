@@ -28,6 +28,7 @@ export interface FindMenuItems {
 }
 export interface FindMenuItem {
   menuId: string;
+  itemId: string;
   lang: string;
   logger: Logger;
   menuRepository: Repository<Menu>;
