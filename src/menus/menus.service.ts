@@ -12,11 +12,11 @@ import { Branch } from '../branches/entities/branch.entity';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { FindMenuDto } from './dto/find-menu.dto';
 import { FindMenuItemDto } from './dto/find-menu-item.dto';
-import { uploadPdfToCloudinary } from '../common/utils/upload-to-cloudinary';
 import { MenuListResponse, MenuResponse } from './interfaces/menus.interfaces';
 import { createMenuUseCase } from './use-cases/menus/create-menu.use-case';
 import { findMenusByBranchUseCase } from './use-cases/menus/find-menus-by-branch.use-case';
 import { findOneMenuUseCase } from './use-cases/menus/find-one-menu.use-case';
+import { uploadMenuFileUseCase } from './use-cases/menus/upload-menu-file.use-case';
 
 @Injectable()
 export class MenusService {
@@ -66,7 +66,7 @@ export class MenusService {
     });
   }
 
-  async findOneMenu(menuId: string, lang: string) {
+  async findOneMenu(menuId: string, lang: string): Promise<MenuResponse> {
     return findOneMenuUseCase({
       menuId,
       lang,
@@ -80,25 +80,15 @@ export class MenusService {
     menuId: string,
     file: Express.Multer.File,
     lang: string,
-  ) {
-    const menu = await this.findOneMenu(menuId, lang);
-
-    const uploadedMenuUrl = await uploadPdfToCloudinary(
-      file.buffer,
-      'botbite/menus',
-      `menu-${menuId}`,
-    );
-
-    menu.menu.pdfLink = uploadedMenuUrl;
-    const updatedMenu = await this.menuRepository.save(menu.menu);
-
-    return {
-      menu: updatedMenu,
-      message: this.translationService.translate(
-        'menus.menu_file_uploaded',
-        lang,
-      ),
-    };
+  ): Promise<MenuResponse> {
+    return uploadMenuFileUseCase({
+      menuId,
+      lang,
+      file,
+      logger: this.logger,
+      repository: this.menuRepository,
+      translationService: this.translationService,
+    });
   }
 
   async updateMenu(menuId: string, dto: UpdateMenuDto, lang: string) {
