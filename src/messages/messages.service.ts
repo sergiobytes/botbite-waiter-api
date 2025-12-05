@@ -41,7 +41,10 @@ export class MessagesService {
   async processIncomingMessage(body: WebhookDataTwilio) {
     const messageData = this.twilioService.processIncomingWhatsappMessage(body);
 
-    const branch = await this.branchService.findByTerm(messageData.to);
+    const { branch } = await this.branchService.findByTerm(
+      messageData.to,
+      'es',
+    );
 
     if (!branch) {
       throw new NotFoundException(
@@ -126,11 +129,10 @@ export class MessagesService {
     await this.branchService.updateAvailableMessages(branch);
 
     // Obtener conversación para verificar si es orden inicial o actualización
-    const conversation =
-      await this.conversationService.getOrCreateConversation(
-        messageData.from,
-        branch.id,
-      );
+    const conversation = await this.conversationService.getOrCreateConversation(
+      messageData.from,
+      branch.id,
+    );
 
     // Verificar si hay confirmación de productos
     const hasConfirmation =
@@ -143,9 +145,13 @@ export class MessagesService {
         Object.keys(conversation.lastOrderSentToCashier).length === 0;
 
       if (isInitialOrder) {
-        this.logger.log('Detected initial order confirmation (lastOrderSentToCashier is empty)');
+        this.logger.log(
+          'Detected initial order confirmation (lastOrderSentToCashier is empty)',
+        );
       } else {
-        this.logger.log('Detected product update confirmation (lastOrderSentToCashier has data)');
+        this.logger.log(
+          'Detected product update confirmation (lastOrderSentToCashier has data)',
+        );
       }
 
       await this.notifyCashierAboutConfirmedProducts(
@@ -505,19 +511,19 @@ export class MessagesService {
       // Buscar el último mensaje del asistente que tiene productos
       // Debe ser el penúltimo mensaje (el anterior a "Perfecto, gracias por confirmar")
       let productMessage: string | null = null;
-      
+
       // Buscar desde el final, saltando el último mensaje del asistente (que es la confirmación)
       let assistantMessagesFound = 0;
       for (let i = history.length - 1; i >= 0; i--) {
         const message = history[i];
         if (message.role === 'assistant') {
           assistantMessagesFound++;
-          
+
           // Saltar el primer mensaje del asistente (la confirmación actual)
           if (assistantMessagesFound === 1) {
             continue;
           }
-          
+
           // El segundo mensaje del asistente debería tener los productos
           if (
             message.content.includes('• ') && // Debe tener productos en formato bullet
