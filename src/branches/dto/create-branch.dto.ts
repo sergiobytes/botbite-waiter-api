@@ -19,11 +19,12 @@ export class CreateBranchDto {
   @IsOptional()
   phoneNumberReception?: string;
 
-  @IsString()
-  @IsOptional()
-  assistantId?: string;
-
   @IsOptional()
   @IsNumber()
   availableMessages?: number;
+
+  @IsOptional()
+  @IsString()
+  @IsNotEmpty()
+  surveyUrl?: string;
 }

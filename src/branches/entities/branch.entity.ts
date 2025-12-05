@@ -20,6 +20,9 @@ export class Branch extends BaseEntity {
   @Column({ nullable: true })
   qrUrl: string;
 
+  @Column({ nullable: true })
+  surveyUrl: string;
+
   @Column({ type: 'int', default: 0 })
   availableMessages: number;
 
