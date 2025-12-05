@@ -12,7 +12,10 @@ import { UpdateMenuItemDto } from './dto/update-menu-item.dto';
 import { UpdateMenuDto } from './dto/update-menu.dto';
 import { MenuItem } from './entities/menu-item.entity';
 import { Menu } from './entities/menu.entity';
-import { MenuItemResponse } from './interfaces/menu-items.interfaces';
+import {
+  MenuItemResponse,
+  MenuItemsListResponse,
+} from './interfaces/menu-items.interfaces';
 import { MenuListResponse, MenuResponse } from './interfaces/menus.interfaces';
 import { createMenuItemUseCase } from './use-cases/menu-items/create-menu-item.use-case';
 import { createMenuUseCase } from './use-cases/menus/create-menu.use-case';
@@ -21,6 +24,7 @@ import { findOneMenuUseCase } from './use-cases/menus/find-one-menu.use-case';
 import { removeMenuUseCase } from './use-cases/menus/remove-menu.use-case';
 import { updateMenuUseCase } from './use-cases/menus/update-menu.use-case';
 import { uploadMenuFileUseCase } from './use-cases/menus/upload-menu-file.use-case';
+import { findMenuItemsUseCase } from './use-cases/menu-items/find-menu-items.use-case';
 
 @Injectable()
 export class MenusService {
@@ -143,46 +147,17 @@ export class MenusService {
     paginationDto: PaginationDto = {},
     findMenuItemDto: FindMenuItemDto = {},
     lang: string,
-  ) {
-    const menu = await this.findOneMenu(menuId, lang);
-
-    const { limit = 10, offset = 0 } = paginationDto;
-    const { search, isActive } = findMenuItemDto;
-
-    const queryBuilder = this.menuItemRepository
-      .createQueryBuilder('menuItem')
-      .leftJoinAndSelect('menuItem.product', 'product')
-      .leftJoinAndSelect('menuItem.category', 'category')
-      .where('menuItem.menuId = :menuId', { menuId: menu.menu.id });
-
-    if (isActive !== undefined) {
-      queryBuilder.andWhere('menuItem.isActive = :isActive', { isActive });
-    }
-
-    if (search) {
-      queryBuilder.andWhere(
-        '(product.name ILIKE :search OR product.normalizedName ILIKE :search)',
-        { search: `%${search}%` },
-      );
-    }
-
-    const [items, total] = await queryBuilder
-      .orderBy('menuItem.createdAt', 'DESC')
-      .skip(offset)
-      .take(limit)
-      .getManyAndCount();
-
-    return {
-      items,
-      total,
-      pagination: {
-        limit,
-        offset,
-        totalPages: Math.ceil(total / limit),
-        currentPage: Math.floor(offset / limit) + 1,
-      },
-      message: this.translationService.translate('menus.menuitems_found', lang),
-    };
+  ): Promise<MenuItemsListResponse> {
+    return findMenuItemsUseCase({
+      menuId,
+      lang,
+      logger: this.logger,
+      menuRepository: this.menuRepository,
+      itemRepository: this.menuItemRepository,
+      translationService: this.translationService,
+      paginationDto,
+      findMenuItemDto,
+    });
   }
 
   async findOneMenuItem(menuId: string, itemId: string, lang: string) {
