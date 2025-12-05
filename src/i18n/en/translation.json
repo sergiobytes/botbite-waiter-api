@@ -69,7 +69,8 @@
     "branch_already_active": "Branch is already active",
     "branch_already_inactive": "Branch is already inactive",
     "branch_activated": "Branch activated successfully",
-    "branch_deactivated": "Branch deactivated successfully"
+    "branch_deactivated": "Branch deactivated successfully",
+    "branch_found": "Branch found successfully"
   },
   "menus": {
     "menu_created": "Menu created successfully",

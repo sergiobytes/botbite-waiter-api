@@ -1,25 +1,25 @@
-import {
-  BadRequestException,
-  Injectable,
-  Logger,
-  NotFoundException,
-} from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Branch } from './entities/branch.entity';
-import { FindOptionsWhere, ILike, Repository } from 'typeorm';
-import { TranslationService } from '../common/services/translation.service';
-import { CreateBranchDto } from './dto/create-branch.dto';
-import { Readable } from 'stream';
-import { ICsvBranchtRow } from './interfaces/csv-branch-row.interface';
-import * as csv from 'csv-parser';
-import { isUUID } from 'class-validator';
-import { UpdateBranchDto } from './dto/update-branch.dto';
-import { User } from '../users/entities/user.entity';
-import { UserRoles } from '../users/enums/user-roles';
+import { Repository } from 'typeorm';
 import { PaginationDto } from '../common/dto/pagination.dto';
+import { TranslationService } from '../common/services/translation.service';
+import { User } from '../users/entities/user.entity';
+import { CreateBranchDto } from './dto/create-branch.dto';
 import { FindBranchDto } from './dto/find-branch.dto';
-import { createQr } from '../common/utils/create-qr';
-import { uploadQRToCloudinary } from '../common/utils/upload-to-cloudinary';
+import { UpdateBranchDto } from './dto/update-branch.dto';
+import { Branch } from './entities/branch.entity';
+import {
+  BranchListResponse,
+  BranchResponse,
+  BulkCreateBranchesResponse,
+} from './interfaces/branches.interfaces';
+import { createBranchUseCase } from './use-cases/create-branch.use-case';
+import { bulkCreateBranchesUseCase } from './use-cases/bulk-create-branches.use-case';
+import { updateBranchUseCase } from './use-cases/update-branch.use-case';
+import { findOneBranchUseCase } from './use-cases/find-one-branch.use-case';
+import { changeBranchStatusUseCase } from './use-cases/change-branch-status.use-case';
+import { findAllBranchesByRestaurantUseCase } from './use-cases/find-all-branches-by-restaurant.use-case';
+import { generateQrForBranchUseCase } from './use-cases/generate-qr-for-branch.use-case';
 
 @Injectable()
 export class BranchesService {
@@ -35,73 +35,29 @@ export class BranchesService {
     restaurantId: string,
     createBranchDto: CreateBranchDto,
     lang: string,
-  ) {
-    const branch = this.branchRepository.create({
-      ...createBranchDto,
-      restaurant: { id: restaurantId },
+  ): Promise<BranchResponse> {
+    return await createBranchUseCase({
+      dto: createBranchDto,
+      repository: this.branchRepository,
+      translationService: this.translationService,
+      restaurantId,
+      lang,
     });
-
-    const newBranch = await this.branchRepository.save(branch);
-
-    return {
-      branch: newBranch,
-      message: this.translationService.translate(
-        'branches.branch_created',
-        lang,
-      ),
-    };
   }
 
   async bulkCreateBranches(
     restaurantId: string,
     file: Express.Multer.File,
     lang: string,
-  ) {
-    try {
-      const stream = Readable.from(file.buffer.toString());
-      const branches: CreateBranchDto[] = await this.parseCsvFile(stream);
-
-      if (branches.length === 0) {
-        throw new BadRequestException(
-          this.translationService.translate('errors.empty_csv_file', lang),
-        );
-      }
-
-      const branchesToSave = branches.map((branch) =>
-        this.branchRepository.create({
-          ...branch,
-          restaurant: { id: restaurantId },
-        }),
-      );
-
-      const savedBranches = await this.branchRepository.save(branchesToSave);
-
-      this.logger.log(
-        `Bulk created ${savedBranches.length} branches for restaurant: ${restaurantId}`,
-      );
-
-      return {
-        branches: savedBranches,
-        count: savedBranches.length,
-        message: this.translationService.translate(
-          'branches.branches_bulk_created',
-          lang,
-        ),
-      };
-    } catch (error) {
-      this.logger.error(
-        `Bulk create failed for restaurant ${restaurantId}: ${error.message}`,
-        error.stack,
-      );
-
-      if (error instanceof BadRequestException) {
-        throw error;
-      }
-
-      throw new BadRequestException(
-        this.translationService.translate('errors.csv_processing_failed', lang),
-      );
-    }
+  ): Promise<BulkCreateBranchesResponse> {
+    return await bulkCreateBranchesUseCase({
+      file,
+      repository: this.branchRepository,
+      logger: this.logger,
+      translationService: this.translationService,
+      restaurantId,
+      lang,
+    });
   }
 
   async update(
@@ -110,51 +66,17 @@ export class BranchesService {
     updateBranchDto: UpdateBranchDto,
     user: User,
     lang: string,
-  ) {
-    const branch = await this.findByTerm(branchId, restaurantId);
-
-    if (!branch) {
-      this.logger.warn(`Update failed - Branch not found: ${branchId}`);
-      throw new BadRequestException(
-        this.translationService.translate('errors.branch_not_found', lang),
-      );
-    }
-
-    const canModifyAnyBranch =
-      user.roles.includes(UserRoles.ADMIN) ||
-      user.roles.includes(UserRoles.SUPER);
-
-    if (!canModifyAnyBranch && branch.restaurant.user.id !== user.id) {
-      this.logger.warn(
-        `Update failed - User ${user.id} tried to modify branch ${branch.id} not owned by them`,
-      );
-      throw new BadRequestException(
-        this.translationService.translate('errors.branch_not_owned', lang),
-      );
-    }
-
-    if (updateBranchDto.availableMessages !== undefined) {
-      const { availableMessages } = updateBranchDto;
-      branch.availableMessages += availableMessages;
-
-      updateBranchDto.availableMessages = branch.availableMessages;
-    }
-
-    Object.assign(branch, updateBranchDto);
-
-    const updatedBranch = await this.branchRepository.save(branch);
-
-    this.logger.log(
-      `Branch updated: ${updatedBranch.name} by user: ${user.email}. Available messages: ${updatedBranch.availableMessages}`,
-    );
-
-    return {
-      branch: updatedBranch,
-      message: this.translationService.translate(
-        'branches.branch_updated',
-        lang,
-      ),
-    };
+  ): Promise<BranchResponse> {
+    return await updateBranchUseCase({
+      dto: updateBranchDto,
+      user,
+      repository: this.branchRepository,
+      logger: this.logger,
+      translationService: this.translationService,
+      branchId,
+      restaurantId,
+      lang,
+    });
   }
 
   async activateBranch(
@@ -162,51 +84,17 @@ export class BranchesService {
     restaurantId: string,
     user: User,
     lang: string,
-  ) {
-    const branch = await this.findByTerm(branchId, restaurantId);
-
-    if (!branch) {
-      this.logger.warn(`Activate failed - Branch not found: ${branchId}`);
-      throw new NotFoundException(
-        this.translationService.translate('errors.branch_not_found', lang),
-      );
-    }
-
-    const canModifyAnyBranch =
-      user.roles.includes(UserRoles.ADMIN) ||
-      user.roles.includes(UserRoles.SUPER);
-
-    if (!canModifyAnyBranch && branch.restaurant.user.id !== user.id) {
-      this.logger.warn(
-        `Activate failed - User ${user.id} tried to activate branch ${branch.id} not owned by them`,
-      );
-      throw new BadRequestException(
-        this.translationService.translate('errors.branch_not_owned', lang),
-      );
-    }
-
-    if (branch.isActive) {
-      this.logger.warn(`Activate failed - Branch already active: ${branch.id}`);
-      throw new BadRequestException(
-        this.translationService.translate(
-          'branches.branch_already_active',
-          lang,
-        ),
-      );
-    }
-
-    branch.isActive = true;
-    await this.branchRepository.save(branch);
-
-    this.logger.log(`Branch activated: ${branch.id} by user: ${user.email}`);
-
-    return {
-      branch,
-      message: this.translationService.translate(
-        'branches.branch_activated',
-        lang,
-      ),
-    };
+  ): Promise<BranchResponse> {
+    return await changeBranchStatusUseCase({
+      user,
+      repository: this.branchRepository,
+      logger: this.logger,
+      translationService: this.translationService,
+      branchId,
+      restaurantId,
+      status: true,
+      lang,
+    });
   }
 
   async deactivateBranch(
@@ -215,95 +103,26 @@ export class BranchesService {
     user: User,
     lang: string,
   ) {
-    const branch = await this.findByTerm(branchId, restaurantId);
-
-    if (!branch) {
-      this.logger.warn(`Activate failed - Branch not found: ${branchId}`);
-      throw new NotFoundException(
-        this.translationService.translate('errors.branch_not_found', lang),
-      );
-    }
-
-    const canModifyAnyBranch =
-      user.roles.includes(UserRoles.ADMIN) ||
-      user.roles.includes(UserRoles.SUPER);
-
-    if (!canModifyAnyBranch && branch.restaurant.user.id !== user.id) {
-      this.logger.warn(
-        `Activate failed - User ${user.id} tried to activate branch ${branch.id} not owned by them`,
-      );
-      throw new BadRequestException(
-        this.translationService.translate('errors.branch_not_owned', lang),
-      );
-    }
-
-    if (!branch.isActive) {
-      this.logger.warn(
-        `Activate failed - Branch already inactive: ${branch.id}`,
-      );
-      throw new BadRequestException(
-        this.translationService.translate(
-          'branches.branch_already_inactive',
-          lang,
-        ),
-      );
-    }
-
-    branch.isActive = false;
-    await this.branchRepository.save(branch);
-
-    this.logger.log(`Branch deactivated: ${branch.id} by user: ${user.email}`);
-
-    return {
-      branch,
-      message: this.translationService.translate(
-        'branches.branch_deactivated',
-        lang,
-      ),
-    };
+    return await changeBranchStatusUseCase({
+      user,
+      repository: this.branchRepository,
+      logger: this.logger,
+      translationService: this.translationService,
+      branchId,
+      restaurantId,
+      status: false,
+      lang,
+    });
   }
 
-  async findByTerm(term: string, restaurantId?: string) {
-    let whereCondition: FindOptionsWhere<Branch>[];
-
-    if (restaurantId && isUUID(term)) {
-      whereCondition = [{ id: term, restaurant: { id: restaurantId } }];
-    } else if (restaurantId) {
-      whereCondition = [{ name: term, restaurant: { id: restaurantId } }];
-    } else {
-      whereCondition = [{ name: term }, { phoneNumberAssistant: term }];
-    }
-
-    return await this.branchRepository.findOne({
-      where: whereCondition,
-      relations: {
-        restaurant: {
-          user: true,
-        },
-        menus: {
-          menuItems: {
-            category: true,
-            product: true,
-          },
-        },
-      },
-      select: {
-        id: true,
-        name: true,
-        address: true,
-        isActive: true,
-        phoneNumberAssistant: true,
-        phoneNumberReception: true,
-        qrUrl: true,
-        availableMessages: true,
-        restaurant: {
-          name: true,
-          user: {
-            id: true,
-          },
-        },
-        menus: true,
-      },
+  async findByTerm(term: string, lang: string, restaurantId?: string) {
+    return await findOneBranchUseCase({
+      term,
+      restaurantId,
+      repository: this.branchRepository,
+      translationService: this.translationService,
+      lang,
+      logger: this.logger,
     });
   }
 
@@ -311,56 +130,13 @@ export class BranchesService {
     restaurantId: string,
     paginationDto: PaginationDto = {},
     findBranchDto: FindBranchDto = {},
-  ) {
-    const { limit = 10, offset = 0 } = paginationDto;
-    const { name, search, isActive } = findBranchDto;
-
-    const whereConditions: any = { restaurant: { id: restaurantId } };
-
-    if (name) {
-      whereConditions.name = name;
-    } else if (search) {
-      whereConditions.name = ILike(`%${search}%`);
-    }
-
-    if (isActive !== undefined) {
-      whereConditions.isActive = isActive;
-    }
-
-    const [branches, total] = await this.branchRepository.findAndCount({
-      where: whereConditions,
-      relations: {
-        restaurant: true,
-      },
-      select: {
-        id: true,
-        name: true,
-        address: true,
-        isActive: true,
-        qrUrl: true,
-        availableMessages: true,
-        phoneNumberAssistant: true,
-        phoneNumberReception: true,
-        createdAt: true,
-        restaurant: {
-          name: true,
-        },
-      },
-      order: { createdAt: 'DESC' },
-      skip: offset,
-      take: limit,
+  ): Promise<BranchListResponse> {
+    return await findAllBranchesByRestaurantUseCase({
+      restaurantId,
+      paginationDto,
+      findBranchDto,
+      repository: this.branchRepository,
     });
-
-    return {
-      branches,
-      total,
-      pagination: {
-        limit,
-        offset,
-        totalPages: Math.ceil(total / limit),
-        currentPage: Math.floor(offset / limit) + 1,
-      },
-    };
   }
 
   async generateQrForBranch(
@@ -368,57 +144,18 @@ export class BranchesService {
     restaurantId: string,
     lang: string,
   ) {
-    const branch = await this.findByTerm(branchId, restaurantId);
-
-    if (!branch) {
-      this.logger.warn(`Update failed - Branch not found: ${branchId}`);
-      throw new BadRequestException(
-        this.translationService.translate('errors.branch_not_found', lang),
-      );
-    }
-
-    const targetUrl = `https://wa.me/${branch.phoneNumberAssistant}?text=Hola!`;
-
-    const finalImage = await createQr(targetUrl);
-    const uploadedImageUrl = await uploadQRToCloudinary(
-      finalImage,
-      'botbite/branches',
-      `qr-${branch.id}`,
-    );
-
-    branch.qrUrl = uploadedImageUrl;
-    await this.branchRepository.save(branch);
-
-    return {
-      qrUrl: uploadedImageUrl,
-    };
+    return await generateQrForBranchUseCase({
+      branchId,
+      restaurantId,
+      lang,
+      logger: this.logger,
+      repository: this.branchRepository,
+      translationService: this.translationService,
+    });
   }
 
   async updateAvailableMessages(branch: Branch) {
     branch.availableMessages -= 1;
     await this.branchRepository.save(branch);
-  }
-
-  private parseCsvFile(stream: Readable): Promise<CreateBranchDto[]> {
-    return new Promise((resolve, reject) => {
-      const branches: CreateBranchDto[] = [];
-
-      stream
-        .pipe(csv())
-        .on('data', (row: ICsvBranchtRow) => {
-          if (row.nombre && row.nombre.trim()) {
-            branches.push({
-              name: row.nombre.trim(),
-              address: row.direccion?.trim() || '',
-            });
-          }
-        })
-        .on('end', () => {
-          resolve(branches);
-        })
-        .on('error', (error) => {
-          reject(error);
-        });
-    });
   }
 }

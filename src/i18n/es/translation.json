@@ -70,7 +70,8 @@
     "branch_already_active": "Sucursal ya está activa",
     "branch_already_inactive": "Sucursal ya está inactiva",
     "branch_activated": "Sucursal activada exitosamente",
-    "branch_deactivated": "Sucursal desactivada exitosamente"
+    "branch_deactivated": "Sucursal desactivada exitosamente",
+    "branch_found": "Sucursal encontrada exitosamente"
   },
   "menus": {
     "menu_created": "Menú creado exitosamente",

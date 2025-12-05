@@ -10,7 +10,7 @@ import {
   RefreshTokenResponse,
 } from './interfaces/auth.interfaces';
 import { loginUseCase } from './use-cases/login.use-case';
-import { refreshTokenUseCase } from './use-cases/refreshToken.use-case';
+import { refreshTokenUseCase } from './use-cases/refresh-token.use-case';
 @Injectable()
 export class AuthService {
   private readonly logger = new Logger(AuthService.name);

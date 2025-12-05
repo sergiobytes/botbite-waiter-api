@@ -61,8 +61,9 @@ export class BranchesController {
   findByTerm(
     @Param('restaurantId', ParseUUIDPipe) restaurantId: string,
     @Param('term') term: string,
+    @Lang() lang: string,
   ) {
-    return this.branchesService.findByTerm(term, restaurantId);
+    return this.branchesService.findByTerm(term, lang, restaurantId);
   }
 
   @Get('restaurant/:restaurantId')
