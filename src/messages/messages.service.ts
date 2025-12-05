@@ -135,11 +135,11 @@ export class MessagesService {
     );
 
     // Verificar si hay confirmación de productos
-    const hasConfirmation =
-      this.isInitialOrderConfirmation(response) ||
-      this.isProductConfirmation(messageData.message, response);
+    const isInitialConfirmation = this.isInitialOrderConfirmation(response);
+    const isProductUpdate = this.isProductConfirmation(messageData.message, response);
 
-    if (hasConfirmation) {
+    // Solo notificar UNA VEZ si hay confirmación (dar prioridad a isInitialConfirmation)
+    if (isInitialConfirmation || isProductUpdate) {
       const isInitialOrder =
         !conversation.lastOrderSentToCashier ||
         Object.keys(conversation.lastOrderSentToCashier).length === 0;
@@ -154,6 +154,7 @@ export class MessagesService {
         );
       }
 
+      // Solo notificar UNA VEZ
       await this.notifyCashierAboutConfirmedProducts(
         messageData.from,
         customer,
@@ -214,16 +215,19 @@ export class MessagesService {
 
   private extractOrderFromResponse(
     response: string,
-  ): Record<string, { price: number; quantity: number; menuItemId?: string }> {
+  ): Record<
+    string,
+    { price: number; quantity: number; menuItemId?: string; notes?: string }
+  > {
     const order: Record<
       string,
-      { price: number; quantity: number; menuItemId?: string }
+      { price: number; quantity: number; menuItemId?: string; notes?: string }
     > = {};
 
-    // Regex mejorada para capturar el formato: • [ID:xxx] PRODUCTO (CATEGORÍA): $precio x cantidad = $subtotal
-    // También soporta formato sin ID, sin categoría, sin subtotal y sin cantidad
+    // Regex mejorada para capturar: • [ID:xxx] PRODUCTO (CATEGORÍA): $precio x cantidad = $subtotal [Nota: observación]
+    // También soporta formato sin ID, sin categoría, sin subtotal, sin cantidad y sin notas
     const orderRegex =
-      /[•-]\s*(?:\[ID:([^\]]+)\]\s*)?([^:(]+?)(?:\s*\(([^)]+)\))?\s*:\s*\$(\d+(?:\.\d{2})?)(?:\s*x\s*(\d+)(?:\s*=\s*\$(\d+(?:\.\d{2})?))?)?/gi;
+      /[•-]\s*(?:\[ID:([^\]]+)\]\s*)?([^:(]+?)(?:\s*\(([^)]+)\))?\s*:\s*\$(\d+(?:\.\d{2})?)(?:\s*x\s*(\d+)(?:\s*=\s*\$(\d+(?:\.\d{2})?))?)?(?:\s*\[Nota:\s*([^\]]+)\])?/gi;
 
     let match;
     while ((match = orderRegex.exec(response)) !== null) {
@@ -236,6 +240,7 @@ export class MessagesService {
 
       const price = parseFloat(match[4]);
       const quantity = match[5] ? parseInt(match[5]) : 1;
+      const notes = match[7]?.trim(); // Capturar observaciones si existen
 
       // Excluir "Total" y líneas que claramente no son productos
       const lowerName = productName.toLowerCase();
@@ -249,11 +254,15 @@ export class MessagesService {
         continue;
       }
 
-      // Si el producto ya existe, sumar las cantidades
-      if (order[productName]) {
-        order[productName].quantity += quantity;
+      // Crear una clave única que incluya las observaciones si existen
+      // Esto permite separar el mismo producto con diferentes observaciones
+      const orderKey = notes ? `${productName}||${notes}` : productName;
+
+      // Si el producto ya existe con las mismas observaciones, sumar las cantidades
+      if (order[orderKey]) {
+        order[orderKey].quantity += quantity;
       } else {
-        order[productName] = { price, quantity, menuItemId };
+        order[orderKey] = { price, quantity, menuItemId, notes };
       }
     }
 
@@ -263,27 +272,29 @@ export class MessagesService {
   private calculateOrderChanges(
     lastOrder: Record<
       string,
-      { price: number; quantity: number; menuItemId?: string }
+      { price: number; quantity: number; menuItemId?: string; notes?: string }
     >,
     currentOrder: Record<
       string,
-      { price: number; quantity: number; menuItemId?: string }
+      { price: number; quantity: number; menuItemId?: string; notes?: string }
     >,
-  ): Record<string, { price: number; quantity: number; menuItemId?: string }> {
+  ): Record<string, { price: number; quantity: number; menuItemId?: string; notes?: string }> {
     const changes: Record<
       string,
-      { price: number; quantity: number; menuItemId?: string }
+      { price: number; quantity: number; menuItemId?: string; notes?: string }
     > = {};
 
-    for (const [productName, current] of Object.entries(currentOrder)) {
-      const last = lastOrder[productName];
+    for (const [productKey, current] of Object.entries(currentOrder)) {
+      const last = lastOrder[productKey];
 
       if (!last) {
-        changes[productName] = current;
+        changes[productKey] = current;
       } else if (current.quantity > last.quantity) {
-        changes[productName] = {
+        changes[productKey] = {
           price: current.price,
           quantity: current.quantity - last.quantity,
+          menuItemId: current.menuItemId,
+          notes: current.notes,
         };
       }
     }
@@ -352,7 +363,7 @@ export class MessagesService {
     tableInfo: string,
     orderChanges: Record<
       string,
-      { price: number; quantity: number; menuItemId?: string }
+      { price: number; quantity: number; menuItemId?: string; notes?: string }
     >,
     menuId: string,
   ): Promise<string> {
@@ -366,9 +377,12 @@ export class MessagesService {
       'es',
     );
 
-    for (const [productName, { price, quantity, menuItemId }] of Object.entries(
+    for (const [productKey, { price, quantity, menuItemId, notes }] of Object.entries(
       orderChanges,
     )) {
+      // Extraer el nombre del producto de la clave (puede tener formato "producto||observaciones")
+      const productName = productKey.split('||')[0];
+      
       let categoryInfo = '';
 
       // Encontrar el producto por ID para obtener su categoría
@@ -379,7 +393,14 @@ export class MessagesService {
         }
       }
 
-      message += `• ${productName}${categoryInfo}: $${price.toFixed(2)} x ${quantity} = $${(price * quantity).toFixed(2)}\n`;
+      message += `• ${productName}${categoryInfo}: $${price.toFixed(2)} x ${quantity} = $${(price * quantity).toFixed(2)}`;
+      
+      // Agregar observaciones si existen
+      if (notes) {
+        message += ` [Nota: ${notes}]`;
+      }
+      
+      message += `\n`;
     }
 
     return message.trim();
@@ -488,7 +509,13 @@ export class MessagesService {
       responseLower.includes('perfecto, gracias por confirmar') ||
       responseLower.includes('gracias por confirmar');
 
-    return clientConfirms && (aiAsksForMore || aiConfirmsOrder);
+    // NO considerar como confirmación de producto si es la confirmación inicial
+    // (que ya se maneja con isInitialOrderConfirmation)
+    const isInitialConfirmation = responseLower.includes(
+      'tu pedido está ahora en proceso',
+    );
+
+    return clientConfirms && (aiAsksForMore || aiConfirmsOrder) && !isInitialConfirmation;
   }
 
   private async notifyCashierAboutConfirmedProducts(
@@ -690,7 +717,7 @@ Total: $${totalAmount.toFixed(2)}`;
   private async createOrderFromLastOrder(
     orderItems: Record<
       string,
-      { price: number; quantity: number; menuItemId?: string }
+      { price: number; quantity: number; menuItemId?: string; notes?: string }
     >,
     customerId: string,
     branch: Branch,
@@ -726,7 +753,10 @@ Total: $${totalAmount.toFixed(2)}`;
       let totalAmount = 0;
       let itemsAdded = 0;
 
-      for (const [productName, orderItem] of Object.entries(orderItems)) {
+      for (const [productKey, orderItem] of Object.entries(orderItems)) {
+        // Extraer el nombre del producto (puede tener formato "producto||observaciones")
+        const productName = productKey.split('||')[0];
+        
         // Buscar por menuItemId
         if (!orderItem.menuItemId) {
           this.logger.warn(
@@ -750,6 +780,7 @@ Total: $${totalAmount.toFixed(2)}`;
             {
               menuItemId: menuItem.id,
               price: orderItem.price,
+              notes: orderItem.notes, // Agregar las observaciones
             },
             'es',
           );
