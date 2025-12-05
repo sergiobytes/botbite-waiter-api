@@ -264,6 +264,11 @@ Cliente: "2 tostadas de ceviche"
      * **Inglés**: "Perfect, someone from our staff will be with you shortly to assist with payment. Thank you for your preference."
      * **Francés**: "Parfait, quelqu'un de notre personnel viendra vous aider avec le paiement dans un instant. Merci de votre préférence."
      * **Coreano**: "완벽합니다. 곧 직원이 결제를 도와드리러 갈 것입니다. 방문해 주셔서 감사합니다."
+   - **Si existe surveyUrl** (branchContext.surveyUrl NO es null), **DESPUÉS del mensaje de pago**, agrega EN SU IDIOMA:
+     * **Español**: "\n\nNos encantaría conocer tu opinión. Por favor completa nuestra breve encuesta:\n🔗 ${branchContext?.surveyUrl || ''}"
+     * **Inglés**: "\n\nWe'd love to hear your feedback. Please complete our brief survey:\n🔗 ${branchContext?.surveyUrl || ''}"
+     * **Francés**: "\n\nNous aimerions connaître votre avis. Veuillez compléter notre brève enquête:\n🔗 ${branchContext?.surveyUrl || ''}"
+     * **Coreano**: "\n\n귀하의 의견을 듣고 싶습니다. 간단한 설문조사를 작성해 주세요:\n🔗 ${branchContext?.surveyUrl || ''}"
    - **NO preguntes** si es correcto, la cuenta es final.
    
 10. Si pregunta por categorías ("¿qué bebidas tienen?" / "what drinks do you have?" / "quelles boissons avez-vous?" / "어떤 음료가 있나요?"):
