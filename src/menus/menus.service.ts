@@ -12,7 +12,9 @@ import { UpdateMenuItemDto } from './dto/update-menu-item.dto';
 import { UpdateMenuDto } from './dto/update-menu.dto';
 import { MenuItem } from './entities/menu-item.entity';
 import { Menu } from './entities/menu.entity';
+import { MenuItemResponse } from './interfaces/menu-items.interfaces';
 import { MenuListResponse, MenuResponse } from './interfaces/menus.interfaces';
+import { createMenuItemUseCase } from './use-cases/menu-items/create-menu-item.use-case';
 import { createMenuUseCase } from './use-cases/menus/create-menu.use-case';
 import { findMenusByBranchUseCase } from './use-cases/menus/find-menus-by-branch.use-case';
 import { findOneMenuUseCase } from './use-cases/menus/find-one-menu.use-case';
@@ -120,27 +122,20 @@ export class MenusService {
   //#endregion
 
   //#region MenuItem
-  async createMenuItem(menuId: string, dto: CreateMenuItemDto, lang: string) {
-    const menu = await this.findOneMenu(menuId, lang);
-
-    const menuItem = this.menuItemRepository.create({
-      ...dto,
-      menuId: menu.menu.id,
+  async createMenuItem(
+    menuId: string,
+    dto: CreateMenuItemDto,
+    lang: string,
+  ): Promise<MenuItemResponse> {
+    return createMenuItemUseCase({
+      menuId,
+      lang,
+      dto,
+      logger: this.logger,
+      menuRepository: this.menuRepository,
+      itemRepository: this.menuItemRepository,
+      translationService: this.translationService,
     });
-
-    const savedMenuItem = await this.menuItemRepository.save(menuItem);
-
-    this.logger.log(
-      `Menu item created: ${savedMenuItem.id} for menu: ${menuId}`,
-    );
-
-    return {
-      menuItem: savedMenuItem,
-      message: this.translationService.translate(
-        'menus.menuitem_created',
-        lang,
-      ),
-    };
   }
 
   async findMenuItems(
