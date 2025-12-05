@@ -5,6 +5,7 @@ import { PaginationDto } from '../../common/dto/pagination.dto';
 import { TranslationService } from '../../common/services/translation.service';
 import { CreateMenuDto } from '../dto/create-menu.dto';
 import { FindMenuDto } from '../dto/find-menu.dto';
+import { UpdateMenuDto } from '../dto/update-menu.dto';
 import { Menu } from '../entities/menu.entity';
 export interface CreateMenu {
   branchId: string;
@@ -40,6 +41,23 @@ export interface UploadMenuFile {
   repository: Repository<Menu>;
   translationService: TranslationService;
 }
+
+export interface UpdateMenu {
+  menuId: string;
+  dto: UpdateMenuDto;
+  lang: string;
+  logger: Logger;
+  repository: Repository<Menu>;
+  translationService: TranslationService;
+}
+export interface RemoveMenu {
+  menuId: string;
+  lang: string;
+  logger: Logger;
+  repository: Repository<Menu>;
+  translationService: TranslationService;
+}
+
 export interface MenuResponse {
   menu: Menu;
   message: string;
