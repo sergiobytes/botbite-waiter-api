@@ -6,7 +6,6 @@ import {
   Param,
   Patch,
   Post,
-  Query,
 } from '@nestjs/common';
 import { CustomersService } from './customers.service';
 import { Auth } from '../auth/decorators/auth.decorator';
@@ -14,7 +13,6 @@ import { UserRoles } from '../users/enums/user-roles';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
 import { Lang } from '../common/decorators/lang.decorator';
-import { PaginationDto } from '../common/dto/pagination.dto';
 
 @Controller('customers')
 @Auth([UserRoles.SUPER, UserRoles.ADMIN])
@@ -24,11 +22,6 @@ export class CustomersController {
   @Post()
   create(@Body() dto: CreateCustomerDto, @Lang() lang: string) {
     return this.customersService.create(dto, lang);
-  }
-
-  @Get()
-  findAll(@Query() paginationDto: PaginationDto, @Lang() lang: string) {
-    return this.customersService.findAll(paginationDto, lang);
   }
 
   @Get(':term')
