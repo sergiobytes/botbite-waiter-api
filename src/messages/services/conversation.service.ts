@@ -6,6 +6,7 @@ import { ConversationMessage } from '../entities/conversation-message.entity';
 import { OpenAIService } from '../../openai/services/openai.service';
 import { Customer } from '../../customers/entities/customer.entity';
 import { Branch } from '../../branches/entities/branch.entity';
+import { getOrCreateConversationUseCase } from '../use-cases/conversations/get-create-conversation.use-case';
 
 @Injectable()
 export class ConversationService {
@@ -23,30 +24,13 @@ export class ConversationService {
     phoneNumber: string,
     branchId?: string,
   ): Promise<Conversation> {
-    let conversation = await this.conversationRepository.findOne({
-      where: { phoneNumber },
-      relations: { messages: true },
-      order: { lastActivity: 'DESC' },
+    return getOrCreateConversationUseCase({
+      phoneNumber,
+      branchId,
+      repository: this.conversationRepository,
+      service: this.openaiService,
+      logger: this.logger,
     });
-
-    if (!conversation) {
-      const conversationId = this.openaiService.createConversation();
-
-      conversation = this.conversationRepository.create({
-        conversationId,
-        phoneNumber,
-        branchId,
-        lastActivity: new Date(),
-      });
-
-      conversation = await this.conversationRepository.save(conversation);
-      this.logger.log(`New conversation created for phone: ${phoneNumber}`);
-    } else {
-      conversation.lastActivity = new Date();
-      await this.conversationRepository.save(conversation);
-    }
-
-    return conversation;
   }
 
   async saveMessage(
@@ -148,9 +132,9 @@ export class ConversationService {
   async deleteConversation(conversationId: string): Promise<void> {
     try {
       await this.messageRepository.delete({ conversationId });
-      
+
       await this.conversationRepository.delete({ conversationId });
-      
+
       this.logger.log(
         `Conversation and all its messages deleted: ${conversationId}`,
       );
