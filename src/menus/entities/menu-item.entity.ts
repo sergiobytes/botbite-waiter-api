@@ -18,6 +18,9 @@ export class MenuItem extends BaseEntity {
   @Column('decimal', { precision: 10, scale: 2 })
   price: number;
 
+  @Column({ default: false })
+  shouldRecommend: boolean;
+
   @ManyToOne(() => Menu, (menu) => menu.id)
   @JoinColumn({ name: 'menuId' })
   menu: Menu;

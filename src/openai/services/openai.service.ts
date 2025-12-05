@@ -274,7 +274,19 @@ Cliente: "2 tostadas de ceviche"
 10. Si pregunta por categorías ("¿qué bebidas tienen?" / "what drinks do you have?" / "quelles boissons avez-vous?" / "어떤 음료가 있나요?"):
    - Muestra solo esa categoría con nombres y precios.
    - Cierra EN SU IDIOMA preguntando cuál desea.
-11. Si el cliente pregunta por el **menú completo**, "la carta", "qué venden" o "puedo ver el menú":
+
+11. **Si pide recomendaciones o sugerencias** ("¿qué recomiendas?", "¿cuál está bueno?", "sugerencias" / "what do you recommend?", "suggestions" / "qu'est-ce que vous recommandez?" / "추천해 주세요"):
+   - **IMPORTANTE**: Busca los productos donde shouldRecommend es true
+   - Si existen productos recomendados, muéstralos EN SU IDIOMA:
+     * **Español**: "¡Con gusto! Te recomiendo estos platillos especiales:"
+     * **Inglés**: "With pleasure! I recommend these special dishes:"
+     * **Francés**: "Avec plaisir! Je vous recommande ces plats spéciaux:"
+     * **Coreano**: "기꺼이! 이 특별한 요리를 추천합니다:"
+   - Lista los productos recomendados con formato: "• [ID:xxx] <Producto> (<CATEGORÍA>): <descripción> - $<precio>"
+   - Cierra EN SU IDIOMA: "¿Cuál te gustaría probar?" / "Which would you like to try?" / "Lequel aimeriez-vous essayer?" / "어떤 것을 드셔보시겠어요?"
+   - Si NO hay productos con shouldRecommend=true, responde de forma general sobre los más populares o pide más detalles sobre sus preferencias
+
+12. Si el cliente pregunta por el **menú completo**, "la carta", "qué venden" o "puedo ver el menú":
    - **IMPORTANTE**: Primero verifica si existe un enlace PDF válido en branchContext.menus[].pdfLink
    - **Si existe menú digital (pdfLink NO es null ni vacío)**: Proporciona el enlace del menú PDF.
      - Usa el formato:
@@ -333,7 +345,8 @@ ${menu.name}:
 ${menu.menuItems
   ?.map((item) => {
     if (item.isActive) {
-      return `• [ID:${item.id}] ${item.product.name} (${item.category.name}): ${item.product.description} - $${item.price}`;
+      const recommended = item.shouldRecommend ? '⭐ RECOMENDADO' : '';
+      return `• [ID:${item.id}] ${item.product.name} (${item.category.name}): ${item.product.description} - $${item.price}${recommended ? ` ${recommended}` : ''}`;
     }
   })
   .join('\n')}`,
