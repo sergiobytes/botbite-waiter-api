@@ -20,7 +20,7 @@ export class Conversation extends BaseEntity {
   @Column({ type: 'json', nullable: true })
   lastOrderSentToCashier?: Record<
     string,
-    { price: number; quantity: number; menuItemId?: string }
+    { price: number; quantity: number; menuItemId: string; notes?: string }
   >;
 
   @OneToMany(() => ConversationMessage, (message) => message.conversation, {

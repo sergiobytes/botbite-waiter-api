@@ -1,10 +1,17 @@
-import { Repository } from 'typeorm';
-import { ConversationMessage } from '../entities/conversation-message.entity';
-import { Customer } from '../../customers/entities/customer.entity';
-import { Branch } from '../../branches/entities/branch.entity';
 import { Logger } from '@nestjs/common';
-import { Conversation } from '../entities/conversation.entity';
+import { Repository } from 'typeorm';
+import { BranchesService } from '../../branches/branches.service';
+import { Branch } from '../../branches/entities/branch.entity';
+import { TranslationService } from '../../common/services/translation.service';
+import { CustomersService } from '../../customers/customers.service';
+import { Customer } from '../../customers/entities/customer.entity';
+import { MenusService } from '../../menus/menus.service';
 import { OpenAIService } from '../../openai/services/openai.service';
+import { ConversationMessage } from '../entities/conversation-message.entity';
+import { Conversation } from '../entities/conversation.entity';
+import { WebhookDataTwilio } from '../models/webhook-data.twilio';
+import { ConversationService } from '../services/conversation.service';
+import { TwilioService } from '../services/twilio.service';
 
 export interface SaveMessage {
   conversationId: string;
@@ -28,6 +35,45 @@ export interface ProcessMessage {
   conversationMessageRepository: Repository<ConversationMessage>;
   conversationRepository: Repository<Conversation>;
   service: OpenAIService;
+}
+
+export interface ProcessIncomingMessage {
+  body: WebhookDataTwilio;
+  logger: Logger;
+  twilioService: TwilioService;
+  branchesService: BranchesService;
+  customersService: CustomersService;
+  translationService: TranslationService;
+}
+
+export interface SendMessage {
+  customerPhone: string;
+  message: string;
+  assistantPhone: string;
+  twilioService: TwilioService;
+  logger: Logger;
+}
+
+export interface NotifyCashier {
+  from: string;
+  message: string;
+  customer: Customer;
+  branch: Branch;
+  twilioService: TwilioService;
+  conversationService: ConversationService;
+  menuService?: MenusService;
+  logger: Logger;
+}
+
+export interface GenerateCashierMessage {
+  customerName: string;
+  tableInfo: string;
+  orderChanges: Record<
+    string,
+    { price: number; quantity: number; menuItemId: string; notes?: string }
+  >;
+  menuId: string;
+  service: MenusService;
 }
 
 export interface ConversationHistoryResponse {
