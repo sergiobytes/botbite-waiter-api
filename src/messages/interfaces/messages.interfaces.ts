@@ -12,6 +12,7 @@ import { Conversation } from '../entities/conversation.entity';
 import { WebhookDataTwilio } from '../models/webhook-data.twilio';
 import { ConversationService } from '../services/conversation.service';
 import { TwilioService } from '../services/twilio.service';
+import { OrdersService } from '../../orders/orders.service';
 
 export interface SaveMessage {
   conversationId: string;
@@ -44,6 +45,9 @@ export interface ProcessIncomingMessage {
   branchesService: BranchesService;
   customersService: CustomersService;
   translationService: TranslationService;
+  conversationService: ConversationService;
+  menuService: MenusService;
+  ordersService: OrdersService;
 }
 
 export interface SendMessage {
@@ -61,7 +65,9 @@ export interface NotifyCashier {
   branch: Branch;
   twilioService: TwilioService;
   conversationService: ConversationService;
-  menuService?: MenusService;
+  menuService: MenusService;
+  branchesService: BranchesService;
+  ordersService: OrdersService;
   logger: Logger;
 }
 
@@ -74,6 +80,17 @@ export interface GenerateCashierMessage {
   >;
   menuId: string;
   service: MenusService;
+}
+
+export interface CreateOrderFromLastOrder {
+  orderItems: Record<
+    string,
+    { price: number; quantity: number; menuItemId: string; notes?: string }
+  >;
+  customerId: string;
+  branch: Branch;
+  service: OrdersService;
+  logger: Logger;
 }
 
 export interface ConversationHistoryResponse {
