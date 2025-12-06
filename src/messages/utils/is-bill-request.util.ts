@@ -33,12 +33,10 @@ export const isBillRequestUtil = (
     return false;
   }
 
-  // Cliente pide la cuenta con palabras clave
   const clientRequestsBill = billKeywords.some((keyword) =>
     clientLower.includes(keyword),
   );
 
-  // Respuesta del asistente contiene la confirmación de cuenta
   const responseContainsBillConfirmation =
     aiResponseLower.includes('aquí tienes tu cuenta:') &&
     aiResponseLower.includes(
