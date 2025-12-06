@@ -38,10 +38,21 @@ export const isBillRequestUtil = (
   );
 
   const responseContainsBillConfirmation =
-    aiResponseLower.includes('aquí tienes tu cuenta:') &&
-    aiResponseLower.includes(
+    (aiResponseLower.includes('aquí tienes tu cuenta:') ||
+      aiResponseLower.includes('aqui tienes tu cuenta:') ||
+      aiResponseLower.includes('here is your bill:') ||
+      aiResponseLower.includes('voici votre addition:') ||
+      aiResponseLower.includes('계산서입니다:')) &&
+    (aiResponseLower.includes(
       'en unos momentos se acercará alguien de nuestro personal para apoyarte con el pago',
-    );
+    ) ||
+      aiResponseLower.includes(
+        'someone from our staff will be with you shortly to assist with payment',
+      ) ||
+      aiResponseLower.includes(
+        "quelqu'un de notre personnel viendra vous aider avec le paiement",
+      ) ||
+      aiResponseLower.includes('곧 직원이 결제를 도와드리러 갈 것입니다'));
 
   return clientRequestsBill && responseContainsBillConfirmation;
 };

@@ -51,7 +51,7 @@ export const findMenuItemsUseCase = async (
   const [items, total] = await queryBuilder
     .orderBy('menuItem.createdAt', 'DESC')
     .skip(offset)
-    .limit(limit)
+    .take(limit)
     .getManyAndCount();
 
   return {

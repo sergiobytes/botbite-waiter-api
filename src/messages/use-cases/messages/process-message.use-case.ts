@@ -28,12 +28,12 @@ export const processMessageUseCase = async (
     });
 
     const { messages } = await getConversationHistoryUseCase({
-      conversationId: conversation.id,
+      conversationId: conversation.conversationId,
       repository: conversationMessageRepository,
     });
 
     await saveMessageUseCase({
-      conversationId: conversation.id,
+      conversationId: conversation.conversationId,
       role: 'user',
       content: userMessage,
       repository: conversationMessageRepository,
@@ -48,7 +48,7 @@ export const processMessageUseCase = async (
     );
 
     await saveMessageUseCase({
-      conversationId: conversation.id,
+      conversationId: conversation.conversationId,
       role: 'assistant',
       content: aiResponse,
       repository: conversationMessageRepository,

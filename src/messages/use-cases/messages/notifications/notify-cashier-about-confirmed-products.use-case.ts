@@ -25,7 +25,7 @@ export const notifyCashierAboutConfirmedProductsUseCase = async (
     );
 
     const { messages } = await conversationService.getConversationHistory(
-      conversation.id,
+      conversation.conversationId,
     );
 
     let prdMessage: string | null = null;
@@ -67,7 +67,7 @@ export const notifyCashierAboutConfirmedProductsUseCase = async (
     }
 
     const tableInfo = await extractTableInfoFromConversationUtil(
-      conversation.id,
+      conversation.conversationId,
       conversationService,
       logger,
     );
@@ -89,7 +89,7 @@ export const notifyCashierAboutConfirmedProductsUseCase = async (
     });
 
     await conversationService.updateLastOrderSentToCashier(
-      conversation.id,
+      conversation.conversationId,
       currentOrder,
     );
 

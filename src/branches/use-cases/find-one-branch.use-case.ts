@@ -17,14 +17,12 @@ export const findOneBranchUseCase = async (
 
   if (isUUID(term)) {
     whereCondition.push({ id: term });
+  } else {
+    whereCondition.push({ phoneNumberAssistant: term });
   }
 
   if (restaurantId) {
     whereCondition.push({ restaurant: { id: restaurantId } });
-  }
-  
-  if (!isUUID(term)) {
-    whereCondition.push({ name: term, phoneNumberAssistant: term });
   }
 
   const branch = await repository.findOne({
