@@ -39,10 +39,12 @@ export const processIncomingMessageUseCase = async (
   }
 
   const isCashier = from === phoneNumberReception;
-  let customerData: Customer;
+  let customerData: Customer | null;
 
   if (!isCashier) {
     const { customer } = await customersService.findByTerm(from, 'es');
+
+    customerData = customer;
 
     if (!customer) {
       const { customer } = await customersService.create(
@@ -54,12 +56,14 @@ export const processIncomingMessageUseCase = async (
       );
       customerData = customer;
     } else {
-      const { customer } = await customersService.update(
-        from,
-        { name: profileName },
-        'es',
-      );
-      customerData = customer;
+      if (customerData !== null && customerData.name !== profileName) {
+        const { customer } = await customersService.update(
+          from,
+          { name: profileName },
+          'es',
+        );
+        customerData = customer;
+      }
     }
   } else {
     customerData = {
@@ -78,7 +82,7 @@ export const processIncomingMessageUseCase = async (
   if (inappropriateBehavior || invalidTableResponse) {
     await notifyCashierAboutInappropriateBehaviorUseCase({
       branch,
-      customer: customerData,
+      customer: customerData!,
       message,
       conversationService,
       twilioService,
@@ -105,7 +109,7 @@ export const processIncomingMessageUseCase = async (
     from,
     message,
     branch.id,
-    customerData,
+    customerData!,
     branch,
   );
 
@@ -146,7 +150,7 @@ export const processIncomingMessageUseCase = async (
 
     await notifyCashierAboutConfirmedProductsUseCase({
       branch,
-      customer: customerData,
+      customer: customerData!,
       logger,
       from,
       message,
@@ -169,7 +173,7 @@ export const processIncomingMessageUseCase = async (
       twilioService,
       menuService,
       message,
-      customer: customerData,
+      customer: customerData!,
     });
   }
 };

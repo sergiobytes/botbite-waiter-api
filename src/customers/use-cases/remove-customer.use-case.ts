@@ -1,6 +1,7 @@
+import { NotFoundException } from '@nestjs/common';
 import {
-    CustomerResponse,
-    RemoveCustomer,
+  CustomerResponse,
+  RemoveCustomer,
 } from '../interfaces/customers.interfaces';
 import { findOneCustomerUseCase } from './find-one-customer.use-case';
 
@@ -15,6 +16,12 @@ export const removeCustomerUseCase = async (
     repository,
     translationService,
   });
+
+  if (!customer) {
+    throw new NotFoundException(
+      translationService.translate('customers.customer_not_found', lang),
+    );
+  }
 
   customer.isActive = false;
   await repository.save(customer);

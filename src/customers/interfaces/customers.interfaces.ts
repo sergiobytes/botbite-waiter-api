@@ -38,6 +38,6 @@ export interface FindCustomer {
 }
 
 export interface CustomerResponse {
-  customer: Customer;
+  customer: Customer | null;
   message: string;
 }

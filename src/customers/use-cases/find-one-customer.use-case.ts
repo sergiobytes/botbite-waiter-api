@@ -3,7 +3,6 @@ import {
   CustomerResponse,
   FindCustomer,
 } from '../interfaces/customers.interfaces';
-import { NotFoundException } from '@nestjs/common';
 
 export const findOneCustomerUseCase = async (
   params: FindCustomer,
@@ -17,9 +16,13 @@ export const findOneCustomerUseCase = async (
   });
 
   if (!customer) {
-    throw new NotFoundException(
-      translationService.translate('customers.customer_not_found', lang),
-    );
+    return {
+      customer: null,
+      message: translationService.translate(
+        'customers.customer_not_found',
+        lang,
+      ),
+    };
   }
 
   return {
