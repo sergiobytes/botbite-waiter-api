@@ -19,6 +19,8 @@ import { FindProductsDto } from './dto/find-products.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
 import { User } from '../users/entities/user.entity';
 import { UserRoles } from '../users/enums/user-roles';
+import { createProductUseCase } from './use-cases/create-product.use-case';
+import { bulkCreateProductsUseCase } from './use-cases/bulk-create-products.use-case';
 
 @Injectable()
 export class ProductsService {
@@ -35,18 +37,13 @@ export class ProductsService {
     createProductDto: CreateProductDto,
     lang: string,
   ) {
-    const product = this.productRepository.create({
-      ...createProductDto,
-      restaurant: { id: restaurantId },
+    return createProductUseCase({
+      restaurantId,
+      dto: createProductDto,
+      lang,
+      repository: this.productRepository,
+      translationService: this.translationService,
     });
-
-    await this.productRepository.save(product);
-    return {
-      message: this.translationService.translate(
-        'products.product_created',
-        lang,
-      ),
-    };
   }
 
   async bulkCreate(
@@ -54,52 +51,14 @@ export class ProductsService {
     file: Express.Multer.File,
     lang: string,
   ) {
-    try {
-      const stream = Readable.from(file.buffer.toString());
-      const products: CreateProductDto[] = await this.parseCsvFile(stream);
-
-      if (products.length === 0) {
-        throw new BadRequestException(
-          this.translationService.translate('errors.empty_csv_file', lang),
-        );
-      }
-
-      const productsToSave = products.map((product) =>
-        this.productRepository.create({
-          ...product,
-          restaurant: { id: restaurantId },
-        }),
-      );
-
-      const savedProducts = await this.productRepository.save(productsToSave);
-
-      this.logger.log(
-        `Bulk created ${savedProducts.length} products for restaurant: ${restaurantId}`,
-      );
-
-      return {
-        products: savedProducts,
-        count: savedProducts.length,
-        message: this.translationService.translate(
-          'products.products_bulk_created',
-          lang,
-          { count: savedProducts.length.toString() },
-        ),
-      };
-    } catch (error) {
-      this.logger.error(
-        `Bulk create failed for restaurant ${restaurantId}: ${error.message}`,
-        error.stack,
-      );
-
-      if (error instanceof BadRequestException) {
-        throw error;
-      }
-
-      throw new BadRequestException(
-        this.translationService.translate('errors.csv_processing_failed', lang),
-      );
-    }
+    return bulkCreateProductsUseCase({
+      file,
+      repository: this.productRepository,
+      logger: this.logger,
+      translationService: this.translationService,
+      restaurantId,
+      lang,
+    });
   }
 
   async update(
