@@ -3,11 +3,23 @@ import { Product } from '../entities/product.entity';
 import { CreateProductDto } from '../dto/create-product.dto';
 import { Repository } from 'typeorm';
 import { TranslationService } from '../../common/services/translation.service';
+import { UpdateProductDto } from '../dto/update-product.dto';
+import { User } from '../../users/entities/user.entity';
 
 export interface ICreateProductParams {
   restaurantId: string;
   dto: CreateProductDto;
   lang: string;
+  repository: Repository<Product>;
+  translationService: TranslationService;
+}
+export interface IUpdateProductParams {
+  productId: string;
+  restaurantId: string;
+  lang: string;
+  dto: UpdateProductDto;
+  user: User;
+  logger: Logger;
   repository: Repository<Product>;
   translationService: TranslationService;
 }

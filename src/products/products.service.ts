@@ -9,10 +9,6 @@ import { Product } from './entities/product.entity';
 import { ILike, Repository } from 'typeorm';
 import { TranslationService } from '../common/services/translation.service';
 import { CreateProductDto } from './dto/create-product.dto';
-import { Readable } from 'stream';
-
-import * as csv from 'csv-parser';
-import { ICsvProductRow } from './interfaces/csv-product-row.interface';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { FindProductsDto } from './dto/find-products.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
@@ -21,6 +17,7 @@ import { UserRoles } from '../users/enums/user-roles';
 import { createProductUseCase } from './use-cases/create-product.use-case';
 import { bulkCreateProductsUseCase } from './use-cases/bulk-create-products.use-case';
 import { findOneProductUseCase } from './use-cases/find-one-product.use-case';
+import { updateProductUseCase } from './use-cases/update-product.use-case';
 
 @Injectable()
 export class ProductsService {
@@ -68,41 +65,16 @@ export class ProductsService {
     user: User,
     lang: string,
   ) {
-    const { product } = await this.findByTerm(productId, restaurantId);
-
-    if (!product) {
-      this.logger.warn(`Update failed - Product not found: ${productId}`);
-      throw new BadRequestException(
-        this.translationService.translate('errors.product_not_found', lang),
-      );
-    }
-
-    const canModifyAnyProduct =
-      user.roles.includes(UserRoles.ADMIN) ||
-      user.roles.includes(UserRoles.SUPER);
-
-    if (!canModifyAnyProduct && product.restaurant.user.id !== user.id) {
-      this.logger.warn(
-        `Update failed - User ${user.id} tried to modify product ${product.id} not owned by them`,
-      );
-      throw new BadRequestException(
-        this.translationService.translate('errors.product_not_owned', lang),
-      );
-    }
-    Object.assign(product, updateProductDto);
-    const updatedProduct = await this.productRepository.save(product);
-
-    this.logger.log(
-      `Product updated: ${updatedProduct.name} by user: ${user.email}`,
-    );
-
-    return {
-      product: updatedProduct,
-      message: this.translationService.translate(
-        'products.product_updated',
-        lang,
-      ),
-    };
+    return updateProductUseCase({
+      productId,
+      restaurantId,
+      dto: updateProductDto,
+      user,
+      lang,
+      logger: this.logger,
+      repository: this.productRepository,
+      translationService: this.translationService,
+    });
   }
 
   async activateProduct(
@@ -272,28 +244,5 @@ export class ProductsService {
         currentPage: Math.floor(offset / limit) + 1,
       },
     };
-  }
-
-  private parseCsvFile(stream: Readable): Promise<CreateProductDto[]> {
-    return new Promise((resolve, reject) => {
-      const products: CreateProductDto[] = [];
-
-      stream
-        .pipe(csv())
-        .on('data', (row: ICsvProductRow) => {
-          if (row.nombre && row.nombre.trim()) {
-            products.push({
-              name: row.nombre.trim(),
-              description: row.descripcion?.trim() || '',
-            });
-          }
-        })
-        .on('end', () => {
-          resolve(products);
-        })
-        .on('error', (error) => {
-          reject(error);
-        });
-    });
   }
 }
