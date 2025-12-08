@@ -13,7 +13,6 @@ import { Readable } from 'stream';
 
 import * as csv from 'csv-parser';
 import { ICsvProductRow } from './interfaces/csv-product-row.interface';
-import { isUUID } from 'class-validator';
 import { PaginationDto } from '../common/dto/pagination.dto';
 import { FindProductsDto } from './dto/find-products.dto';
 import { UpdateProductDto } from './dto/update-product.dto';
@@ -21,6 +20,7 @@ import { User } from '../users/entities/user.entity';
 import { UserRoles } from '../users/enums/user-roles';
 import { createProductUseCase } from './use-cases/create-product.use-case';
 import { bulkCreateProductsUseCase } from './use-cases/bulk-create-products.use-case';
+import { findOneProductUseCase } from './use-cases/find-one-product.use-case';
 
 @Injectable()
 export class ProductsService {
@@ -68,7 +68,7 @@ export class ProductsService {
     user: User,
     lang: string,
   ) {
-    const product = await this.findByTerm(productId, restaurantId);
+    const { product } = await this.findByTerm(productId, restaurantId);
 
     if (!product) {
       this.logger.warn(`Update failed - Product not found: ${productId}`);
@@ -111,7 +111,7 @@ export class ProductsService {
     user: User,
     lang: string,
   ) {
-    const product = await this.findByTerm(productId, restaurantId);
+    const { product } = await this.findByTerm(productId, restaurantId);
 
     if (!product) {
       this.logger.warn(`Activate failed - Product not found: ${productId}`);
@@ -164,7 +164,7 @@ export class ProductsService {
     user: User,
     lang: string,
   ) {
-    const product = await this.findByTerm(productId, restaurantId);
+    const { product } = await this.findByTerm(productId, restaurantId);
 
     if (!product) {
       this.logger.warn(`Activate failed - Product not found: ${productId}`);
@@ -212,32 +212,13 @@ export class ProductsService {
   }
 
   async findByTerm(term: string, restaurantId: string) {
-    const whereCondition = isUUID(term)
-      ? [
-          { id: term, restaurant: { id: restaurantId } },
-          { name: term, restaurant: { id: restaurantId } },
-        ]
-      : [{ name: term, restaurant: { id: restaurantId } }];
-
-    return await this.productRepository.findOne({
-      where: whereCondition,
-      select: {
-        id: true,
-        name: true,
-        description: true,
-        isActive: true,
-        restaurant: {
-          name: true,
-          user: {
-            id: true,
-          },
-        },
-      },
-      relations: {
-        restaurant: {
-          user: true,
-        },
-      },
+    return findOneProductUseCase({
+      term,
+      restaurantId,
+      lang: 'es',
+      repository: this.productRepository,
+      logger: this.logger,
+      translationService: this.translationService,
     });
   }
 

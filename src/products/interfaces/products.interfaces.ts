@@ -21,6 +21,15 @@ export interface IBulkCreateProductParams {
   lang: string;
 }
 
+export interface IFindProductParams {
+  term: string;
+  restaurantId: string;
+  lang: string;
+  repository: Repository<Product>;
+  translationService: TranslationService;
+  logger: Logger;
+}
+
 export interface IProductResponse {
   product: Product;
   message: string;
