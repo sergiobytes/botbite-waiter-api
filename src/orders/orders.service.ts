@@ -1,13 +1,15 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Order } from './entities/order.entity';
 import { Repository } from 'typeorm';
-import { OrderItem } from './entities/order-item.entity';
 import { TranslationService } from '../common/services/translation.service';
+import { CreateOrderItemDto } from './dto/create-order-item.dto';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
-import { CreateOrderItemDto } from './dto/create-order-item.dto';
+import { OrderItem } from './entities/order-item.entity';
+import { Order } from './entities/order.entity';
 import { createOrderUseCase } from './use-cases/orders/create-order.use-case';
+import { findAllOrdersUseCase } from './use-cases/orders/find-all-orders.use-case';
+import { findOneOrderUseCase } from './use-cases/orders/find-one-order.use-case';
 
 @Injectable()
 export class OrdersService {
@@ -32,36 +34,22 @@ export class OrdersService {
   }
 
   async findAllOrders(branchId: string, lang: string) {
-    const where = branchId ? { branchId } : {};
-
-    const orders = await this.orderRepository.find({
-      where,
-      relations: { orderItems: true },
+    return findAllOrdersUseCase({
+      branchId,
+      lang,
+      repository: this.orderRepository,
+      translationService: this.translationService,
     });
-
-    return {
-      orders,
-      message: this.translationService.translate('orders.orders_found', lang),
-    };
   }
 
   async findOneOrder(id: string, lang: string) {
-    const order = await this.orderRepository.findOne({
-      where: { id },
-      relations: { orderItems: true },
+    return findOneOrderUseCase({
+      orderId: id,
+      lang,
+      repository: this.orderRepository,
+      logger: this.logger,
+      translationService: this.translationService,
     });
-
-    if (!order) {
-      this.logger.warn(`Order not found: ${id}`);
-      throw new NotFoundException(
-        this.translationService.translate('orders.order_not_found', lang),
-      );
-    }
-
-    return {
-      order,
-      message: this.translationService.translate('orders.order_found', lang),
-    };
   }
 
   async updateOrder(id: string, dto: UpdateOrderDto, lang: string) {
@@ -74,20 +62,6 @@ export class OrdersService {
     return {
       order: updatedOrder,
       message: this.translationService.translate('orders.order_updated', lang),
-    };
-  }
-
-  async closeOrder(id: string, lang: string) {
-    const { order } = await this.findOneOrder(id, lang);
-
-    order.isActive = false;
-    order.total = order.orderItems.reduce((sum, item) => sum + item.price, 0);
-
-    await this.orderRepository.save(order);
-
-    this.logger.log(`Order closed: ${order.id}`);
-    return {
-      message: this.translationService.translate('orders.order_closed', lang),
     };
   }
 
@@ -109,31 +83,6 @@ export class OrdersService {
       orderItem: savedItem,
       message: this.translationService.translate(
         'orders.orderitem_created',
-        lang,
-      ),
-    };
-  }
-
-  async removeOrderItem(orderId: string, itemId: string, lang: string) {
-    const orderItem = await this.orderItemRepository.findOne({
-      where: { id: itemId, orderId },
-    });
-
-    if (!orderItem) {
-      this.logger.warn(
-        `Delete failed - Order item not found: ${itemId} in order: ${orderId}`,
-      );
-      throw new NotFoundException(
-        this.translationService.translate('orders.orderitem_not_found', lang),
-      );
-    }
-
-    await this.orderItemRepository.delete(itemId);
-
-    this.logger.log(`Order item deleted: ${itemId} from order: ${orderId}`);
-    return {
-      message: this.translationService.translate(
-        'orders.orderitem_deleted',
         lang,
       ),
     };

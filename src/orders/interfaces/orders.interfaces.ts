@@ -12,7 +12,27 @@ export interface CreateOrder {
   translationService: TranslationService;
 }
 
+export interface FindOrders {
+  branchId: string;
+  lang: string;
+  repository: Repository<Order>;
+  translationService: TranslationService;
+}
+
+export interface FindOrder {
+  orderId: string;
+  lang: string;
+  repository: Repository<Order>;
+  logger: Logger;
+  translationService: TranslationService;
+}
+
 export interface OrderResponse {
   order: Order;
+  message: string;
+}
+
+export interface OrdersResponse {
+  orders: Order[];
   message: string;
 }

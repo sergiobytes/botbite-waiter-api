@@ -1,7 +1,6 @@
 import {
   Body,
   Controller,
-  Delete,
   Get,
   Param,
   ParseUUIDPipe,
@@ -52,12 +51,6 @@ export class OrdersController {
     return this.ordersService.updateOrder(id, dto, lang);
   }
 
-  @Delete(':id')
-  @Auth([UserRoles.SUPER, UserRoles.ADMIN])
-  closeOrder(@Param('id', ParseUUIDPipe) id: string, @Lang() lang: string) {
-    return this.ordersService.closeOrder(id, lang);
-  }
-
   // OrderItems
   @Post(':orderId/items')
   @Auth([UserRoles.SUPER, UserRoles.ADMIN, UserRoles.CLIENT])
@@ -67,15 +60,5 @@ export class OrdersController {
     @Lang() lang: string,
   ) {
     return this.ordersService.addOrderItem(orderId, dto, lang);
-  }
-
-  @Delete(':orderId/items/:itemId')
-  @Auth([UserRoles.SUPER, UserRoles.ADMIN])
-  removeOrderItem(
-    @Param('orderId', ParseUUIDPipe) orderId: string,
-    @Param('itemId', ParseUUIDPipe) itemId: string,
-    @Lang() lang: string,
-  ) {
-    return this.ordersService.removeOrderItem(orderId, itemId, lang);
   }
 }
