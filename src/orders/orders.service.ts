@@ -11,6 +11,7 @@ import { createOrderUseCase } from './use-cases/orders/create-order.use-case';
 import { findAllOrdersUseCase } from './use-cases/orders/find-all-orders.use-case';
 import { findOneOrderUseCase } from './use-cases/orders/find-one-order.use-case';
 import { updateOrderUseCase } from './use-cases/orders/update-order.use-case';
+import { createOrderItemUseCase } from './use-cases/order-items/create-order-item.use-case';
 
 @Injectable()
 export class OrdersService {
@@ -65,25 +66,14 @@ export class OrdersService {
   }
 
   async addOrderItem(orderId: string, dto: CreateOrderItemDto, lang: string) {
-    const { order } = await this.findOneOrder(orderId, lang);
-
-    const orderItem = this.orderItemRepository.create({
-      ...dto,
-      orderId: order.id,
+    return createOrderItemUseCase({
+      dto,
+      lang,
+      orderId,
+      orderRepository: this.orderRepository,
+      orderItemRepository: this.orderItemRepository,
+      translationService: this.translationService,
+      logger: this.logger,
     });
-
-    const savedItem = await this.orderItemRepository.save(orderItem);
-
-    this.logger.log(
-      `Order item created: ${savedItem.id} for order: ${orderId}`,
-    );
-
-    return {
-      orderItem: savedItem,
-      message: this.translationService.translate(
-        'orders.orderitem_created',
-        lang,
-      ),
-    };
   }
 }
