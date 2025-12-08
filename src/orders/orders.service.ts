@@ -7,6 +7,7 @@ import { TranslationService } from '../common/services/translation.service';
 import { CreateOrderDto } from './dto/create-order.dto';
 import { UpdateOrderDto } from './dto/update-order.dto';
 import { CreateOrderItemDto } from './dto/create-order-item.dto';
+import { createOrderUseCase } from './use-cases/orders/create-order.use-case';
 
 @Injectable()
 export class OrdersService {
@@ -21,18 +22,13 @@ export class OrdersService {
   ) {}
 
   async createOrder(createOrderDto: CreateOrderDto, lang: string) {
-    const order = this.orderRepository.create({
-      ...createOrderDto,
-      orderItems: createOrderDto.orderItems,
+    return createOrderUseCase({
+      dto: createOrderDto,
+      lang,
+      repository: this.orderRepository,
+      logger: this.logger,
+      translationService: this.translationService,
     });
-
-    const savedOrder = await this.orderRepository.save(order);
-
-    this.logger.log(`Order created: ${savedOrder.id}`);
-    return {
-      order: savedOrder,
-      message: this.translationService.translate('orders.order_created', lang),
-    };
   }
 
   async findAllOrders(branchId: string, lang: string) {
