@@ -17,6 +17,7 @@ import { UserRoles } from './enums/user-roles';
 import { CurrentUser } from '../auth/decorators/current-user.decorator';
 import { User } from './entities/user.entity';
 import { FindUsersDto } from './dto/find-users.dto';
+import { sanitizeUserResponse } from './utils/sanitized-user.util';
 
 @Controller('users')
 export class UsersController {
@@ -89,10 +90,10 @@ export class UsersController {
   @Auth([UserRoles.SUPER, UserRoles.ADMIN, UserRoles.USER])
   async findUserByTerm(@CurrentUser() user: User, @Param('term') term: string) {
     if (!user) throw new Error('User not found');
-    const userSearch = await this.usersService.findUserByTerm(term);
+    const { user: userSearch } = await this.usersService.findUserByTerm(term);
 
     if (!userSearch) throw new Error('User not found');
-    return this.usersService.sanitizeUserResponse(userSearch);
+    return sanitizeUserResponse(userSearch);
   }
 
   @Get()
