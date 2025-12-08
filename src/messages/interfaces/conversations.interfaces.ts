@@ -1,8 +1,8 @@
-import { Repository } from 'typeorm';
-import { Conversation } from '../entities/conversation.entity';
-import { OpenAIService } from '../../openai/services/openai.service';
 import { Logger } from '@nestjs/common';
+import { Repository } from 'typeorm';
+import { OpenAIService } from '../../openai/openai.service';
 import { ConversationMessage } from '../entities/conversation-message.entity';
+import { Conversation } from '../entities/conversation.entity';
 
 export interface GetCreateConversation {
   phoneNumber: string;

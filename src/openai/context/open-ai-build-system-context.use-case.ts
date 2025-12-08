@@ -1,122 +1,12 @@
-import { Injectable, Logger } from '@nestjs/common';
-import OpenAI from 'openai';
-import { openAIConfig } from '../../config/openai.config';
-import { Customer } from '../../customers/entities/customer.entity';
 import { Branch } from '../../branches/entities/branch.entity';
-import { shortenUrl } from '../../common/utils/link-shortener';
+import { Customer } from '../../customers/entities/customer.entity';
+import { convertToInlineUrl } from '../utils/convert-to-inline-url.util';
 
-@Injectable()
-export class OpenAIService {
-  private readonly logger = new Logger(OpenAIService.name);
-  private readonly openai: OpenAI;
-
-  constructor() {
-    if (!openAIConfig.apiKey) {
-      this.logger.warn('OpenAI API key not configured');
-      return;
-    }
-
-    this.openai = new OpenAI({
-      apiKey: openAIConfig.apiKey,
-    });
-
-    this.logger.log('OpenAI service initialized');
-  }
-
-  createConversation(): string {
-    const conversationId = `conv_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-    this.logger.log(`Conversation created: ${conversationId}`);
-    return conversationId;
-  }
-
-  async sendMessage(
-    conversationId: string,
-    message: string,
-    conversationHistory: Array<{
-      role: 'user' | 'assistant';
-      content: string;
-    }> = [],
-    customerContext?: Customer,
-    branchContext?: Branch,
-  ): Promise<string> {
-    if (!this.openai) throw new Error('OpenAI not configured');
-
-    try {
-      const systemContext = this.buildSystemContext(
-        customerContext,
-        branchContext,
-      );
-
-      const filteredHistory =
-        this.filterHistoryAfterLastConfirmation(conversationHistory);
-
-      const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
-        {
-          role: 'system',
-          content: systemContext,
-        },
-        ...filteredHistory.map((msg) => ({
-          role: msg.role,
-          content: msg.content,
-        })),
-        {
-          role: 'user' as const,
-          content: message,
-        },
-      ];
-
-      const response = await this.openai.chat.completions.create({
-        model: 'gpt-4o',
-        messages: messages,
-        max_tokens: 1000,
-        temperature: 0.3,
-        top_p: 1,
-        frequency_penalty: 0,
-        presence_penalty: 0,
-      });
-
-      const assistantResponse =
-        response.choices[0].message.content ||
-        'Lo siento, no pude procesar tu mensaje. ¿Puedes intentarlo de nuevo?';
-
-      this.logger.log(`Response generated for conversation: ${conversationId}`);
-
-      return assistantResponse;
-    } catch (error) {
-      this.logger.error('Error sending message to OpenAI');
-
-      if (error instanceof Error) {
-        throw new Error(`OpenAI API error: ${error.message}`);
-      }
-
-      throw new Error('Unknown error occurred while communicating with OpenAI');
-    }
-  }
-
-  private convertToInlineUrl(
-    url: string,
-    menuId: string,
-    menuName: string,
-  ): string {
-    if (!url) return '—';
-
-    const frontendUrl =
-      process.env.NODE_ENV === 'development'
-        ? 'http://localhost:4200'
-        : 'https://app.botbite.com.mx';
-
-    const viewerUrl = `${frontendUrl}/menu/${menuId}?url=${encodeURIComponent(url)}&name=${encodeURIComponent(menuName)}`;
-
-    const shortUrl = shortenUrl(viewerUrl);
-
-    return shortUrl;
-  }
-
-  private buildSystemContext(
-    customerContext?: Customer,
-    branchContext?: Branch,
-  ): string {
-    return `
+export const openAiBuildSystemContext = (
+  customerContext?: Customer,
+  branchContext?: Branch,
+): string => {
+  return `
 Eres un asistente virtual de restaurante. Actúa siempre con tono amable y profesional.
 
 🌍 IDIOMA:
@@ -302,7 +192,7 @@ Cliente: "2 tostadas de ceviche"
    - **Si existe menú digital (pdfLink NO es null ni vacío)**: Proporciona el enlace del menú PDF.
      - Usa el formato:
        "Puedes ver nuestro menú completo aquí 👇
-       📄 ${branchContext?.menus?.[0]?.pdfLink ? this.convertToInlineUrl(branchContext.menus[0].pdfLink, branchContext.menus[0].id, branchContext.menus[0].name) : ''}"
+       📄 ${branchContext?.menus?.[0]?.pdfLink ? convertToInlineUrl(branchContext.menus[0].pdfLink, branchContext.menus[0].id, branchContext.menus[0].name) : ''}"
      - Si existen varios menús con PDF, muestra todos:
        "Tenemos los siguientes menús disponibles:
        ${
@@ -310,7 +200,7 @@ Cliente: "2 tostadas de ceviche"
            ?.filter((menu) => menu.pdfLink)
            ?.map(
              (menu) =>
-               `📄 ${menu.name}: ${this.convertToInlineUrl(menu.pdfLink ?? '', menu.id, menu.name)}`,
+               `📄 ${menu.name}: ${convertToInlineUrl(menu.pdfLink ?? '', menu.id, menu.name)}`,
            )
            .join('\n') || ''
        }"
@@ -351,7 +241,7 @@ ${
     ? branchContext.menus
         .map(
           (menu) => `
-${menu.pdfLink ? this.convertToInlineUrl(menu.pdfLink, menu.id, menu.name) : '—'}
+${menu.pdfLink ? convertToInlineUrl(menu.pdfLink, menu.id, menu.name) : '—'}
 ${menu.name}:
 ${menu.menuItems
   ?.map((item) => {
@@ -371,97 +261,4 @@ ${menu.menuItems
 👤 CLIENTE:
 ${customerContext ? `${customerContext.name}, Tel: ${customerContext.phone}` : 'Sin datos del cliente'}
 `;
-  }
-
-  private filterHistoryAfterLastConfirmation(
-    history: Array<{ role: 'user' | 'assistant'; content: string }>,
-  ): Array<{ role: 'user' | 'assistant'; content: string }> {
-    // Encontrar todos los mensajes de confirmación
-    const confirmationIndices: number[] = [];
-    let tableInfoMessage: {
-      role: 'user' | 'assistant';
-      content: string;
-    } | null = null;
-
-    for (let i = 0; i < history.length; i++) {
-      const message = history[i];
-
-      // Guardar información de mesa/ubicación (usuario + respuesta del asistente)
-      if (message.role === 'user' && this.containsTableInfo(message.content)) {
-        tableInfoMessage = message;
-        // También incluir la respuesta del asistente que confirma la mesa
-        if (i + 1 < history.length) {
-          const assistantResponse = history[i + 1];
-          if (assistantResponse.role === 'assistant') {
-            tableInfoMessage = {
-              role: 'assistant',
-              content: `${message.content} | ${assistantResponse.content}`,
-            };
-          }
-        }
-      }
-
-      // Encontrar mensajes de confirmación
-      if (
-        message.role === 'assistant' &&
-        message.content.includes('Tu pedido está ahora en proceso')
-      ) {
-        confirmationIndices.push(i);
-      }
-    }
-
-    // Si no hay confirmaciones, devolver historial completo
-    if (confirmationIndices.length === 0) {
-      return history;
-    }
-
-    // Construir historial filtrado manteniendo información relevante
-    const filteredHistory: Array<{
-      role: 'user' | 'assistant';
-      content: string;
-    }> = [];
-
-    // Agregar información de mesa si existe
-    if (tableInfoMessage) {
-      filteredHistory.push(tableInfoMessage);
-    }
-
-    // Agregar todas las confirmaciones de pedidos (para mantener el pedido acumulativo)
-    for (const index of confirmationIndices) {
-      filteredHistory.push(history[index]);
-    }
-
-    // Agregar mensajes después de la última confirmación
-    const lastConfirmationIndex =
-      confirmationIndices[confirmationIndices.length - 1];
-    const messagesAfterLastConfirmation = history.slice(
-      lastConfirmationIndex + 1,
-    );
-    filteredHistory.push(...messagesAfterLastConfirmation);
-
-    this.logger.log(
-      `Filtered history: keeping table info + ${confirmationIndices.length} confirmations + ${messagesAfterLastConfirmation.length} messages after last confirmation`,
-    );
-
-    return filteredHistory;
-  }
-
-  private containsTableInfo(content: string): boolean {
-    const lowerContent = content.toLowerCase().trim();
-
-    // Solo buscar patrones básicos de mesa sin validar si son "apropiados"
-    // El AI maneja la validación de contenido apropiado
-    const tablePatterns = [
-      /mesa/, // cualquier mención de mesa
-      /^\d+$/, // números solos
-      /terraza|barra|patio/, // ubicaciones específicas
-      /ubicacion|ubicación/, // palabra ubicación
-    ];
-
-    return tablePatterns.some((pattern) => pattern.test(lowerContent));
-  }
-
-  isConfigured(): boolean {
-    return !!this.openai;
-  }
-}
+};

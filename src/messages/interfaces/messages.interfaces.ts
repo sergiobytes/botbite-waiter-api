@@ -6,7 +6,7 @@ import { TranslationService } from '../../common/services/translation.service';
 import { CustomersService } from '../../customers/customers.service';
 import { Customer } from '../../customers/entities/customer.entity';
 import { MenusService } from '../../menus/menus.service';
-import { OpenAIService } from '../../openai/services/openai.service';
+import { OpenAIService } from '../../openai/openai.service';
 import { ConversationMessage } from '../entities/conversation-message.entity';
 import { Conversation } from '../entities/conversation.entity';
 import { WebhookDataTwilio } from '../models/webhook-data.twilio';

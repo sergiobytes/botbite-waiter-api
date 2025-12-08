@@ -1,5 +1,5 @@
 import { Module } from '@nestjs/common';
-import { OpenAIService } from './services/openai.service';
+import { OpenAIService } from './openai.service';
 import { MenusModule } from '../menus/menus.module';
 import { ProductsModule } from '../products/products.module';
 import { OrdersModule } from '../orders/orders.module';
