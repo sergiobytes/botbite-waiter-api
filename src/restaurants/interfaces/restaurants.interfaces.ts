@@ -36,7 +36,7 @@ export interface FindRestaurant {
 }
 
 export interface FindRestaurants {
-  restaurantId: string;
+  user: User;
   paginationDto: PaginationDto;
   findRestaurantsDto: FindRestaurantsDto;
   repository: Repository<Restaurant>;
@@ -46,6 +46,7 @@ export interface ChangeRestaurantStatus {
   restaurantId: string;
   lang: string;
   status: boolean;
+  user: User;
   repository: Repository<Restaurant>;
   translationService: TranslationService;
   logger: Logger;

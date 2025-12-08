@@ -1,9 +1,4 @@
-import {
-  Injectable,
-  BadRequestException,
-  NotFoundException,
-  Logger,
-} from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, ILike } from 'typeorm';
 import { isUUID } from 'class-validator';
@@ -17,6 +12,7 @@ import { FindRestaurantsDto } from './dto/find-resturants.dto';
 import { User } from '../users/entities/user.entity';
 import { createRestaurantUseCase } from './use-cases/create-restaurant.use-case';
 import { updateRestaurantUseCase } from './use-cases/update-restaurant.use-case';
+import { changeRestaurantStatusUseCase } from './use-cases/change-restaurant-status.use-case';
 
 @Injectable()
 export class RestaurantsService {
@@ -61,107 +57,27 @@ export class RestaurantsService {
   }
 
   async activateRestaurant(restaurantId: string, user: User, lang: string) {
-    const restaurant = await this.findRestaurantByTerm(restaurantId);
-
-    if (!restaurant) {
-      this.logger.warn(
-        `Activate failed - Restaurant not found: ${restaurantId}`,
-      );
-      throw new NotFoundException(
-        this.translationService.translate('errors.restaurant_not_found', lang),
-      );
-    }
-
-    const canModifyAnyRestaurant =
-      user.roles.includes(UserRoles.ADMIN) ||
-      user.roles.includes(UserRoles.SUPER);
-
-    if (!canModifyAnyRestaurant && restaurant.userId !== user.id) {
-      this.logger.warn(
-        `Activate failed - User ${user.id} tried to activate restaurant ${restaurantId} not owned by them`,
-      );
-      throw new BadRequestException(
-        this.translationService.translate('errors.restaurant_not_owned', lang),
-      );
-    }
-
-    if (restaurant.isActive) {
-      this.logger.warn(
-        `Activate failed - Restaurant already active: ${restaurantId}`,
-      );
-      throw new BadRequestException(
-        this.translationService.translate(
-          'restaurants.restaurant_already_active',
-          lang,
-        ),
-      );
-    }
-
-    restaurant.isActive = true;
-    await this.restaurantRepository.save(restaurant);
-
-    this.logger.log(
-      `Restaurant activated: ${restaurantId} by user: ${user.email}`,
-    );
-
-    return {
-      message: this.translationService.translate(
-        'restaurants.restaurant_activated',
-        lang,
-      ),
-    };
+    return changeRestaurantStatusUseCase({
+      restaurantId,
+      lang,
+      status: true,
+      user,
+      repository: this.restaurantRepository,
+      translationService: this.translationService,
+      logger: this.logger,
+    });
   }
 
   async deactivateRestaurant(restaurantId: string, user: User, lang: string) {
-    const restaurant = await this.findRestaurantByTerm(restaurantId);
-
-    if (!restaurant) {
-      this.logger.warn(
-        `Deactivate failed - Restaurant not found: ${restaurantId}`,
-      );
-      throw new NotFoundException(
-        this.translationService.translate('errors.restaurant_not_found', lang),
-      );
-    }
-
-    const canModifyAnyRestaurant =
-      user.roles.includes(UserRoles.ADMIN) ||
-      user.roles.includes(UserRoles.SUPER);
-
-    if (!canModifyAnyRestaurant && restaurant.userId !== user.id) {
-      this.logger.warn(
-        `Deactivate failed - User ${user.email} tried to deactivate restaurant ${restaurantId} not owned by them`,
-      );
-      throw new BadRequestException(
-        this.translationService.translate('errors.restaurant_not_owned', lang),
-      );
-    }
-
-    if (!restaurant.isActive) {
-      this.logger.warn(
-        `Deactivate failed - Restaurant already inactive: ${restaurantId}`,
-      );
-      throw new BadRequestException(
-        this.translationService.translate(
-          'restaurants.restaurant_already_inactive',
-          lang,
-        ),
-      );
-    }
-
-    restaurant.isActive = false;
-    await this.restaurantRepository.save(restaurant);
-
-    this.logger.log(
-      `Restaurant deactivated: ${restaurantId} by user: ${user.email}`,
-    );
-
-    return {
-      message: this.translationService.translate(
-        'restaurants.restaurant_deactivated',
-        lang,
-      ),
-    };
+    return changeRestaurantStatusUseCase({
+      restaurantId,
+      lang,
+      status: false,
+      user,
+      repository: this.restaurantRepository,
+      translationService: this.translationService,
+      logger: this.logger,
+    });
   }
 
   async findAllRestaurantsByClient(
