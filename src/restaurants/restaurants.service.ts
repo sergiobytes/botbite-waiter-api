@@ -15,6 +15,8 @@ import { TranslationService } from '../common/services/translation.service';
 import { UserRoles } from '../users/enums/user-roles';
 import { FindRestaurantsDto } from './dto/find-resturants.dto';
 import { User } from '../users/entities/user.entity';
+import { createRestaurantUseCase } from './use-cases/create-restaurant.use-case';
+import { updateRestaurantUseCase } from './use-cases/update-restaurant.use-case';
 
 @Injectable()
 export class RestaurantsService {
@@ -31,37 +33,14 @@ export class RestaurantsService {
     userId: string,
     lang: string,
   ) {
-    try {
-      const restaurant = this.restaurantRepository.create({
-        ...createRestaurantDto,
-        userId,
-      });
-
-      const savedRestaurant = await this.restaurantRepository.save(restaurant);
-
-      this.logger.log(
-        `Restaurant created: ${savedRestaurant.name} by user: ${userId}`,
-      );
-
-      return {
-        restaurant: this.sanitizeRestaurantResponse(savedRestaurant),
-        message: this.translationService.translate(
-          'restaurants.restaurant_created',
-          lang,
-        ),
-      };
-    } catch (error) {
-      this.logger.error(
-        `Create restaurant failed: ${error.message}`,
-        error.stack,
-      );
-      throw new BadRequestException(
-        this.translationService.translate(
-          'errors.restaurant_creation_failed',
-          lang,
-        ),
-      );
-    }
+    return createRestaurantUseCase({
+      dto: createRestaurantDto,
+      userId,
+      lang,
+      logger: this.logger,
+      repository: this.restaurantRepository,
+      translationService: this.translationService,
+    });
   }
 
   async updateRestaurant(
@@ -70,42 +49,15 @@ export class RestaurantsService {
     user: User,
     lang: string,
   ) {
-    const restaurant = await this.findRestaurantByTerm(restaurantId);
-
-    if (!restaurant) {
-      this.logger.warn(`Update failed - Restaurant not found: ${restaurantId}`);
-      throw new NotFoundException(
-        this.translationService.translate('errors.restaurant_not_found', lang),
-      );
-    }
-
-    const canModifyAnyRestaurant =
-      user.roles.includes(UserRoles.ADMIN) ||
-      user.roles.includes(UserRoles.SUPER);
-
-    if (!canModifyAnyRestaurant && restaurant.user.id !== user.id) {
-      this.logger.warn(
-        `Update failed - User ${user.id} tried to modify restaurant ${restaurantId} not owned by them`,
-      );
-      throw new BadRequestException(
-        this.translationService.translate('errors.restaurant_not_owned', lang),
-      );
-    }
-
-    Object.assign(restaurant, updateRestaurantDto);
-    const updatedRestaurant = await this.restaurantRepository.save(restaurant);
-
-    this.logger.log(
-      `Restaurant updated: ${restaurantId} by user: ${user.email}`,
-    );
-
-    return {
-      restaurant: this.sanitizeRestaurantResponse(updatedRestaurant),
-      message: this.translationService.translate(
-        'restaurants.restaurant_updated',
-        lang,
-      ),
-    };
+    return updateRestaurantUseCase({
+      restaurantId,
+      lang,
+      user,
+      dto: updateRestaurantDto,
+      logger: this.logger,
+      repository: this.restaurantRepository,
+      translationService: this.translationService,
+    });
   }
 
   async activateRestaurant(restaurantId: string, user: User, lang: string) {
