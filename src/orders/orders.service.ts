@@ -10,6 +10,7 @@ import { Order } from './entities/order.entity';
 import { createOrderUseCase } from './use-cases/orders/create-order.use-case';
 import { findAllOrdersUseCase } from './use-cases/orders/find-all-orders.use-case';
 import { findOneOrderUseCase } from './use-cases/orders/find-one-order.use-case';
+import { updateOrderUseCase } from './use-cases/orders/update-order.use-case';
 
 @Injectable()
 export class OrdersService {
@@ -53,16 +54,14 @@ export class OrdersService {
   }
 
   async updateOrder(id: string, dto: UpdateOrderDto, lang: string) {
-    const { order } = await this.findOneOrder(id, lang);
-
-    Object.assign(order, dto);
-    const updatedOrder = await this.orderRepository.save(order);
-
-    this.logger.log(`Order updated: ${updatedOrder.id}`);
-    return {
-      order: updatedOrder,
-      message: this.translationService.translate('orders.order_updated', lang),
-    };
+    return updateOrderUseCase({
+      dto,
+      lang,
+      orderId: id,
+      repository: this.orderRepository,
+      logger: this.logger,
+      translationService: this.translationService,
+    });
   }
 
   async addOrderItem(orderId: string, dto: CreateOrderItemDto, lang: string) {
