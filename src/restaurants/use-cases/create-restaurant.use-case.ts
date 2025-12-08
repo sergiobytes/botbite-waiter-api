@@ -1,5 +1,7 @@
-import { RestaurantResponse } from '../../../dist/restaurants/interfaces/restaurants.interfaces';
-import { CreateRestaurant } from '../interfaces/restaurants.interfaces';
+import {
+  CreateRestaurant,
+  RestaurantResponse,
+} from '../interfaces/restaurants.interfaces';
 
 export const createRestaurantUseCase = async (
   params: CreateRestaurant,
