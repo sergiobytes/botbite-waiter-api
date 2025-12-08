@@ -21,7 +21,7 @@ export const loginUseCase = async (
 
   logger.log(`Login attempt for user: ${email} from IP: ${ip}`);
 
-  const user = await userService.findUserByTerm(email);
+  const { user } = await userService.findUserByTerm(email);
 
   let loginTime: number;
 

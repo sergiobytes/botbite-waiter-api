@@ -1,4 +1,5 @@
 import { BadRequestException } from '@nestjs/common';
+import { sanitizeUserResponse } from '../../users/utils/sanitized-user.util';
 import {
   RefreshTokenResponse,
   RefreshTokenUseCase,
@@ -50,7 +51,7 @@ export const refreshTokenUseCase = async (
       );
     }
 
-    const user = await usersService.findUserByTerm(payload.userId);
+    const { user } = await usersService.findUserByTerm(payload.userId);
 
     if (!user) {
       logger.warn(`User not found during refresh - User ID: ${payload.userId}`);
@@ -86,7 +87,7 @@ export const refreshTokenUseCase = async (
     return {
       access_token: newAccessToken,
       refresh_token: newRefreshToken,
-      user: usersService.sanitizeUserResponse(user),
+      user: sanitizeUserResponse(user),
     };
   } catch {
     const refreshTime = Date.now() - refreshStart;
