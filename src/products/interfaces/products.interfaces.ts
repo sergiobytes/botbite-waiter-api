@@ -42,6 +42,17 @@ export interface IFindProductParams {
   logger: Logger;
 }
 
+export interface IChangeProductStatusParams {
+  productId: string;
+  restaurantId: string;
+  lang: string;
+  status: boolean;
+  user: User;
+  repository: Repository<Product>;
+  logger: Logger;
+  translationService: TranslationService;
+}
+
 export interface IProductResponse {
   product: Product;
   message: string;
