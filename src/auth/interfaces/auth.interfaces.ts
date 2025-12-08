@@ -3,7 +3,7 @@ import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { TranslationService } from '../../common/services/translation.service';
 import { User } from '../../users/entities/user.entity';
-import { UserResponseSanitized } from '../../users/interfaces/userResponseSanitized.interface';
+import { UserResponseSanitized } from '../../users/interfaces/user-response-sanitized.interface';
 import { UsersService } from '../../users/users.service';
 import { LoginUserDto } from '../dto/login-user.dto';
 
