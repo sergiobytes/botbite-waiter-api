@@ -25,9 +25,10 @@ export const isProductUpdateUtil = (
   );
 
   const aiAskForMore =
-    aiResponseLower.includes(
-      'es correcta la orden o te gustaría agregar algo más',
-    ) ||
+    aiResponseLower.includes('deseas agregar algo más') ||
+    aiResponseLower.includes('would you like to add something else') ||
+    aiResponseLower.includes('souhaitez-vous ajouter autre chose') ||
+    aiResponseLower.includes('다른 것을 추가하시겠습니까') ||
     aiResponseLower.includes('te gustaría agregar algo más') ||
     aiResponseLower.includes('hay algo más que te gustaría ordenar') ||
     aiResponseLower.includes('algo más que pueda ayudarte');
