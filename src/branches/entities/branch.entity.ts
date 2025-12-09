@@ -11,23 +11,23 @@ export class Branch extends BaseEntity {
   @Column()
   address: string;
 
-  @Column({ nullable: true })
-  phoneNumberAssistant: string;
+  @Column({ type: 'varchar', nullable: true })
+  phoneNumberAssistant: string | null;
 
-  @Column({ nullable: true })
-  phoneNumberReception: string;
+  @Column({ type: 'varchar', nullable: true })
+  phoneNumberReception: string | null;
 
-  @Column({ nullable: true })
-  qrUrl: string;
+  @Column({ type: 'varchar', nullable: true })
+  qrUrl: string | null;
 
-  @Column({ nullable: true })
-  surveyUrl: string;
+  @Column({ type: 'varchar', nullable: true })
+  surveyUrl: string | null;
 
   @Column({ type: 'int', default: 0 })
   availableMessages: number;
 
-  @Column({ nullable: true })
-  qrToken: string;
+  @Column({ type: 'varchar', nullable: true })
+  qrToken: string | null;
 
   @Column()
   restaurantId: string;

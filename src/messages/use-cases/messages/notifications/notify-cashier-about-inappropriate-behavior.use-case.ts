@@ -13,7 +13,7 @@ export const notifyCashierAboutInappropriateBehaviorUseCase = async (
     `;
 
     await sendMessageUseCase({
-      customerPhone: branch.phoneNumberReception,
+      customerPhone: branch.phoneNumberReception!,
       message: notificationMessage,
       assistantPhone: branch.phoneNumberAssistant,
       logger,

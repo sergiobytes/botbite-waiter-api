@@ -47,12 +47,19 @@ export const updateBranchUseCase = async (
     dto.availableMessages = branch.availableMessages;
   }
 
-  if (!dto.phoneNumberAssistant) {
-    dto.qrUrl = undefined;
-    dto.qrToken = undefined;
+  if (dto.phoneNumberAssistant === null) {
+    branch.qrUrl = null;
+    branch.qrToken = null;
   }
 
   Object.assign(branch, dto);
+
+  // Si después del assign, phoneNumberAssistant es null, limpiar QR
+  if (branch.phoneNumberAssistant === null) {
+    branch.qrUrl = null;
+    branch.qrToken = null;
+  }
+
   await repository.save(branch);
 
   logger.log(

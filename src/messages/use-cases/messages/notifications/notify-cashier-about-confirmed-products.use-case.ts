@@ -87,7 +87,7 @@ export const notifyCashierAboutConfirmedProductsUseCase = async (
 
     await sendMessageUseCase({
       assistantPhone: branch.phoneNumberAssistant,
-      customerPhone: branch.phoneNumberReception,
+      customerPhone: branch.phoneNumberReception!,
       message,
       logger,
       twilioService,

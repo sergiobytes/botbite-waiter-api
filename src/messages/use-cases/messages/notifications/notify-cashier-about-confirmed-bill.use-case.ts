@@ -51,7 +51,7 @@ Total: $${totalAmount.toFixed(2)}`;
 
     await sendMessageUseCase({
       assistantPhone: branch.phoneNumberAssistant,
-      customerPhone: branch.phoneNumberReception,
+      customerPhone: branch.phoneNumberReception!,
       message: cashierMessage,
       logger,
       twilioService,
