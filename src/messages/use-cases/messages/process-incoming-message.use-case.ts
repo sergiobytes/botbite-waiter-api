@@ -235,7 +235,7 @@ export const processIncomingMessageUseCase = async (
   );
 
   const isInitialConfirmation = isInitialOrderConfirmationUtil(response);
-  const isProductUpdate = isProductUpdateUtil(message, response);
+  const isProductUpdate = isProductUpdateUtil(processedMessage, response);
 
   if (isInitialConfirmation || isProductUpdate) {
     const isInitialOrder =
@@ -257,7 +257,7 @@ export const processIncomingMessageUseCase = async (
       customer: customerData!,
       logger,
       from,
-      message,
+      message: processedMessage,
       conversationService,
       twilioService,
       branchesService,
@@ -266,7 +266,7 @@ export const processIncomingMessageUseCase = async (
     });
   }
 
-  if (isBillRequestUtil(message, response)) {
+  if (isBillRequestUtil(processedMessage, response)) {
     await notifyCashierAboutConfirmedBillUseCase({
       branch,
       conversationService,
@@ -276,7 +276,7 @@ export const processIncomingMessageUseCase = async (
       ordersService,
       twilioService,
       menuService,
-      message,
+      message: processedMessage,
       customer: customerData!,
     });
   }

@@ -29,47 +29,61 @@ export const notifyCashierAboutConfirmedProductsUseCase = async (
     );
 
     let prdMessage: string | null = null;
-    let allProductMessages: string[] = [];
 
-    // Buscar TODOS los mensajes con productos desde el último pedido enviado a caja
+    // Buscar el último mensaje del asistente con productos (antes del mensaje de confirmación)
+    let confirmationFound = false;
+    
     for (let i = messages.length - 1; i >= 0; i--) {
       const message = messages[i];
       if (message.role === 'assistant') {
-        const isRecommendation = 
-          message.content.includes('puedo sugerir') ||
-          message.content.includes('I recommend') ||
-          message.content.includes('je recommande') ||
-          message.content.includes('추천합니다') ||
-          message.content.includes('Te recomiendo') ||
-          message.content.includes('With pleasure') ||
-          message.content.includes('Avec plaisir') ||
-          message.content.includes('기꺼이') ||
-          message.content.includes('⭐ RECOMENDADO');
+        const contentLower = message.content.toLowerCase();
+        
+        // Detectar mensaje de confirmación (case-insensitive)
+        const isConfirmation = 
+          contentLower.includes('perfecto, gracias por confirmar, tu pedido está ahora en proceso') ||
+          contentLower.includes('perfect, thank you for confirming, your order is now being processed') ||
+          contentLower.includes('parfait, merci de confirmer, votre commande est maintenant en cours de traitement') ||
+          contentLower.includes('완벽합니다. 확인해 주셔서 감사합니다. 주문이 이제 처리 중입니다');
+        
+        // Si encontramos confirmación, saltarla y buscar el mensaje con productos anterior
+        if (isConfirmation) {
+          confirmationFound = true;
+          continue;
+        }
+        
+        // Si ya encontramos confirmación, buscar el mensaje con productos inmediatamente anterior
+        if (confirmationFound) {
+          const isRecommendation = 
+            contentLower.includes('puedo sugerir') ||
+            contentLower.includes('i recommend') ||
+            contentLower.includes('je recommande') ||
+            contentLower.includes('추천합니다') ||
+            contentLower.includes('te recomiendo') ||
+            contentLower.includes('with pleasure') ||
+            contentLower.includes('avec plaisir') ||
+            contentLower.includes('기꺼이') ||
+            contentLower.includes('⭐ recomendado');
 
-        // Recolectar TODOS los mensajes con productos (no solo el último)
-        if (
-          !isRecommendation &&
-          message.content.includes('• ') &&
-          (message.content.includes('He agregado') ||
-            message.content.includes('He actualizado') ||
-            message.content.includes('Aquí tienes') ||
-            message.content.includes('I added') ||
-            message.content.includes('I updated') ||
-            message.content.includes('Here is') ||
-            message.content.includes('J\'ai ajouté') ||
-            message.content.includes('J\'ai mis à jour') ||
-            message.content.includes('추가했습니다') ||
-            message.content.includes('업데이트했습니다')) &&
-          message.content.match(/\[ID:[^\]]+\]/)
-        ) {
-          allProductMessages.push(message.content);
+          if (
+            !isRecommendation &&
+            message.content.includes('• ') &&
+            (contentLower.includes('he agregado') ||
+              contentLower.includes('he actualizado') ||
+              contentLower.includes('aquí tienes') ||
+              contentLower.includes('i added') ||
+              contentLower.includes('i updated') ||
+              contentLower.includes('here is') ||
+              contentLower.includes('j\'ai ajouté') ||
+              contentLower.includes('j\'ai mis à jour') ||
+              contentLower.includes('추가했습니다') ||
+              contentLower.includes('업데이트했습니다')) &&
+            message.content.match(/\[ID:[^\]]+\]/)
+          ) {
+            prdMessage = message.content;
+            break;
+          }
         }
       }
-    }
-
-    // Combinar todos los mensajes con productos para obtener el pedido completo
-    if (allProductMessages.length > 0) {
-      prdMessage = allProductMessages.join('\n\n');
     }
 
     if (!prdMessage) {
