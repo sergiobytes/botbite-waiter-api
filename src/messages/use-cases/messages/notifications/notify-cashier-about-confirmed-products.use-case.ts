@@ -29,15 +29,12 @@ export const notifyCashierAboutConfirmedProductsUseCase = async (
     );
 
     let prdMessage: string | null = null;
-    let assistantMessagesFound = 0;
+    let allProductMessages: string[] = [];
 
+    // Buscar TODOS los mensajes con productos desde el último pedido enviado a caja
     for (let i = messages.length - 1; i >= 0; i--) {
       const message = messages[i];
       if (message.role === 'assistant') {
-        assistantMessagesFound++;
-
-        if (assistantMessagesFound === 1) continue;
-
         const isRecommendation = 
           message.content.includes('puedo sugerir') ||
           message.content.includes('I recommend') ||
@@ -49,7 +46,7 @@ export const notifyCashierAboutConfirmedProductsUseCase = async (
           message.content.includes('기꺼이') ||
           message.content.includes('⭐ RECOMENDADO');
 
-        // Solo considerar como pedido si NO es recomendación y tiene el formato correcto
+        // Recolectar TODOS los mensajes con productos (no solo el último)
         if (
           !isRecommendation &&
           message.content.includes('• ') &&
@@ -65,10 +62,14 @@ export const notifyCashierAboutConfirmedProductsUseCase = async (
             message.content.includes('업데이트했습니다')) &&
           message.content.match(/\[ID:[^\]]+\]/)
         ) {
-          prdMessage = message.content;
-          break;
+          allProductMessages.push(message.content);
         }
       }
+    }
+
+    // Combinar todos los mensajes con productos para obtener el pedido completo
+    if (allProductMessages.length > 0) {
+      prdMessage = allProductMessages.join('\n\n');
     }
 
     if (!prdMessage) {
