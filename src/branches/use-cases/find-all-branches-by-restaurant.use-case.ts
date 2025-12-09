@@ -1,8 +1,8 @@
 import { FindOptionsWhere, ILike } from 'typeorm';
 import { Branch } from '../entities/branch.entity';
 import {
-    BranchesByRestaurant,
-    BranchListResponse,
+  BranchesByRestaurant,
+  BranchListResponse,
 } from '../interfaces/branches.interfaces';
 
 export const findAllBranchesByRestaurantUseCase = async (
@@ -37,6 +37,7 @@ export const findAllBranchesByRestaurantUseCase = async (
       isActive: true,
       phoneNumberAssistant: true,
       phoneNumberReception: true,
+      surveyUrl: true,
       qrUrl: true,
       availableMessages: true,
       createdAt: true,

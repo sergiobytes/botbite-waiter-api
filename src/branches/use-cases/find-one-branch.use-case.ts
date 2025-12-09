@@ -40,6 +40,7 @@ export const findOneBranchUseCase = async (
       isActive: true,
       phoneNumberAssistant: true,
       phoneNumberReception: true,
+      surveyUrl: true,
       qrUrl: true,
       availableMessages: true,
       restaurant: {
