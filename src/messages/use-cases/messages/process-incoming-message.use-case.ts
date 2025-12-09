@@ -141,11 +141,19 @@ export const processIncomingMessageUseCase = async (
   }
 
   if (response === 'QR_VALIDATION_SUCCESS') {
+    const restaurantName = branch.restaurant?.name || 'our restaurant';
+    const branchName = branch.name;
+    const customerName = customerData?.name || '';
+
+    const greeting = customerName
+      ? `Hello ${customerName}! 👋 Welcome to ${restaurantName} - ${branchName}.`
+      : `Hello! 👋 Welcome to ${restaurantName} - ${branchName}.`;
+
     await sendMessageUseCase({
       assistantPhone: branch.phoneNumberAssistant,
       customerPhone: from,
       message:
-        'Hello! 👋 Welcome to our restaurant.\n\n' +
+        `${greeting}\n\n` +
         'Please select your preferred language:\n\n' +
         '🇲🇽 Español\n' +
         '🇺🇸 English\n' +
