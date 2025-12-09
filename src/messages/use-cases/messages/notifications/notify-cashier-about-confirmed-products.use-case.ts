@@ -42,7 +42,12 @@ export const notifyCashierAboutConfirmedProductsUseCase = async (
           message.content.includes('• ') &&
           (message.content.includes('He agregado') ||
             message.content.includes('He actualizado') ||
-            message.content.includes('Aquí tienes'))
+            message.content.includes('Aquí tienes') ||
+            message.content.includes('puedo sugerir') ||
+            message.content.includes('I recommend') ||
+            message.content.includes('je recommande') ||
+            message.content.includes('추천합니다') ||
+            message.content.match(/\[ID:[^\]]+\]/))
         ) {
           prdMessage = message.content;
           break;
