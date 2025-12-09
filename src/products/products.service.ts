@@ -1,7 +1,7 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Product } from './entities/product.entity';
-import { ILike, Repository } from 'typeorm';
+import { Repository } from 'typeorm';
 import { TranslationService } from '../common/services/translation.service';
 import { CreateProductDto } from './dto/create-product.dto';
 import { PaginationDto } from '../common/dto/pagination.dto';
@@ -13,6 +13,7 @@ import { bulkCreateProductsUseCase } from './use-cases/bulk-create-products.use-
 import { findOneProductUseCase } from './use-cases/find-one-product.use-case';
 import { updateProductUseCase } from './use-cases/update-product.use-case';
 import { changeProductStatusUseCase } from './use-cases/change-product-status.use-case';
+import { findAllByRestaurantUseCase } from './use-cases/find-all-by-restaurant.use-case';
 
 @Injectable()
 export class ProductsService {
@@ -124,50 +125,11 @@ export class ProductsService {
     paginationDto: PaginationDto,
     findProductsDto: FindProductsDto = {},
   ) {
-    const { limit = 10, offset = 0 } = paginationDto;
-    const { name, search, isActive } = findProductsDto;
-
-    const whereConditions: any = { restaurant: { id: restaurantId } };
-
-    if (name) {
-      whereConditions.name = name;
-    } else if (search) {
-      whereConditions.name = ILike(`%${search}%`);
-    }
-
-    if (isActive !== undefined) {
-      whereConditions.isActive = isActive;
-    }
-
-    const [products, total] = await this.productRepository.findAndCount({
-      where: whereConditions,
-      relations: {
-        restaurant: true,
-      },
-      select: {
-        id: true,
-        name: true,
-        description: true,
-        isActive: true,
-        createdAt: true,
-        restaurant: {
-          name: true,
-        },
-      },
-      order: { createdAt: 'DESC' },
-      skip: offset,
-      take: limit,
+    return findAllByRestaurantUseCase({
+      restaurantId,
+      paginationDto,
+      findProductsDto,
+      repository: this.productRepository,
     });
-
-    return {
-      products,
-      total,
-      pagination: {
-        limit,
-        offset,
-        totalPages: Math.ceil(total / limit),
-        currentPage: Math.floor(offset / limit) + 1,
-      },
-    };
   }
 }

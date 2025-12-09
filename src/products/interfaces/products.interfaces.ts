@@ -5,6 +5,8 @@ import { Repository } from 'typeorm';
 import { TranslationService } from '../../common/services/translation.service';
 import { UpdateProductDto } from '../dto/update-product.dto';
 import { User } from '../../users/entities/user.entity';
+import { PaginationDto } from '../../common/dto/pagination.dto';
+import { FindProductsDto } from '../dto/find-products.dto';
 
 export interface ICreateProductParams {
   restaurantId: string;
@@ -42,6 +44,13 @@ export interface IFindProductParams {
   logger: Logger;
 }
 
+export interface IFindProductsParams {
+  restaurantId: string;
+  paginationDto: PaginationDto;
+  findProductsDto: FindProductsDto;
+  repository: Repository<Product>;
+}
+
 export interface IChangeProductStatusParams {
   productId: string;
   restaurantId: string;
@@ -62,4 +71,15 @@ export interface IBulkCreateProductResponse {
   products: Product[];
   count: number;
   message: string;
+}
+
+export interface IProductListResponse {
+  products: Product[];
+  total: number;
+  pagination: {
+    limit: number;
+    offset: number;
+    totalPages: number;
+    currentPage: number;
+  };
 }
