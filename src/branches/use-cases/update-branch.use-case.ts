@@ -47,6 +47,10 @@ export const updateBranchUseCase = async (
     dto.availableMessages = branch.availableMessages;
   }
 
+  if (dto.phoneNumberAssistant === null) {
+    dto.qrUrl = '';
+  }
+
   Object.assign(branch, dto);
   await repository.save(branch);
 
