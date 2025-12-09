@@ -5,5 +5,5 @@ import { IsOptional, IsString } from 'class-validator';
 export class UpdateBranchDto extends PartialType(CreateBranchDto) {
   @IsOptional()
   @IsString()
-  qrUrl?: string;
+  qrUrl?: string | null;
 }

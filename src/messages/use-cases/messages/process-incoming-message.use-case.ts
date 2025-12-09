@@ -113,6 +113,51 @@ export const processIncomingMessageUseCase = async (
     branch,
   );
 
+  // ✅ Manejar flags de validación de QR
+  if (response === 'QR_VALIDATION_FAILED') {
+    await sendMessageUseCase({
+      assistantPhone: branch.phoneNumberAssistant,
+      customerPhone: from,
+      message:
+        'Por favor, escanea el código QR de tu mesa para iniciar tu pedido. 📱\n\n' +
+        'Please scan the QR code on your table to start your order. 📱',
+      twilioService,
+      logger,
+    });
+    return;
+  }
+
+  if (response === 'QR_TOKEN_INVALID') {
+    await sendMessageUseCase({
+      assistantPhone: branch.phoneNumberAssistant,
+      customerPhone: from,
+      message:
+        'El código QR ha expirado. Por favor, solicita uno nuevo al personal. ⚠️\n\n' +
+        'The QR code has expired. Please request a new one from staff. ⚠️',
+      twilioService,
+      logger,
+    });
+    return;
+  }
+
+  if (response === 'QR_VALIDATION_SUCCESS') {
+    await sendMessageUseCase({
+      assistantPhone: branch.phoneNumberAssistant,
+      customerPhone: from,
+      message:
+        'Hello! 👋 Welcome to our restaurant.\n\n' +
+        'Please select your preferred language:\n\n' +
+        '🇲🇽 Español\n' +
+        '🇺🇸 English\n' +
+        '🇫🇷 Français\n' +
+        '🇰🇷 한국어',
+      twilioService,
+      logger,
+    });
+    return;
+  }
+
+  // ✅ Continuar con el flujo normal
   const cleanResponse = removeMenuItemsIdsUtil(response);
 
   await sendMessageUseCase({

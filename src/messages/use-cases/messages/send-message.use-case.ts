@@ -17,7 +17,7 @@ export const sendMessageUseCase = async (
     // Send each chunk sequentially
     for (let i = 0; i < messageChunks.length; i++) {
       const chunk = messageChunks[i];
-      
+
       logger.log(
         `Sending message chunk ${i + 1}/${messageChunks.length} to ${customerPhone} (${chunk.length} chars)`,
       );
@@ -25,7 +25,7 @@ export const sendMessageUseCase = async (
       lastResponse = await twilioService.sendWhatsAppMessage(
         customerPhone,
         chunk,
-        assistantPhone,
+        assistantPhone!,
       );
 
       // Small delay between messages to ensure proper order

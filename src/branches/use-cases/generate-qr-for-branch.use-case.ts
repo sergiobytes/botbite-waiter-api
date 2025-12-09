@@ -1,9 +1,10 @@
 import { createQr } from '../../common/utils/create-qr';
 import { uploadQRToCloudinary } from '../../common/utils/upload-to-cloudinary';
 import {
-    QrGeneration,
-    QrGenerationResponse,
+  QrGeneration,
+  QrGenerationResponse,
 } from '../interfaces/branches.interfaces';
+import { generateQrToken } from '../utils/generate-qr-token.util';
 import { findOneBranchUseCase } from './find-one-branch.use-case';
 
 export const generateQrForBranchUseCase = async (
@@ -27,7 +28,11 @@ export const generateQrForBranchUseCase = async (
     logger,
   });
 
-  const targetUrl = `https://wa.me/${branch.phoneNumberAssistant}?text=Hola!`;
+  const qrToken = generateQrToken();
+
+  const prefilledMessage = `🛡️ INICIO ${qrToken}`;
+
+  const targetUrl = `https://wa.me/${branch.phoneNumberAssistant}?text=${encodeURIComponent(prefilledMessage)}`;
 
   const finalImage = await createQr(targetUrl);
   const uploadedImageUrl = await uploadQRToCloudinary(
@@ -37,6 +42,7 @@ export const generateQrForBranchUseCase = async (
   );
 
   branch.qrUrl = uploadedImageUrl;
+  branch.qrToken = qrToken;
   await repository.save(branch);
 
   return {

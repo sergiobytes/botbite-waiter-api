@@ -23,6 +23,9 @@ export class Conversation extends BaseEntity {
     { price: number; quantity: number; menuItemId: string; notes?: string }
   >;
 
+  @Column({ type: 'boolean', default: false })
+  isQrValidated: boolean;
+
   @OneToMany(() => ConversationMessage, (message) => message.conversation, {
     cascade: true,
   })

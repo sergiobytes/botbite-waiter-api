@@ -26,6 +26,9 @@ export class Branch extends BaseEntity {
   @Column({ type: 'int', default: 0 })
   availableMessages: number;
 
+  @Column({ nullable: true })
+  qrToken: string;
+
   @Column()
   restaurantId: string;
 

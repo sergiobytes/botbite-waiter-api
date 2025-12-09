@@ -53,7 +53,7 @@ export interface ProcessIncomingMessage {
 export interface SendMessage {
   customerPhone: string;
   message: string;
-  assistantPhone: string;
+  assistantPhone: string | null;
   twilioService: TwilioService;
   logger: Logger;
 }

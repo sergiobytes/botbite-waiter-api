@@ -27,4 +27,8 @@ export class CreateBranchDto {
   @IsString()
   @IsNotEmpty()
   surveyUrl?: string;
+
+  @IsOptional()
+  @IsString()
+  qrToken?: string;
 }
