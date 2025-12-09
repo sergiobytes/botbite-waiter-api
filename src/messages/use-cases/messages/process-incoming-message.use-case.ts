@@ -10,6 +10,8 @@ import { notifyCashierAboutConfirmedBillUseCase } from './notifications/notify-c
 import { notifyCashierAboutConfirmedProductsUseCase } from './notifications/notify-cashier-about-confirmed-products.use-case';
 import { notifyCashierAboutInappropriateBehaviorUseCase } from './notifications/notify-cashier-about-inappropriate-behavior.use-case';
 import { sendMessageUseCase } from './send-message.use-case';
+import { downloadTwilioMediaUtil } from '../../utils/download-twilio-media.util';
+import { transcribeAudioUseCase } from '../../../openai/use-cases/transcribe-audio.use-case';
 
 export const processIncomingMessageUseCase = async (
   params: ProcessIncomingMessage,
@@ -25,8 +27,54 @@ export const processIncomingMessageUseCase = async (
     ordersService,
   } = params;
 
-  const { to, from, profileName, message } =
+  const { to, from, profileName, message, hasAudio, audioUrl, audioMimeType } =
     twilioService.processIncomingWhatsappMessage(body);
+
+  let processedMessage = message;
+
+  if (hasAudio && audioUrl && audioMimeType) {
+    try {
+      logger.log(`Received audio message from ${from}. Transcribing...`);
+
+      const audioBuffer = await downloadTwilioMediaUtil(audioUrl);
+      const transcription = await transcribeAudioUseCase({
+        audioBuffer,
+        mimeType: audioMimeType,
+      });
+
+      logger.log(`Audio transcribed: "${transcription}"`);
+
+      processedMessage = transcription;
+    } catch (error) {
+      logger.error('Error transcribing audio:', error);
+
+      let errorMessage =
+        'Lo siento, no pude procesar tu nota de voz. Por favor intenta nuevamente o escribe tu mensaje. 🎤\n\n' +
+        "Sorry, I couldn't process your voice note. Please try again or send a text message. 🎤";
+
+      // Solo mensaje específico para archivo demasiado grande
+      if (error.message === 'AUDIO_TOO_LARGE') {
+        errorMessage =
+          'El archivo de audio es muy grande. Por favor intenta con un audio más corto o escribe tu mensaje. 📁\n\n' +
+          'The audio file is too large. Please try with a shorter audio or send a text message. 📁';
+      }
+
+      await sendMessageUseCase({
+        assistantPhone: to,
+        customerPhone: from,
+        message: errorMessage,
+        twilioService,
+        logger,
+      });
+
+      return;
+    }
+  }
+
+  if (!processedMessage || processedMessage.trim() === '') {
+    logger.warn(`Empty message received from ${from}`);
+    return;
+  }
 
   const { branch } = await branchesService.findByTerm(to, 'es');
   const { name, phoneNumberReception } = branch;
@@ -76,14 +124,15 @@ export const processIncomingMessageUseCase = async (
     };
   }
 
-  const inappropriateBehavior = detectInappropriateBehaviorUtil(message);
-  const invalidTableResponse = detectInvalidTableResponseUtil(message);
+  const inappropriateBehavior =
+    detectInappropriateBehaviorUtil(processedMessage);
+  const invalidTableResponse = detectInvalidTableResponseUtil(processedMessage);
 
   if (inappropriateBehavior || invalidTableResponse) {
     await notifyCashierAboutInappropriateBehaviorUseCase({
       branch,
       customer: customerData!,
-      message,
+      message: processedMessage,
       conversationService,
       twilioService,
       logger,
@@ -107,7 +156,7 @@ export const processIncomingMessageUseCase = async (
 
   const response = await conversationService.processMessage(
     from,
-    message,
+    processedMessage,
     branch.id,
     customerData!,
     branch,
@@ -154,6 +203,8 @@ export const processIncomingMessageUseCase = async (
       customerPhone: from,
       message:
         `${greeting}\n\n` +
+        '📝 You can send text messages or voice notes (max 30 seconds).\n' +
+        '📝 Puedes enviar mensajes de texto o notas de voz (máximo 30 segundos).\n\n' +
         'Please select your preferred language:\n\n' +
         '🇲🇽 Español\n' +
         '🇺🇸 English\n' +

@@ -5,7 +5,7 @@ export const processIncomingWhatsappMessageUseCase = (
   logger: Logger,
   webhookData: WebhookDataTwilio,
 ) => {
-  const { From, To } = webhookData;
+  const { From, To, NumMedia, MediaUrl0, MediaContentType0 } = webhookData;
 
   try {
     const toPhoneNumber = To.startsWith('whatsapp:')
@@ -16,6 +16,8 @@ export const processIncomingWhatsappMessageUseCase = (
       ? From.replace('whatsapp:', '')
       : From;
 
+    const hasAudio = NumMedia && parseInt(NumMedia) > 0 && MediaUrl0;
+
     return {
       from: fromPhoneNumber,
       to: toPhoneNumber,
@@ -23,6 +25,9 @@ export const processIncomingWhatsappMessageUseCase = (
       messageSid: webhookData.MessageSid,
       profileName: webhookData.ProfileName,
       timestamp: new Date().toISOString(),
+      hasAudio: !!hasAudio,
+      audioUrl: MediaUrl0 || null,
+      audioMimeType: MediaContentType0 || null,
     };
   } catch (error) {
     logger.error(`Error sending WhatsApp message to ${To}:`, error);

@@ -17,6 +17,11 @@ async function bootstrap() {
     }),
   );
 
+  app.use((req, res, next) => {
+    req.setTimeout(60000);
+    next();
+  });
+
   const PORT = process.env.PORT ?? 3000;
 
   await app.listen(PORT);

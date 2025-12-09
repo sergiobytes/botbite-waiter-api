@@ -1,6 +1,5 @@
 export type WebhookDataTwilio = {
   SmsMessageSid: string;
-  NumMedia: string;
   ProfileName: string;
   MessageType: string;
   SmsSid: string;
@@ -16,4 +15,8 @@ export type WebhookDataTwilio = {
   ChannelMetadata: string;
   From: string;
   ApiVersion: string;
+  // Fields for Audios
+  MediaUrl0?: string;
+  MediaContentType0?: string;
+  NumMedia?: string;
 };
