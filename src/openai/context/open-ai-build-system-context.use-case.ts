@@ -125,11 +125,11 @@ Cliente: "2 tostadas de ceviche"
        - **Francés**: "Parfait, [emplacement]. Voici notre menu complet:\\n📄 ${pdfMenus.map(m => convertToInlineUrl(m.pdfLink!, m.id, m.name)).join('\\n📄 ')}\\n\\nAppuyez sur le lien pour le voir 📱\\n\\nSavez-vous déjà ce que vous aimeriez commander ou avez-vous besoin d'aide avec une recommandation?"
        - **Coreano**: "완벽합니다, [위치]. 여기에서 전체 메뉴를 볼 수 있습니다:\\n📄 ${pdfMenus.map(m => convertToInlineUrl(m.pdfLink!, m.id, m.name)).join('\\n📄 ')}\\n\\n링크를 눌러 확인하세요 📱\\n\\n이미 주문하실 것을 아시나요, 아니면 추천이 필요하신가요?"`
        : `
-     * **NO tienes menú digital PDF**. Muestra las categorías disponibles EN SU IDIOMA:
-       - **Español**: "Perfecto, [ubicación]. Tenemos las siguientes categorías:\\n${categories.map((cat, i) => `${i + 1}. ${cat}`).join('\\n')}\\n\\n¿Ya sabes qué te gustaría ordenar o te gustaría que te ayude con alguna categoría?"
-       - **Inglés**: "Perfect, [location]. We have the following categories:\\n${categories.map((cat, i) => `${i + 1}. ${cat}`).join('\\n')}\\n\\nDo you already know what you'd like to order or would you like help with a specific category?"
-       - **Francés**: "Parfait, [emplacement]. Nous avons les catégories suivantes:\\n${categories.map((cat, i) => `${i + 1}. ${cat}`).join('\\n')}\\n\\nSavez-vous déjà ce que vous aimeriez commander ou souhaitez-vous de l'aide avec une catégorie?"
-       - **Coreano**: "완벽합니다, [위치]. 다음 카테고리가 있습니다:\\n${categories.map((cat, i) => `${i + 1}. ${cat}`).join('\\n')}\\n\\n이미 주문하실 것을 아시나요, 아니면 특정 카테고리에 대한 도움이 필요하신가요?"`
+     * **NO tienes menú digital PDF**. Muestra las categorías disponibles EN SU IDIOMA (SIN NÚMEROS):
+       - **Español**: "Perfecto, [ubicación]. Tenemos las siguientes categorías:\\n${categories.map(cat => `• ${cat}`).join('\\n')}\\n\\n¿Ya sabes qué te gustaría ordenar o te gustaría que te ayude con alguna categoría?"
+       - **Inglés**: "Perfect, [location]. We have the following categories:\\n${categories.map(cat => `• ${cat}`).join('\\n')}\\n\\nDo you already know what you'd like to order or would you like help with a specific category?"
+       - **Francés**: "Parfait, [emplacement]. Nous avons les catégories suivantes:\\n${categories.map(cat => `• ${cat}`).join('\\n')}\\n\\nSavez-vous déjà ce que vous aimeriez commander ou souhaitez-vous de l'aide avec une catégorie?"
+       - **Coreano**: "완벽합니다, [위치]. 다음 카테고리가 있습니다:\\n${categories.map(cat => `• ${cat}`).join('\\n')}\\n\\n이미 주문하실 것을 아시나요, 아니면 특정 카테고리에 대한 도움이 필요하신가요?"`
    }
    - Si ya tienes la ubicación en el historial (conversación existente), puedes continuar normalmente sin volver a mostrar el menú
    
@@ -269,6 +269,7 @@ Cliente: "2 tostadas de ceviche"
    - **Si NO existe menú digital (pdfLink es null o vacío)**: Muestra ÚNICAMENTE las categorías disponibles.
      - **NO inventes ni proporciones ningún enlace**.
      - Agrupa los productos por categoría y muestra solo los nombres de las categorías.
+     - **IMPORTANTE**: Lista las categorías con viñetas (•), NO con números, para evitar confusión con la ubicación de mesa
      - Usa el formato:
        "Tenemos las siguientes categorías disponibles:
        ${
@@ -279,7 +280,7 @@ Cliente: "2 tostadas de ceviche"
                ?.map((item) => item.category.name) || [],
            ),
          )
-           .map((cat, idx) => `${idx + 1}. ${cat}`)
+           .map((cat) => `• ${cat}`)
            .join('\n') || '—'
        }
        
