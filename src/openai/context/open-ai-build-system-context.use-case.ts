@@ -6,6 +6,21 @@ export const openAiBuildSystemContext = (
   customerContext?: Customer,
   branchContext?: Branch,
 ): string => {
+  // Determinar si hay menú PDF disponible
+  const hasPdfMenu = branchContext?.menus?.some(menu => menu.pdfLink);
+  const pdfMenus = branchContext?.menus?.filter(menu => menu.pdfLink) || [];
+  
+  // Obtener categorías únicas si NO hay PDF
+  const categories = !hasPdfMenu && branchContext?.menus?.[0]?.menuItems
+    ? Array.from(
+        new Set(
+          branchContext.menus[0].menuItems
+            .filter(item => item.isActive)
+            .map(item => item.category.name)
+        )
+      )
+    : [];
+
   return `
 Eres un asistente virtual de restaurante. Actúa siempre con tono amable y profesional.
 
@@ -99,7 +114,22 @@ Cliente: "2 tostadas de ceviche"
      * **Coreano**: "주문을 받기 전에 위치를 알아야 합니다. 테이블 번호나 어디에 계신지 알려주시겠어요?"
    - **NO PERMITAS** continuar con el pedido hasta que tengas la ubicación
    - Ubicaciones válidas: números de mesa, "terraza"/"terrace"/"terrasse"/"테라스", "barra"/"bar"/"바", "patio"/"파티오", etc.
-   - Si ya tienes la ubicación en el historial, puedes continuar normalmente
+   - **Una vez recibida la ubicación**, **INMEDIATAMENTE muestra el menú disponible**:${
+     hasPdfMenu
+       ? `
+     * **TIENES menú digital PDF disponible**. Proporciona el enlace EN SU IDIOMA:
+       - **Español**: "Perfecto, [ubicación]. Aquí puedes ver nuestro menú completo:\\n📄 ${pdfMenus.map(m => convertToInlineUrl(m.pdfLink!, m.id, m.name)).join('\\n📄 ')}\\n\\nToca el enlace para verlo 📱\\n\\n¿Ya sabes qué te gustaría ordenar o necesitas ayuda con alguna recomendación?"
+       - **Inglés**: "Perfect, [location]. Here you can see our complete menu:\\n📄 ${pdfMenus.map(m => convertToInlineUrl(m.pdfLink!, m.id, m.name)).join('\\n📄 ')}\\n\\nTap the link to view it 📱\\n\\nDo you already know what you'd like to order or do you need help with a recommendation?"
+       - **Francés**: "Parfait, [emplacement]. Voici notre menu complet:\\n📄 ${pdfMenus.map(m => convertToInlineUrl(m.pdfLink!, m.id, m.name)).join('\\n📄 ')}\\n\\nAppuyez sur le lien pour le voir 📱\\n\\nSavez-vous déjà ce que vous aimeriez commander ou avez-vous besoin d'aide avec une recommandation?"
+       - **Coreano**: "완벽합니다, [위치]. 여기에서 전체 메뉴를 볼 수 있습니다:\\n📄 ${pdfMenus.map(m => convertToInlineUrl(m.pdfLink!, m.id, m.name)).join('\\n📄 ')}\\n\\n링크를 눌러 확인하세요 📱\\n\\n이미 주문하실 것을 아시나요, 아니면 추천이 필요하신가요?"`
+       : `
+     * **NO tienes menú digital PDF**. Muestra las categorías disponibles EN SU IDIOMA:
+       - **Español**: "Perfecto, [ubicación]. Tenemos las siguientes categorías:\\n${categories.map((cat, i) => `${i + 1}. ${cat}`).join('\\n')}\\n\\n¿Ya sabes qué te gustaría ordenar o te gustaría que te ayude con alguna categoría?"
+       - **Inglés**: "Perfect, [location]. We have the following categories:\\n${categories.map((cat, i) => `${i + 1}. ${cat}`).join('\\n')}\\n\\nDo you already know what you'd like to order or would you like help with a specific category?"
+       - **Francés**: "Parfait, [emplacement]. Nous avons les catégories suivantes:\\n${categories.map((cat, i) => `${i + 1}. ${cat}`).join('\\n')}\\n\\nSavez-vous déjà ce que vous aimeriez commander ou souhaitez-vous de l'aide avec une catégorie?"
+       - **Coreano**: "완벽합니다, [위치]. 다음 카테고리가 있습니다:\\n${categories.map((cat, i) => `${i + 1}. ${cat}`).join('\\n')}\\n\\n이미 주문하실 것을 아시나요, 아니면 특정 카테고리에 대한 도움이 필요하신가요?"`
+   }
+   - Si ya tienes la ubicación en el historial (conversación existente), puedes continuar normalmente sin volver a mostrar el menú
    
 3. **CUENTAS SEPARADAS**: Si mencionan a otras personas ("para mi amigo", "esto es de Juan", "cuánto lleva mi esposa"):
    - Mantén cuentas separadas usando el formato: "**[NOMBRE]:**" antes de cada lista
