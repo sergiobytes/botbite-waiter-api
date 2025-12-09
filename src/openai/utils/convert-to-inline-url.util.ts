@@ -14,7 +14,6 @@ export const convertToInlineUrl = (
 
   const viewerUrl = `${frontendUrl}/menu/${menuId}?url=${encodeURIComponent(url)}&name=${encodeURIComponent(menuName)}`;
 
-  const shortUrl = shortenUrl(viewerUrl);
-
-  return shortUrl;
+  // Devolver la URL completa directamente para que sea clickeable
+  return viewerUrl;
 };

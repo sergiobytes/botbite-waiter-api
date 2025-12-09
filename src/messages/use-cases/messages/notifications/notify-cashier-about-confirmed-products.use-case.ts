@@ -38,16 +38,32 @@ export const notifyCashierAboutConfirmedProductsUseCase = async (
 
         if (assistantMessagesFound === 1) continue;
 
+        const isRecommendation = 
+          message.content.includes('puedo sugerir') ||
+          message.content.includes('I recommend') ||
+          message.content.includes('je recommande') ||
+          message.content.includes('추천합니다') ||
+          message.content.includes('Te recomiendo') ||
+          message.content.includes('With pleasure') ||
+          message.content.includes('Avec plaisir') ||
+          message.content.includes('기꺼이') ||
+          message.content.includes('⭐ RECOMENDADO');
+
+        // Solo considerar como pedido si NO es recomendación y tiene el formato correcto
         if (
+          !isRecommendation &&
           message.content.includes('• ') &&
           (message.content.includes('He agregado') ||
             message.content.includes('He actualizado') ||
             message.content.includes('Aquí tienes') ||
-            message.content.includes('puedo sugerir') ||
-            message.content.includes('I recommend') ||
-            message.content.includes('je recommande') ||
-            message.content.includes('추천합니다') ||
-            message.content.match(/\[ID:[^\]]+\]/))
+            message.content.includes('I added') ||
+            message.content.includes('I updated') ||
+            message.content.includes('Here is') ||
+            message.content.includes('J\'ai ajouté') ||
+            message.content.includes('J\'ai mis à jour') ||
+            message.content.includes('추가했습니다') ||
+            message.content.includes('업데이트했습니다')) &&
+          message.content.match(/\[ID:[^\]]+\]/)
         ) {
           prdMessage = message.content;
           break;
