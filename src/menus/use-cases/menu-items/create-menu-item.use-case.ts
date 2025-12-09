@@ -28,7 +28,7 @@ export const createMenuItemUseCase = async (
   const menuItem = itemRepository.create({ ...dto, menuId });
   await itemRepository.save(menuItem);
 
-  logger.log(`Menu item created: ${menuItem.product.name} for menu: ${menuId}`);
+  logger.log(`Menu item created: ${menuItem.productId} for menu: ${menuId}`);
 
   return {
     menuItem,
