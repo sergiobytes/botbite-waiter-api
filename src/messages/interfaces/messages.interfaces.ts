@@ -69,6 +69,7 @@ export interface NotifyCashier {
   branchesService: BranchesService;
   ordersService: OrdersService;
   logger: Logger;
+  paymentMethod?: string; // 'efectivo', 'tarjeta', o 'no especificado'
 }
 
 export interface GenerateCashierMessage {

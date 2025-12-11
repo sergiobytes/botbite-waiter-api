@@ -20,6 +20,49 @@ export const isProductUpdateUtil = (
   const clientLower = clientMessage.toLowerCase();
   const aiResponseLower = aiResponse.toLowerCase();
 
+  // Palabras que indican que el cliente está PIDIENDO productos, no confirmando
+  const productRequestKeywords = [
+    'agrega',
+    'agregame',
+    'añade',
+    'añademe',
+    'dame',
+    'deme',
+    'quiero',
+    'queremos',
+    'me das',
+    'me da',
+    'tráeme',
+    'traeme',
+    'necesito',
+    'pido',
+    'pideme',
+    'también',
+    'tambien',
+    'otro',
+    'otra',
+    'más',
+    'mas',
+    'add',
+    'give me',
+    'i want',
+    'i need',
+    'i\'d like',
+    'bring me',
+    'another',
+    'more',
+    'also',
+  ];
+
+  // Si el mensaje contiene palabras de solicitud de productos, NO es una confirmación
+  const isRequestingProducts = productRequestKeywords.some((keyword) =>
+    clientLower.includes(keyword),
+  );
+
+  if (isRequestingProducts) {
+    return false;
+  }
+
   const clientConfirms = confirmationKeywords.some((keyword) =>
     clientLower.includes(keyword),
   );

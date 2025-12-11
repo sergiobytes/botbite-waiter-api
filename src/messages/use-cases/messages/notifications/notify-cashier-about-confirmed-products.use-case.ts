@@ -59,13 +59,12 @@ export const notifyCashierAboutConfirmedProductsUseCase = async (
 
     logger.log(`Last PREVIOUS confirmation index: ${lastConfirmationIndex}, total messages: ${messages.length}, total confirmations: ${confirmationCount}`);
 
-    // Recolectar TODOS los mensajes con productos DESPUÉS de la última confirmación
-    const productMessages: string[] = [];
-    const startIndex = lastConfirmationIndex + 1; // Mensajes después de la última confirmación
+    // Buscar el mensaje de productos inmediatamente ANTERIOR a la confirmación actual
+    // La confirmación actual está en el último mensaje (messages.length - 1)
+    let productMessage: string | null = null;
     
-    logger.log(`Searching for product messages from index ${startIndex} to ${messages.length - 1}`);
-    
-    for (let i = startIndex; i < messages.length; i++) {
+    // Buscar hacia atrás desde el penúltimo mensaje hasta encontrar el mensaje con productos
+    for (let i = messages.length - 2; i >= 0; i--) {
       const message = messages[i];
       if (message.role === 'assistant') {
         const contentLower = message.content.toLowerCase();
@@ -79,9 +78,10 @@ export const notifyCashierAboutConfirmedProductsUseCase = async (
           contentLower.includes('with pleasure') ||
           contentLower.includes('avec plaisir') ||
           contentLower.includes('기꺼이') ||
-          contentLower.includes('⭐ recomendado');
+          contentLower.includes('⭐ recomendado') ||
+          contentLower.includes('¡con gusto!');
         
-        // No incluir mensajes de confirmación ni recomendaciones
+        // No incluir mensajes de confirmación previas
         const isConfirmation = 
           contentLower.includes('perfecto, gracias por confirmar') ||
           contentLower.includes('perfect, thank you for confirming') ||
@@ -101,7 +101,7 @@ export const notifyCashierAboutConfirmedProductsUseCase = async (
           contentLower.includes('추가했습니다') ||
           contentLower.includes('업데이트했습니다');
 
-        logger.log(`Message ${i}: isRecommendation=${isRecommendation}, isConfirmation=${isConfirmation}, hasProducts=${hasProducts}, hasAddedKeyword=${hasAddedKeyword}`);
+        logger.log(`Checking message ${i}: isRecommendation=${isRecommendation}, isConfirmation=${isConfirmation}, hasProducts=${hasProducts}, hasAddedKeyword=${hasAddedKeyword}`);
 
         if (
           !isRecommendation &&
@@ -109,23 +109,23 @@ export const notifyCashierAboutConfirmedProductsUseCase = async (
           hasProducts &&
           hasAddedKeyword
         ) {
-          productMessages.push(message.content);
-          logger.log(`Added product message ${i} to collection`);
+          productMessage = message.content;
+          logger.log(`Found product message at index ${i}`);
+          break; // Encontramos el mensaje, salimos del loop
         }
       }
     }
 
-    logger.log(`Found ${productMessages.length} product messages`);
+    logger.log(`Product message found: ${productMessage !== null}`);
 
-    if (productMessages.length === 0) {
-      logger.warn('Could not find product messages in conversation history after last confirmation');
+    logger.log(`Product message found: ${productMessage !== null}`);
+
+    if (!productMessage) {
+      logger.warn('Could not find product message immediately before confirmation');
       return;
     }
 
-    // Combinar todos los mensajes con productos
-    const prdMessage = productMessages.join('\n\n');
-
-    const currentOrder = extractOrderFromResponseUtil(prdMessage);
+    const currentOrder = extractOrderFromResponseUtil(productMessage);
 
     const lastSentOrder = conversation.lastOrderSentToCashier || {};
 
@@ -157,6 +157,13 @@ export const notifyCashierAboutConfirmedProductsUseCase = async (
       logger,
       twilioService,
     });
+
+    // IMPORTANTE: currentOrder ya contiene las cantidades ACUMULADAS totales
+    // porque el asistente muestra todo el pedido acumulado.
+    // Por lo tanto, simplemente guardamos currentOrder como el nuevo lastOrderSentToCashier
+    // (no necesitamos sumar nada, currentOrder ES el estado completo actual)
+    
+    logger.log(`Updating lastOrderSentToCashier with current order: ${JSON.stringify(currentOrder)}`);
 
     await conversationService.updateLastOrderSentToCashier(
       conversation.conversationId,

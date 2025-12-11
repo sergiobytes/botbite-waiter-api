@@ -15,6 +15,7 @@ export const notifyCashierAboutConfirmedBillUseCase = async (
     branchesService,
     ordersService,
     logger,
+    paymentMethod = 'no especificado', // Valor por defecto si no se proporciona
   } = params;
 
   try {
@@ -47,7 +48,8 @@ export const notifyCashierAboutConfirmedBillUseCase = async (
 
     const cashierMessage = `El cliente ${customer.name} en ${tableInfo}, ha solicitado su cuenta y está listo para pagar.
 
-Total: $${totalAmount.toFixed(2)}`;
+Total: $${totalAmount.toFixed(2)}
+Método de pago: ${paymentMethod}`;
 
     await sendMessageUseCase({
       assistantPhone: branch.phoneNumberAssistant,

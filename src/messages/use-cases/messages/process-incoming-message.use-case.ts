@@ -1,4 +1,4 @@
-import { isBillRequestUtil } from 'src/messages/utils/is-bill-request.util';
+import { isPaymentMethodResponseUtil } from 'src/messages/utils/is-payment-method-response.util';
 import { Customer } from '../../../customers/entities/customer.entity';
 import { ProcessIncomingMessage } from '../../interfaces/messages.interfaces';
 import { detectInappropriateBehaviorUtil } from '../../utils/detect-inappropriate-behavior.util';
@@ -266,7 +266,14 @@ export const processIncomingMessageUseCase = async (
     });
   }
 
-  if (isBillRequestUtil(processedMessage, response)) {
+  // Ya NO notificar cuando se pide la cuenta (solo muestra cuenta y pregunta método de pago)
+  // Notificar solo cuando el cliente responde con el método de pago
+  const { isPaymentMethod, paymentMethod } = isPaymentMethodResponseUtil(
+    processedMessage,
+    response,
+  );
+
+  if (isPaymentMethod) {
     await notifyCashierAboutConfirmedBillUseCase({
       branch,
       conversationService,
@@ -278,6 +285,7 @@ export const processIncomingMessageUseCase = async (
       menuService,
       message: processedMessage,
       customer: customerData!,
+      paymentMethod: paymentMethod!, // Método de pago: 'efectivo', 'tarjeta', o 'no especificado'
     });
   }
 };
