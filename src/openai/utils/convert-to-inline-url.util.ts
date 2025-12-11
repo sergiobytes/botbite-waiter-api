@@ -1,5 +1,3 @@
-import { shortenUrl } from '../../common/utils/link-shortener';
-
 export const convertToInlineUrl = (
   url: string,
   menuId: string,

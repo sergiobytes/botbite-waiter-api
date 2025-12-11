@@ -26,6 +26,17 @@ export interface IUpdateProductParams {
   translationService: TranslationService;
 }
 
+export interface IUploadProductFileParams {
+  productId: string;
+  restaurantId: string;
+  lang: string;
+  file: Express.Multer.File;
+  user: User;
+  logger: Logger;
+  repository: Repository<Product>;
+  translationService: TranslationService;
+}
+
 export interface IBulkCreateProductParams {
   file: Express.Multer.File;
   repository: Repository<Product>;

@@ -14,6 +14,7 @@ import { findOneProductUseCase } from './use-cases/find-one-product.use-case';
 import { updateProductUseCase } from './use-cases/update-product.use-case';
 import { changeProductStatusUseCase } from './use-cases/change-product-status.use-case';
 import { findAllByRestaurantUseCase } from './use-cases/find-all-by-restaurant.use-case';
+import { uploadProductFileUseCase } from './use-cases/upload-product-file.use-case';
 
 @Injectable()
 export class ProductsService {
@@ -130,6 +131,25 @@ export class ProductsService {
       paginationDto,
       findProductsDto,
       repository: this.productRepository,
+    });
+  }
+
+  async uploadProductFile(
+    productId: string,
+    restaurantId: string,
+    file: Express.Multer.File,
+    user: User,
+    lang: string,
+  ) {
+    return uploadProductFileUseCase({
+      productId,
+      restaurantId,
+      lang,
+      file,
+      user,
+      logger: this.logger,
+      repository: this.productRepository,
+      translationService: this.translationService,
     });
   }
 }

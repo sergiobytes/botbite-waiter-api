@@ -26,6 +26,7 @@ export class TwilioService {
     to: string,
     message: string,
     from: string,
+    mediaUrl?: string,
   ): Promise<MessageInstance> {
     if (!this.client) throw new Error('Twilio client not initialized');
 
@@ -35,6 +36,7 @@ export class TwilioService {
       from,
       this.logger,
       this.client,
+      mediaUrl,
     );
   }
 }

@@ -116,6 +116,45 @@ export class ProductsController {
     );
   }
 
+  @Patch('picture/:restaurantId/:productId')
+  @Auth([UserRoles.SUPER, UserRoles.ADMIN, UserRoles.CLIENT])
+  @UseInterceptors(FileInterceptor('file'))
+  uploadProductFile(
+    @Param('restaurantId', ParseUUIDPipe) restaurantId: string,
+    @Param('productId', ParseUUIDPipe) productId: string,
+    @UploadedFile() file: Express.Multer.File,
+    @CurrentUser() user: User,
+    @Lang() lang: string,
+  ) {
+    if (!file) {
+      throw new BadRequestException('Image file is required');
+    }
+
+    // Validar que sea una imagen
+    const allowedMimeTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/webp', 'image/gif'];
+    if (!allowedMimeTypes.includes(file.mimetype)) {
+      throw new BadRequestException(
+        'Invalid file type. Only JPEG, PNG, WebP and GIF images are allowed',
+      );
+    }
+
+    // Validar tamaño máximo (5MB)
+    const maxSize = 5 * 1024 * 1024; // 5MB en bytes
+    if (file.size > maxSize) {
+      throw new BadRequestException(
+        'File size exceeds the maximum allowed size of 5MB',
+      );
+    }
+
+    return this.productsService.uploadProductFile(
+      productId,
+      restaurantId,
+      file,
+      user,
+      lang,
+    );
+  }
+
   @Delete(':restaurantId/:productId')
   @Auth([UserRoles.SUPER, UserRoles.ADMIN])
   deactivateProduct(

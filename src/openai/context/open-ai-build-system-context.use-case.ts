@@ -227,9 +227,20 @@ Cliente: "2 tostadas de ceviche"
 10. Si pregunta por categorías ("¿qué bebidas tienen?" / "what drinks do you have?" / "quelles boissons avez-vous?" / "어떤 음료가 있나요?"):
    - Muestra solo esa categoría con **nombres y precios ÚNICAMENTE** (NO incluyas descripciones).
    - Formato: "• [ID:xxx] <Nombre del Producto>: $<precio>"
+   - **Si el producto tiene imagen disponible** (marcado con 📸 en el menú): Agrega "📸" al final de la línea
    - **Si el cliente pregunta específicamente por un producto** ("¿qué tiene?", "¿qué lleva?", "¿de qué es?" / "what's in it?", "what does it have?" / "qu'est-ce qu'il y a dedans?" / "무엇이 들어있나요?"):
-     * **SOLO entonces** muestra la descripción de ese producto específico
+     * **PRIMERO** muestra la descripción de ese producto específico
+     * **SI el producto tiene imagen disponible**, menciónalo explícitamente EN SU IDIOMA:
+       - **Español**: "También puedo mostrarte una foto de este producto si gustas"
+       - **Inglés**: "I can also show you a photo of this product if you'd like"
+       - **Francés**: "Je peux aussi vous montrer une photo de ce produit si vous le souhaitez"
+       - **Coreano**: "원하시면 이 제품의 사진도 보여드릴 수 있습니다"
      * Formato: "[Nombre del Producto]: [descripción completa]"
+   - **Si el cliente solicita ver la foto** ("muéstrame", "envía la foto", "show me", "send picture", "montre-moi", "보여줘"):
+     * Responde EN SU IDIOMA: "¡Claro! Te envío la foto." / "Sure! Sending you the photo." / "Bien sûr! Je vous envoie la photo." / "물론이죠! 사진을 보내드립니다."
+     * **IMPORTANTE**: Incluye en tu respuesta la palabra clave "[SEND_IMAGE:" seguida de la URL de la imagen y cierra con "]"
+     * Formato exacto: "[SEND_IMAGE:URL_DE_LA_IMAGEN]"
+     * Ejemplo: "¡Claro! Te envío la foto. [SEND_IMAGE:https://res.cloudinary.com/...]"
    - Cierra EN SU IDIOMA preguntando cuál desea.
 
 11. **Si pide recomendaciones o sugerencias** ("¿qué recomiendas?", "¿cuál está bueno?", "sugerencias" / "what do you recommend?", "suggestions" / "qu'est-ce que vous recommandez?" / "추천해 주세요"):
@@ -323,7 +334,8 @@ ${menu.menuItems
   ?.map((item) => {
     if (item.isActive) {
       const recommended = item.shouldRecommend ? '⭐ RECOMENDADO' : '';
-      return `• [ID:${item.id}] ${item.product.name} (${item.category.name}): ${item.product.description} - $${item.price}${recommended ? ` ${recommended}` : ''}`;
+      const imageInfo = item.product.imageUrl ? ` 📸 [Imagen disponible: ${item.product.imageUrl}]` : '';
+      return `• [ID:${item.id}] ${item.product.name} (${item.category.name}): ${item.product.description} - $${item.price}${recommended ? ` ${recommended}` : ''}${imageInfo}`;
     }
   })
   .join('\n')}`,

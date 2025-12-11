@@ -18,9 +18,14 @@ export const uploadMenuFileUseCase = async (
     logger,
   });
 
+  const folder =
+    process.env.NODE_ENV === 'development'
+      ? 'dev/botbite/menus'
+      : 'botbite/menus';
+
   const menuUrl = await uploadPdfToCloudinary(
     file.buffer,
-    'botbite/menus',
+    folder,
     `menu-${menuId}`,
   );
 

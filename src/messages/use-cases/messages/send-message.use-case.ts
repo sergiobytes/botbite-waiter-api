@@ -9,8 +9,15 @@ export const sendMessageUseCase = async (
     params;
 
   try {
+    // Extraer URL de imagen si está presente en el mensaje
+    const imageUrlMatch = message.match(/\[SEND_IMAGE:(.+?)\]/);
+    const mediaUrl = imageUrlMatch ? imageUrlMatch[1] : undefined;
+    
+    // Limpiar el mensaje removiendo el marcador de imagen
+    const cleanedMessage = message.replace(/\[SEND_IMAGE:.+?\]/g, '').trim();
+
     // Split message if it's too long for WhatsApp
-    const messageChunks = splitLongMessageUtil(message);
+    const messageChunks = splitLongMessageUtil(cleanedMessage);
 
     let lastResponse: MessageInstance | null = null;
 
@@ -22,10 +29,14 @@ export const sendMessageUseCase = async (
         `Sending message chunk ${i + 1}/${messageChunks.length} to ${customerPhone} (${chunk.length} chars)`,
       );
 
+      // Solo enviar la imagen con el primer mensaje
+      const shouldSendMedia = i === 0 && mediaUrl;
+
       lastResponse = await twilioService.sendWhatsAppMessage(
         customerPhone,
         chunk,
         assistantPhone!,
+        shouldSendMedia ? mediaUrl : undefined,
       );
 
       // Small delay between messages to ensure proper order
@@ -34,9 +45,15 @@ export const sendMessageUseCase = async (
       }
     }
 
-    logger.log(
-      `Message sent successfully to ${customerPhone} from branch ${assistantPhone} (${messageChunks.length} chunk${messageChunks.length > 1 ? 's' : ''})`,
-    );
+    if (mediaUrl) {
+      logger.log(
+        `Message with image sent successfully to ${customerPhone} from branch ${assistantPhone}`,
+      );
+    } else {
+      logger.log(
+        `Message sent successfully to ${customerPhone} from branch ${assistantPhone} (${messageChunks.length} chunk${messageChunks.length > 1 ? 's' : ''})`,
+      );
+    }
 
     return lastResponse!;
   } catch (error) {

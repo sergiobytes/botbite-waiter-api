@@ -26,6 +26,7 @@ export const findOneProductUseCase = async (
       name: true,
       description: true,
       isActive: true,
+      imageUrl: true,
       restaurant: {
         name: true,
         user: {

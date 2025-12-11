@@ -48,3 +48,27 @@ export const uploadPdfToCloudinary = (
       .end(buffer);
   });
 };
+
+export const uploadPictureToCloudinary = (
+  buffer: Buffer,
+  folder: string,
+  fileName: string,
+): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    cloudinary.uploader
+      .upload_stream(
+        {
+          folder,
+          public_id: fileName,
+          overwrite: true,
+        },
+        (error, result) => {
+          if (error) {
+            return reject(new Error(error.message || 'Upload failed'));
+          }
+          resolve(result!.secure_url);
+        },
+      )
+      .end(buffer);
+  });
+};

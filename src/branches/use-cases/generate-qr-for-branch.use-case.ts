@@ -34,10 +34,15 @@ export const generateQrForBranchUseCase = async (
 
   const targetUrl = `https://wa.me/${branch.phoneNumberAssistant}?text=${encodeURIComponent(prefilledMessage)}`;
 
+  const folder =
+    process.env.NODE_ENV === 'development'
+      ? 'dev/botbite/branches'
+      : 'botbite/branches';
+
   const finalImage = await createQr(targetUrl);
   const uploadedImageUrl = await uploadQRToCloudinary(
     finalImage,
-    'botbite/branches',
+    folder,
     `qr-${branch.id}`,
   );
 
