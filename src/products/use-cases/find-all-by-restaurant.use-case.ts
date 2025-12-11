@@ -31,6 +31,7 @@ export const findAllByRestaurantUseCase = async (
       name: true,
       description: true,
       isActive: true,
+      imageUrl: true,
       createdAt: true,
       restaurant: {
         name: true,
