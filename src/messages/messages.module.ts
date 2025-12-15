@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ScheduleModule } from '@nestjs/schedule';
 import { MessagesService } from './services/messages.service';
 import { MessagesController } from './messages.controller';
 import { TwilioService } from './services/twilio.service';
@@ -8,6 +9,7 @@ import { OpenAIModule } from '../openai/openai.module';
 import { CommonModule } from '../common/common.module';
 import { OrdersModule } from '../orders/orders.module';
 import { ConversationService } from './services/conversation.service';
+import { ConversationCleanupService } from './services/conversation-cleanup.service';
 import { TypeOrmModule } from '@nestjs/typeorm';
 import { Conversation } from './entities/conversation.entity';
 import { ConversationMessage } from './entities/conversation-message.entity';
@@ -15,6 +17,7 @@ import { MenusModule } from '../menus/menus.module';
 
 @Module({
   imports: [
+    ScheduleModule.forRoot(),
     BranchesModule,
     CustomersModule,
     CommonModule,
@@ -24,7 +27,12 @@ import { MenusModule } from '../menus/menus.module';
     TypeOrmModule.forFeature([Conversation, ConversationMessage]),
   ],
   controllers: [MessagesController],
-  providers: [MessagesService, TwilioService, ConversationService],
+  providers: [
+    MessagesService,
+    TwilioService,
+    ConversationService,
+    ConversationCleanupService,
+  ],
   exports: [TypeOrmModule, MessagesService, TwilioService, ConversationService],
 })
 export class MessagesModule {}
