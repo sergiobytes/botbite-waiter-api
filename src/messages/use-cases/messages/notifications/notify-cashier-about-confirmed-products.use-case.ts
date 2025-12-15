@@ -28,6 +28,13 @@ export const notifyCashierAboutConfirmedProductsUseCase = async (
       conversation.conversationId,
     );
 
+    logger.log(`\n=== FULL CONVERSATION HISTORY (${messages.length} messages) ===`);
+    messages.forEach((msg, idx) => {
+      logger.log(`\nMessage ${idx} [${msg.role}]:`);
+      logger.log(`  ${msg.content.substring(0, 150)}...`);
+    });
+    logger.log(`=== END CONVERSATION HISTORY ===\n`);
+
     // Encontrar el índice de la última confirmación previa (si existe)
     // NO incluir la confirmación más reciente (que es la que activó esta notificación)
     let lastConfirmationIndex = -1;
@@ -63,11 +70,18 @@ export const notifyCashierAboutConfirmedProductsUseCase = async (
     // La confirmación actual está en el último mensaje (messages.length - 1)
     let productMessage: string | null = null;
     
+    logger.log(`=== SEARCHING FOR PRODUCT MESSAGE ===`);
+    logger.log(`Total messages: ${messages.length}`);
+    logger.log(`Starting search from message ${messages.length - 2} backwards`);
+    
     // Buscar hacia atrás desde el penúltimo mensaje hasta encontrar el mensaje con productos
     for (let i = messages.length - 2; i >= 0; i--) {
       const message = messages[i];
       if (message.role === 'assistant') {
         const contentLower = message.content.toLowerCase();
+        
+        logger.log(`\n--- Checking message ${i} (assistant) ---`);
+        logger.log(`First 200 chars: ${message.content.substring(0, 200)}...`);
         
         const isRecommendation = 
           contentLower.includes('puedo sugerir') ||
@@ -110,11 +124,14 @@ export const notifyCashierAboutConfirmedProductsUseCase = async (
           hasAddedKeyword
         ) {
           productMessage = message.content;
-          logger.log(`Found product message at index ${i}`);
+          logger.log(`✅ FOUND PRODUCT MESSAGE at index ${i}!`);
+          logger.log(`=== FULL PRODUCT MESSAGE ===\n${productMessage}\n=== END ===`);
           break; // Encontramos el mensaje, salimos del loop
         }
       }
     }
+    
+    logger.log(`=== END SEARCH ===\n`);
 
     logger.log(`Product message found: ${productMessage !== null}`);
 
@@ -125,11 +142,16 @@ export const notifyCashierAboutConfirmedProductsUseCase = async (
       return;
     }
 
-    const currentOrder = extractOrderFromResponseUtil(productMessage);
+    logger.log(`=== PRODUCT MESSAGE CONTENT ===\n${productMessage}\n=== END PRODUCT MESSAGE ===`);
+
+    const currentOrder = extractOrderFromResponseUtil(productMessage, logger);
+    logger.log(`=== EXTRACTED CURRENT ORDER ===\n${JSON.stringify(currentOrder, null, 2)}\n=== END CURRENT ORDER ===`);
 
     const lastSentOrder = conversation.lastOrderSentToCashier || {};
+    logger.log(`=== LAST SENT ORDER (from DB) ===\n${JSON.stringify(lastSentOrder, null, 2)}\n=== END LAST SENT ORDER ===`);
 
-    const orderChanges = calculateOrderChangesUtil(lastSentOrder, currentOrder);
+    const orderChanges = calculateOrderChangesUtil(lastSentOrder, currentOrder, logger);
+    logger.log(`=== ORDER CHANGES (to notify) ===\n${JSON.stringify(orderChanges, null, 2)}\n=== END ORDER CHANGES ===`);
 
     if (Object.keys(orderChanges).length === 0) {
       logger.log('No changes to notify cashier about');
@@ -148,6 +170,7 @@ export const notifyCashierAboutConfirmedProductsUseCase = async (
       orderChanges,
       tableInfo,
       service: menuService,
+      logger,
     });
 
     await sendMessageUseCase({

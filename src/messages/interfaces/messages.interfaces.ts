@@ -81,6 +81,7 @@ export interface GenerateCashierMessage {
   >;
   menuId: string;
   service: MenusService;
+  logger?: Logger;
 }
 
 export interface CreateOrderFromLastOrder {
