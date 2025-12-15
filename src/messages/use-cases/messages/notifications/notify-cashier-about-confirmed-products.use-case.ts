@@ -103,25 +103,33 @@ export const notifyCashierAboutConfirmedProductsUseCase = async (
           contentLower.includes('완벽합니다. 확인해 주셔서 감사합니다');
 
         const hasProducts = message.content.includes('• ') && message.content.match(/\[ID:[^\]]+\]/);
+        
+        // Solo mensajes que confirman productos AGREGADOS al pedido (no menús)
         const hasAddedKeyword = 
           contentLower.includes('he agregado') ||
           contentLower.includes('he actualizado') ||
-          contentLower.includes('aquí tienes') ||
           contentLower.includes('i added') ||
           contentLower.includes('i updated') ||
-          contentLower.includes('here is') ||
           contentLower.includes('j\'ai ajouté') ||
           contentLower.includes('j\'ai mis à jour') ||
           contentLower.includes('추가했습니다') ||
           contentLower.includes('업데이트했습니다');
+        
+        // Verificar que el producto tenga formato completo con cantidad (x N)
+        const hasQuantityFormat = message.content.match(/\$\d+\.\d{2}\s*x\s*\d+/);
+        
+        // Para ser válido, debe tener productos Y (keyword de agregado O formato con cantidad)
+        const isValidProductMessage = hasProducts && (hasAddedKeyword || !!hasQuantityFormat);
 
-        logger.log(`Checking message ${i}: isRecommendation=${isRecommendation}, isConfirmation=${isConfirmation}, hasProducts=${hasProducts}, hasAddedKeyword=${hasAddedKeyword}`);
+        // Para ser válido, debe tener productos Y (keyword de agregado O formato con cantidad)
+        const isValidProductMessage = hasProducts && (hasAddedKeyword || hasQuantityFormat);
+
+        logger.log(`Checking message ${i}: isRecommendation=${isRecommendation}, isConfirmation=${isConfirmation}, hasProducts=${hasProducts}, hasAddedKeyword=${hasAddedKeyword}, hasQuantityFormat=${!!hasQuantityFormat}, isValid=${isValidProductMessage}`);
 
         if (
           !isRecommendation &&
           !isConfirmation &&
-          hasProducts &&
-          hasAddedKeyword
+          isValidProductMessage
         ) {
           productMessage = message.content;
           logger.log(`✅ FOUND PRODUCT MESSAGE at index ${i}!`);
