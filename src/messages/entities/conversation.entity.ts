@@ -1,4 +1,4 @@
-import { Column, Entity, Index, OneToMany } from 'typeorm';
+import { Column, Entity, Index, OneToMany, VersionColumn } from 'typeorm';
 import { BaseEntity } from '../../common/base.entity';
 import { ConversationMessage } from './conversation-message.entity';
 
@@ -7,6 +7,9 @@ export class Conversation extends BaseEntity {
   @Column({ unique: true })
   @Index()
   conversationId: string;
+
+  @VersionColumn()
+  version: number;
 
   @Column({ nullable: true })
   branchId?: string;
