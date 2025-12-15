@@ -23,6 +23,9 @@ export class Conversation extends BaseEntity {
     { price: number; quantity: number; menuItemId: string; notes?: string }
   >;
 
+  @Column({ type: 'json', nullable: true })
+  amenities?: Record<string, number>; // {"cubiertos": 2, "servilletas": 5, etc.}
+
   @Column({ type: 'boolean', default: false })
   isQrValidated: boolean;
 

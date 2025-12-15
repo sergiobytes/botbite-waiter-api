@@ -3,16 +3,27 @@ import { GenerateCashierMessage } from '../../interfaces/messages.interfaces';
 export const generateCashierMessageUseCase = async (
   params: GenerateCashierMessage,
 ): Promise<string> => {
-  const { customerName, menuId, orderChanges, tableInfo, service, logger } = params;
+  const { customerName, menuId, orderChanges, tableInfo, service, logger, amenities } = params;
 
   if (logger) {
     logger.log('\n=== GENERATING CASHIER MESSAGE ===');
     logger.log(`Customer: ${customerName}`);
     logger.log(`Table: ${tableInfo}`);
     logger.log(`Products to notify: ${Object.keys(orderChanges).length}`);
+    if (amenities) {
+      logger.log(`Amenities: ${JSON.stringify(amenities)}`);
+    }
   }
 
-  let message = `🛎️ El cliente ${customerName} que se encuentra en ${tableInfo}, ha pedido:\n\n`;
+  let message = '';
+
+  // Si hay productos, usar el formato normal
+  if (Object.keys(orderChanges).length > 0) {
+    message = `🛎️ El cliente ${customerName} que se encuentra en ${tableInfo}, ha pedido:\n\n`;
+  } else if (amenities && Object.keys(amenities).length > 0) {
+    // Si solo hay amenidades (sin productos), usar formato diferente
+    message = `🍴 El cliente ${customerName} en ${tableInfo} solicita:\n\n`;
+  }
 
   const { items } = await service.findMenuItems(
     menuId,
@@ -49,6 +60,14 @@ export const generateCashierMessageUseCase = async (
     if (notes) message += ` [Nota: ${notes}]`;
 
     message += `\n`;
+  }
+
+  // Agregar amenidades si existen
+  if (amenities && Object.keys(amenities).length > 0) {
+    message += `\n🍴 Amenidades solicitadas:\n`;
+    for (const [amenity, quantity] of Object.entries(amenities)) {
+      message += `• ${amenity}: ${quantity}\n`;
+    }
   }
 
   if (logger) {

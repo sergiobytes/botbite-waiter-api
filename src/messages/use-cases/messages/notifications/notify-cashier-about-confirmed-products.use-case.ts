@@ -1,5 +1,6 @@
 import { NotifyCashier } from '../../../interfaces/messages.interfaces';
 import { calculateOrderChangesUtil } from '../../../utils/calculate-order-changes.util';
+import { extractAmenitiesFromResponseUtil } from '../../../utils/extract-amenities-from-response.util';
 import { extractOrderFromResponseUtil } from '../../../utils/extract-order-from-response.util';
 import { extractTableInfoFromConversationUtil } from '../../../utils/extract-table-information-from-conversation.util';
 import { generateCashierMessageUseCase } from '../generate-cashier-message.use-case';
@@ -175,6 +176,28 @@ export const notifyCashierAboutConfirmedProductsUseCase = async (
       `=== EXTRACTED CURRENT ORDER ===\n${JSON.stringify(currentOrder, null, 2)}\n=== END CURRENT ORDER ===`,
     );
 
+    // Extraer amenidades de todos los mensajes recientes del AI
+    const amenities: Record<string, number> = {};
+    for (let i = messages.length - 1; i >= 0 && i >= lastConfirmationIndex; i--) {
+      const message = messages[i];
+      if (message.role === 'assistant') {
+        const extractedAmenities = extractAmenitiesFromResponseUtil(
+          message.content,
+          logger,
+        );
+        // Acumular amenidades (sumar cantidades si se repiten)
+        for (const [amenity, quantity] of Object.entries(extractedAmenities)) {
+          amenities[amenity] = (amenities[amenity] || 0) + quantity;
+        }
+      }
+    }
+
+    if (Object.keys(amenities).length > 0) {
+      logger.log(
+        `=== EXTRACTED AMENITIES ===\n${JSON.stringify(amenities, null, 2)}\n=== END AMENITIES ===`,
+      );
+    }
+
     const lastSentOrder = conversation.lastOrderSentToCashier || {};
     logger.log(
       `=== LAST SENT ORDER (from DB) ===\n${JSON.stringify(lastSentOrder, null, 2)}\n=== END LAST SENT ORDER ===`,
@@ -189,8 +212,9 @@ export const notifyCashierAboutConfirmedProductsUseCase = async (
       `=== ORDER CHANGES (to notify) ===\n${JSON.stringify(orderChanges, null, 2)}\n=== END ORDER CHANGES ===`,
     );
 
-    if (Object.keys(orderChanges).length === 0) {
-      logger.log('No changes to notify cashier about');
+    // Si hay amenidades O cambios de productos, notificar
+    if (Object.keys(orderChanges).length === 0 && Object.keys(amenities).length === 0) {
+      logger.log('No changes or amenities to notify cashier about');
       return;
     }
 
@@ -207,6 +231,7 @@ export const notifyCashierAboutConfirmedProductsUseCase = async (
       tableInfo,
       service: menuService,
       logger,
+      amenities: Object.keys(amenities).length > 0 ? amenities : undefined,
     });
 
     await sendMessageUseCase({
