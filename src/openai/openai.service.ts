@@ -23,17 +23,17 @@ export class OpenAIService {
       apiKey: openAIConfig.apiKey,
     });
 
-    // Cola optimizada para respuesta rápida
+    // Cola optimizada para respuesta rápida con múltiples usuarios
     // Tier 1 de OpenAI: 500 RPM (requests/min), 30K TPM (tokens/min)
-    // Con prompts optimizados (~2-3K tokens/request), podemos hacer muchas más requests
+    // Optimizado para ~10-20 usuarios simultáneos
     this.queue = new PQueue({
-      concurrency: 10, // Máximo 10 llamadas simultáneas
+      concurrency: 20, // Máximo 20 llamadas simultáneas (aumentado para múltiples usuarios)
       interval: 60000, // Intervalo de 1 minuto
-      intervalCap: 100, // Máximo 100 requests por minuto (bajo el límite de 500 RPM)
-      timeout: 120000, // 2 minutos timeout en cola
+      intervalCap: 400, // Máximo 400 requests por minuto (80% del límite de 500 RPM)
+      timeout: 90000, // 90 segundos timeout en cola (reducido)
     });
 
-    this.logger.log('OpenAI service initialized (concurrency: 10, rate: 100/min for Tier 1 limits)');
+    this.logger.log('OpenAI service initialized (concurrency: 20, rate: 400/min for Tier 1 limits)');
   }
 
   createConversation(): string {

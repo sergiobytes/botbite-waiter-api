@@ -52,24 +52,23 @@ export const openAiSendMessageUseCase = async (
       },
     ];
 
-    // Timeout de 60 segundos para evitar que se quede colgado
-    // Aumentado para soportar carga alta con 100+ usuarios
+    // Timeout de 30 segundos para respuesta rápida
+    // gpt-4o normalmente responde en 2-5 segundos
     const timeoutPromise = new Promise<never>((_, reject) => {
       setTimeout(
-        () => reject(new Error('OpenAI request timeout after 60s')),
-        60000,
+        () => reject(new Error('OpenAI request timeout after 30s')),
+        30000,
       );
     });
 
     const responsePromise = openai.chat.completions.create({
       model: 'gpt-4o',
       messages: messages,
-      max_tokens: 1000, // Aumentado para respuestas completas sin cortes
+      max_tokens: 800, // Balance entre velocidad y respuestas completas (cubre pedidos grandes)
       temperature: 0.3,
       top_p: 1,
       frequency_penalty: 0,
       presence_penalty: 0,
-      service_tier: 'auto', // Auto intenta priority, fallback a default si no disponible
     });
 
     const response = await Promise.race([responsePromise, timeoutPromise]);
@@ -92,13 +91,13 @@ export const openAiSendMessageUseCase = async (
       ) {
         const match = error.message.match(/try again in ([0-9.]+)s/);
         if (match) {
-          const waitSeconds = parseFloat(match[1]);
+          const waitSeconds = Math.min(parseFloat(match[1]), 5); // Máximo 5 segundos de espera
           logger.warn(
-            `Rate limit hit, OpenAI suggests waiting ${waitSeconds}s`,
+            `Rate limit hit, OpenAI suggests waiting ${waitSeconds}s (capped at 5s)`,
           );
-          // Esperar el tiempo sugerido + 1s de margen y reintentar UNA vez
+          // Esperar tiempo sugerido (máximo 5s) y reintentar UNA vez
           await new Promise((resolve) =>
-            setTimeout(resolve, (waitSeconds + 1) * 1000),
+            setTimeout(resolve, waitSeconds * 1000),
           );
           logger.log(
             `Retrying after rate limit wait for conversation: ${conversationId}`,
@@ -129,12 +128,11 @@ export const openAiSendMessageUseCase = async (
             const retryResponse = await openai.chat.completions.create({
               model: 'gpt-4o',
               messages: retryMessages,
-              max_tokens: 1000,
+              max_tokens: 800,
               temperature: 0.3,
               top_p: 1,
               frequency_penalty: 0,
               presence_penalty: 0,
-              service_tier: 'auto', // Auto para retry también
             });
             return (
               retryResponse.choices[0].message.content ||
