@@ -7,13 +7,17 @@ import { OpenAIService } from '../../openai/openai.service';
 import { Customer } from '../../customers/entities/customer.entity';
 import { Branch } from '../../branches/entities/branch.entity';
 import { getOrCreateConversationUseCase } from '../use-cases/conversations/get-create-conversation.use-case';
-import { ConversationHistoryResponse, ConversationsListResponse } from '../interfaces/messages.interfaces';
+import {
+  ConversationHistoryResponse,
+  ConversationsListResponse,
+} from '../interfaces/messages.interfaces';
 import { getConversationHistoryUseCase } from '../use-cases/messages/get-conversation-history.use-case';
 import { processMessageUseCase } from '../use-cases/messages/process-message.use-case';
 import { updateLastOrderSentToCashierUseCase } from '../use-cases/conversations/update-last-order-sent-cashier.use-case';
 import { updateConversationLocationUseCase } from '../use-cases/conversations/update-conversation-location.use-case';
 import { deleteConversationUseCase } from '../use-cases/conversations/delete-conversation.use-case';
 import { findConversationsByBranchUseCase } from '../use-cases/conversations/find-conversations-by-branch.use-case';
+import { OrdersGateway } from '../gateways/orders.gateway';
 
 @Injectable()
 export class ConversationService {
@@ -25,6 +29,7 @@ export class ConversationService {
     @InjectRepository(ConversationMessage)
     private readonly messageRepository: Repository<ConversationMessage>,
     private readonly openaiService: OpenAIService,
+    private readonly ordersGateway: OrdersGateway,
   ) {}
 
   async getOrCreateConversation(
@@ -76,12 +81,21 @@ export class ConversationService {
       { price: number; quantity: number; menuItemId: string; notes?: string }
     >,
   ): Promise<void> {
-    return updateLastOrderSentToCashierUseCase({
+    await updateLastOrderSentToCashierUseCase({
       conversationId,
       orderData,
       repository: this.conversationRepository,
       logger: this.logger,
     });
+
+    const conversation = await this.conversationRepository.findOne({
+      where: { conversationId },
+      select: ['branchId'],
+    });
+
+    if (conversation?.branchId) {
+      this.ordersGateway.emitOrderUpdate(conversation.branchId);
+    }
   }
 
   async updateConversationLocation(
@@ -100,16 +114,24 @@ export class ConversationService {
     return findConversationsByBranchUseCase({
       branchId,
       repository: this.conversationRepository,
-      logger: this.logger,
     });
   }
 
   async deleteConversation(conversationId: string): Promise<void> {
-    return deleteConversationUseCase({
+    const conversation = await this.conversationRepository.findOne({
+      where: { conversationId },
+      select: ['branchId'],
+    });
+
+    await deleteConversationUseCase({
       conversationId,
       conversationRepository: this.conversationRepository,
       conversationMessageRepository: this.messageRepository,
       logger: this.logger,
     });
+
+    if (conversation?.branchId) {
+      this.ordersGateway.emitOrderUpdate(conversation.branchId);
+    }
   }
 }

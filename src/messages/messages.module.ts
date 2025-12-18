@@ -15,6 +15,7 @@ import { Conversation } from './entities/conversation.entity';
 import { ConversationMessage } from './entities/conversation-message.entity';
 import { MenusModule } from '../menus/menus.module';
 import { CustomJwtModule } from '../custom-jwt/custom-jwt.module';
+import { OrdersGateway } from './gateways/orders.gateway';
 
 @Module({
   imports: [
@@ -34,6 +35,7 @@ import { CustomJwtModule } from '../custom-jwt/custom-jwt.module';
     TwilioService,
     ConversationService,
     ConversationCleanupService,
+    OrdersGateway,
   ],
   exports: [TypeOrmModule, MessagesService, TwilioService, ConversationService],
 })

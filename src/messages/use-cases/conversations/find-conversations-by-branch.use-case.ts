@@ -7,7 +7,7 @@ import { IsNull, Not } from 'typeorm';
 export const findConversationsByBranchUseCase = async (
   params: FindConversationsByBranch,
 ): Promise<ConversationsListResponse> => {
-  const { branchId, repository, logger } = params;
+  const { branchId, repository } = params;
 
   const conversations = await repository.find({
     where: {
@@ -19,6 +19,7 @@ export const findConversationsByBranchUseCase = async (
     },
     relations: {
       branch: true,
+      customer: true,
     },
     select: {
       id: true,
@@ -31,12 +32,11 @@ export const findConversationsByBranchUseCase = async (
       branch: {
         id: true,
       },
+      customer: {
+        name: true,
+      },
     },
   });
-
-  logger.log(
-    `Found ${conversations.length} conversations for branch ${branchId}`,
-  );
 
   return {
     conversations,

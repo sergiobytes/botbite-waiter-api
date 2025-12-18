@@ -14,11 +14,10 @@ export class ConversationCleanupService {
     private readonly conversationRepository: Repository<Conversation>,
   ) {}
 
-  // Ejecutar limpieza todos los días a las 3:00 AM
   @Cron(CronExpression.EVERY_DAY_AT_3AM)
   async handleDailyCleanup() {
     this.logger.log('Starting daily conversation cleanup task');
-    
+
     try {
       const deletedCount = await cleanupOldConversationsUseCase(
         this.conversationRepository,
@@ -33,10 +32,9 @@ export class ConversationCleanupService {
     }
   }
 
-  // Método manual para testing o uso bajo demanda
   async cleanupNow(): Promise<number> {
     this.logger.log('Manual conversation cleanup triggered');
-    
+
     return cleanupOldConversationsUseCase(
       this.conversationRepository,
       this.logger,

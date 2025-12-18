@@ -32,7 +32,6 @@ export interface DeleteConversation {
 export interface FindConversationsByBranch {
   branchId: string;
   repository: Repository<Conversation>;
-  logger: Logger;
 }
 
 export interface ConversationsListResponse {
