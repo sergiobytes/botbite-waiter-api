@@ -12,18 +12,37 @@ export const extractOrderFromResponseUtil = (
     { price: number; quantity: number; menuItemId: string; notes?: string }
   > = {};
 
+  if (logger) {
+    logger.log('\n=== EXTRACTING ORDER FROM RESPONSE ===');
+    logger.log(`Response length: ${response.length} chars`);
+  }
+
+  // Buscar la sección de "pedido completo" en varios idiomas
+  const completeOrderSectionRegex = /(tu pedido completo:|pedido actual:|pedido completo:|your complete order:|current order:|complete order:|votre commande complète:|commande actuelle:|commande complète:|전체 주문:|현재 주문:)(.*?)(?=\n\n(?:Total|Subtotal)|$)/is;
+  const completeOrderMatch = response.match(completeOrderSectionRegex);
+  
+  let textToExtract = response;
+  
+  if (completeOrderMatch) {
+    // Encontramos la sección de pedido completo, extraer solo de ahí
+    textToExtract = completeOrderMatch[0];
+    if (logger) {
+      logger.log('✅ Found "complete order" section, extracting from there');
+      logger.log(`Section length: ${textToExtract.length} chars`);
+    }
+  } else {
+    if (logger) {
+      logger.log('ℹ️ No "complete order" section found, extracting from entire response');
+    }
+  }
+
   const orderRegex =
     /[•-]\s*\[ID:([^\]]+)\]\s+([^:]+?)\s+\(([^)]+)\)\s*:\s*\$(\d+(?:\.\d{2})?)(?:\s*x\s*(\d+)(?:\s*=\s*\$(\d+(?:\.\d{2})?))?)?(?:\s*\[Nota:\s*([^\]]+)\])?/gi;
 
   let match;
   let matchCount = 0;
 
-  if (logger) {
-    logger.log('\n=== EXTRACTING ORDER FROM RESPONSE ===');
-    logger.log(`Response length: ${response.length} chars`);
-  }
-
-  while ((match = orderRegex.exec(response)) !== null) {
+  while ((match = orderRegex.exec(textToExtract)) !== null) {
     matchCount++;
     if (logger) {
       logger.log(`\nMatch ${matchCount}:`);

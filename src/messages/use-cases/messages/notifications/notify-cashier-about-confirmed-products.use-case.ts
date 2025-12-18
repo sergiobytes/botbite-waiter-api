@@ -79,15 +79,16 @@ export const notifyCashierAboutConfirmedProductsUseCase = async (
       `Last PREVIOUS confirmation index: ${lastConfirmationIndex}, total messages: ${messages.length}, total confirmations: ${confirmationCount}`,
     );
 
-    // Buscar el mensaje de productos inmediatamente ANTERIOR a la confirmación actual
+    // Buscar el mensaje de productos completo inmediatamente ANTERIOR a la confirmación actual
+    // Este mensaje DEBE contener el pedido COMPLETO acumulado (según instrucciones del prompt)
     // La confirmación actual está en el último mensaje (messages.length - 1)
     let productMessage: string | null = null;
 
-    logger.log(`=== SEARCHING FOR PRODUCT MESSAGE ===`);
+    logger.log(`=== SEARCHING FOR COMPLETE ORDER MESSAGE ===`);
     logger.log(`Total messages: ${messages.length}`);
     logger.log(`Starting search from message ${messages.length - 2} backwards`);
 
-    // Buscar hacia atrás desde el penúltimo mensaje hasta encontrar el mensaje con productos
+    // Buscar hacia atrás desde el penúltimo mensaje hasta encontrar el mensaje con el pedido completo
     for (let i = messages.length - 2; i >= 0; i--) {
       const message = messages[i];
       if (message.role === 'assistant') {
@@ -119,7 +120,18 @@ export const notifyCashierAboutConfirmedProductsUseCase = async (
           message.content.includes('• ') &&
           message.content.match(/\[ID:[^\]]+\]/);
 
-        // Solo mensajes que confirman productos AGREGADOS al pedido (no menús)
+        // Buscar específicamente la sección "pedido completo" o "complete order"
+        const hasCompleteOrderSection =
+          contentLower.includes('tu pedido completo:') ||
+          contentLower.includes('pedido actual:') ||
+          contentLower.includes('your complete order:') ||
+          contentLower.includes('current order:') ||
+          contentLower.includes('votre commande complète:') ||
+          contentLower.includes('commande actuelle:') ||
+          contentLower.includes('전체 주문:') ||
+          contentLower.includes('현재 주문:');
+
+        // También aceptar mensajes con formato de productos agregados
         const hasAddedKeyword =
           contentLower.includes('he agregado') ||
           contentLower.includes('he actualizado') ||
@@ -135,34 +147,32 @@ export const notifyCashierAboutConfirmedProductsUseCase = async (
           /\$\d+\.\d{2}\s*x\s*\d+/,
         );
 
-        // Para ser válido, debe tener productos Y (keyword de agregado O formato con cantidad)
+        // Para ser válido, debe tener productos Y (sección completa O (keyword de agregado O formato con cantidad))
         const isValidProductMessage =
-          hasProducts && (hasAddedKeyword || !!hasQuantityFormat);
+          hasProducts && (hasCompleteOrderSection || hasAddedKeyword || !!hasQuantityFormat);
 
         logger.log(
-          `Checking message ${i}: isRecommendation=${isRecommendation}, isConfirmation=${isConfirmation}, hasProducts=${!!hasProducts}, hasAddedKeyword=${hasAddedKeyword}, hasQuantityFormat=${!!hasQuantityFormat}, isValid=${isValidProductMessage}`,
+          `Checking message ${i}: isRecommendation=${isRecommendation}, isConfirmation=${isConfirmation}, hasProducts=${!!hasProducts}, hasCompleteOrderSection=${hasCompleteOrderSection}, hasAddedKeyword=${hasAddedKeyword}, hasQuantityFormat=${!!hasQuantityFormat}, isValid=${isValidProductMessage}`,
         );
 
         if (!isRecommendation && !isConfirmation && isValidProductMessage) {
           productMessage = message.content;
-          logger.log(`✅ FOUND PRODUCT MESSAGE at index ${i}!`);
+          logger.log(`✅ FOUND COMPLETE ORDER MESSAGE at index ${i}!`);
           logger.log(
             `=== FULL PRODUCT MESSAGE ===\n${productMessage}\n=== END ===`,
           );
-          break; // Encontramos el mensaje, salimos del loop
+          break; // Encontramos el mensaje con el pedido completo, salimos del loop
         }
       }
     }
 
     logger.log(`=== END SEARCH ===\n`);
 
-    logger.log(`Product message found: ${productMessage !== null}`);
-
-    logger.log(`Product message found: ${productMessage !== null}`);
+    logger.log(`Complete order message found: ${productMessage !== null}`);
 
     if (!productMessage) {
       logger.warn(
-        'Could not find product message immediately before confirmation',
+        'Could not find complete order message immediately before confirmation',
       );
       return;
     }
