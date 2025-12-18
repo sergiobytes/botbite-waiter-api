@@ -13,7 +13,10 @@ export const extractAmenitiesFromResponseUtil = (
 
   // Lista de amenidades reconocidas (singular y plural)
   const amenityKeywords = {
-    cubiertos: ['cubiertos', 'cubierto', 'tenedores', 'tenedor', 'cuchillos', 'cuchillo', 'cucharas', 'cuchara', 'utensils', 'cutlery', 'fork', 'forks', 'knife', 'knives', 'spoon', 'spoons'],
+    tenedores: ['tenedores', 'tenedor', 'forks', 'fork'],
+    cuchillos: ['cuchillos', 'cuchillo', 'knife', 'knives'],
+    cucharas: ['cucharas', 'cuchara', 'spoons', 'spoon'],
+    cubiertos: ['cubiertos', 'cubierto', 'utensils', 'cutlery'],
     servilletas: ['servilletas', 'servilleta', 'napkins', 'napkin'],
     vasos: ['vasos', 'vaso', 'glasses', 'glass', 'cups', 'cup'],
     platos: ['platos', 'plato', 'plates', 'plate', 'dishes', 'dish'],

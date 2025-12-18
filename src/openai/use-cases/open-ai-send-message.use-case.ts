@@ -64,7 +64,7 @@ export const openAiSendMessageUseCase = async (
     const responsePromise = openai.chat.completions.create({
       model: 'gpt-4o',
       messages: messages,
-      max_tokens: 400, // Reducido para optimizar tokens/minuto (TPM)
+      max_tokens: 1000, // Aumentado para respuestas completas sin cortes
       temperature: 0.3,
       top_p: 1,
       frequency_penalty: 0,
@@ -129,7 +129,7 @@ export const openAiSendMessageUseCase = async (
             const retryResponse = await openai.chat.completions.create({
               model: 'gpt-4o',
               messages: retryMessages,
-              max_tokens: 400,
+              max_tokens: 1000,
               temperature: 0.3,
               top_p: 1,
               frequency_penalty: 0,
