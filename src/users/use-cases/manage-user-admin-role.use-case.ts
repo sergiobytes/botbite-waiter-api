@@ -30,6 +30,15 @@ export const manageUserAdminRoleUseCase = async (
     );
   }
 
+  if (!user.roles || !Array.isArray(user.roles)) {
+    logger.warn(
+      `Manage admin role failed - User has invalid roles: ${user.email}`,
+    );
+    throw new BadRequestException(
+      translationService.translate('errors.invalid_user_data', lang),
+    );
+  }
+
   if (user.roles.includes(UserRoles.CLIENT) && addRole) {
     logger.warn(`Add admin role failed - User is a client: ${user.email}`);
     throw new BadRequestException(

@@ -20,6 +20,6 @@ export class CreateRestaurantDto {
   logoUrl?: string;
 
   @IsOptional()
-  @IsBoolean()
+  @IsBoolean({ message: 'isActive must be a boolean' })
   isActive?: boolean;
 }

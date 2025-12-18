@@ -38,8 +38,9 @@ export const uploadProductFileUseCase = async (
   }
 
   const canModifyAnyProduct =
-    user.roles.includes(UserRoles.ADMIN) ||
-    user.roles.includes(UserRoles.SUPER);
+    user.roles?.includes(UserRoles.ADMIN) ||
+    user.roles?.includes(UserRoles.SUPER) ||
+    false;
 
   if (!canModifyAnyProduct && product.restaurant.user.id !== user.id) {
     logger.warn(

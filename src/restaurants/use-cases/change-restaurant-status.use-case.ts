@@ -27,8 +27,9 @@ export const changeRestaurantStatusUseCase = async (
   });
 
   const canModifyAnyRestaurant =
-    user.roles.includes(UserRoles.ADMIN) ||
-    user.roles.includes(UserRoles.SUPER);
+    user.roles?.includes(UserRoles.ADMIN) ||
+    user.roles?.includes(UserRoles.SUPER) ||
+    false;
 
   if (!canModifyAnyRestaurant && restaurant.userId !== user.id) {
     logger.warn(
