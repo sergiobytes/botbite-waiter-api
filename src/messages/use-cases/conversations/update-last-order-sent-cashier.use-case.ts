@@ -24,6 +24,7 @@ export const updateLastOrderSentToCashierUseCase = async (
 
       // Actualizar datos
       conversation.lastOrderSentToCashier = orderData;
+      conversation.lastOrderSentAt = new Date();
       conversation.lastActivity = new Date();
 
       // save() verifica automáticamente la versión y lanza error si cambió

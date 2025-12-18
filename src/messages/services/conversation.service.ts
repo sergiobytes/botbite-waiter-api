@@ -7,11 +7,13 @@ import { OpenAIService } from '../../openai/openai.service';
 import { Customer } from '../../customers/entities/customer.entity';
 import { Branch } from '../../branches/entities/branch.entity';
 import { getOrCreateConversationUseCase } from '../use-cases/conversations/get-create-conversation.use-case';
-import { ConversationHistoryResponse } from '../interfaces/messages.interfaces';
+import { ConversationHistoryResponse, ConversationsListResponse } from '../interfaces/messages.interfaces';
 import { getConversationHistoryUseCase } from '../use-cases/messages/get-conversation-history.use-case';
 import { processMessageUseCase } from '../use-cases/messages/process-message.use-case';
 import { updateLastOrderSentToCashierUseCase } from '../use-cases/conversations/update-last-order-sent-cashier.use-case';
+import { updateConversationLocationUseCase } from '../use-cases/conversations/update-conversation-location.use-case';
 import { deleteConversationUseCase } from '../use-cases/conversations/delete-conversation.use-case';
+import { findConversationsByBranchUseCase } from '../use-cases/conversations/find-conversations-by-branch.use-case';
 
 @Injectable()
 export class ConversationService {
@@ -77,6 +79,26 @@ export class ConversationService {
     return updateLastOrderSentToCashierUseCase({
       conversationId,
       orderData,
+      repository: this.conversationRepository,
+      logger: this.logger,
+    });
+  }
+
+  async updateConversationLocation(
+    conversationId: string,
+    location: string,
+  ): Promise<void> {
+    return updateConversationLocationUseCase({
+      conversationId,
+      location,
+      repository: this.conversationRepository,
+      logger: this.logger,
+    });
+  }
+
+  async findByBranch(branchId: string): Promise<ConversationsListResponse> {
+    return findConversationsByBranchUseCase({
+      branchId,
       repository: this.conversationRepository,
       logger: this.logger,
     });

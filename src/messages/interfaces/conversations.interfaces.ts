@@ -28,3 +28,14 @@ export interface DeleteConversation {
   conversationMessageRepository: Repository<ConversationMessage>;
   logger: Logger;
 }
+
+export interface FindConversationsByBranch {
+  branchId: string;
+  repository: Repository<Conversation>;
+  logger: Logger;
+}
+
+export interface ConversationsListResponse {
+  conversations: Conversation[];
+  total: number;
+}

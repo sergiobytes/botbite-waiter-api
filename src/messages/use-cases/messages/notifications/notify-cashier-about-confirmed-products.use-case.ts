@@ -228,11 +228,20 @@ export const notifyCashierAboutConfirmedProductsUseCase = async (
       return;
     }
 
-    const tableInfo = await extractTableInfoFromConversationUtil(
-      conversation.conversationId,
-      conversationService,
-      logger,
-    );
+    // Usar la ubicación guardada en la conversación, o extraerla si no existe
+    let tableInfo = conversation.location;
+    if (!tableInfo) {
+      tableInfo = await extractTableInfoFromConversationUtil(
+        conversation.conversationId,
+        conversationService,
+        logger,
+      );
+      // Guardar la ubicación en la conversación si se acaba de extraer
+      await conversationService.updateConversationLocation(
+        conversation.conversationId,
+        tableInfo,
+      );
+    }
 
     const message = await generateCashierMessageUseCase({
       customerName: customer.name,

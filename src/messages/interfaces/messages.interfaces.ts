@@ -99,3 +99,8 @@ export interface CreateOrderFromLastOrder {
 export interface ConversationHistoryResponse {
   messages: Array<{ role: 'user' | 'assistant'; content: string }>;
 }
+
+export interface ConversationsListResponse {
+  conversations: Conversation[];
+  total: number;
+}

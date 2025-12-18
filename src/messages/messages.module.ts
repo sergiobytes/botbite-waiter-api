@@ -14,6 +14,7 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { Conversation } from './entities/conversation.entity';
 import { ConversationMessage } from './entities/conversation-message.entity';
 import { MenusModule } from '../menus/menus.module';
+import { CustomJwtModule } from '../custom-jwt/custom-jwt.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { MenusModule } from '../menus/menus.module';
     OpenAIModule,
     OrdersModule,
     MenusModule,
+    CustomJwtModule,
     TypeOrmModule.forFeature([Conversation, ConversationMessage]),
   ],
   controllers: [MessagesController],

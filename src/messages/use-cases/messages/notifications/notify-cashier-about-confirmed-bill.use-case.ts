@@ -35,11 +35,20 @@ export const notifyCashierAboutConfirmedBillUseCase = async (
       `Using order from lastOrderSentToCashier: ${JSON.stringify(orderFromField)}`,
     );
 
-    const tableInfo = await extractTableInfoFromConversationUtil(
-      conversation.conversationId,
-      conversationService,
-      logger,
-    );
+    // Usar la ubicación guardada en la conversación, o extraerla si no existe
+    let tableInfo = conversation.location;
+    if (!tableInfo) {
+      tableInfo = await extractTableInfoFromConversationUtil(
+        conversation.conversationId,
+        conversationService,
+        logger,
+      );
+      // Guardar la ubicación en la conversación si se acaba de extraer
+      await conversationService.updateConversationLocation(
+        conversation.conversationId,
+        tableInfo,
+      );
+    }
 
     let totalAmount = 0;
     for (const [, { price, quantity }] of Object.entries(orderFromField)) {

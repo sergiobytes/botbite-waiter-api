@@ -1,4 +1,4 @@
-import { Column, Entity } from 'typeorm';
+import { Column, Entity, Index } from 'typeorm';
 import { BaseEntity } from '../../common/base.entity';
 
 @Entity()
@@ -6,6 +6,7 @@ export class Customer extends BaseEntity {
   @Column()
   name: string;
 
-  @Column()
+  @Column({ unique: true })
+  @Index()
   phone: string;
 }

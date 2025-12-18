@@ -6,6 +6,7 @@ import { detectInvalidTableResponseUtil } from '../../utils/detect-invalid-table
 import { isInitialOrderConfirmationUtil } from '../../utils/is-initial-order-confirmation.util';
 import { isProductUpdateUtil } from '../../utils/is-product-update.util';
 import { removeMenuItemsIdsUtil } from '../../utils/remove-menu-items-ids.util';
+import { extractLocationFromMessageUtil } from '../../utils/extract-location-from-message.util';
 import { notifyCashierAboutConfirmedBillUseCase } from './notifications/notify-cashier-about-confirmed-bill.use-case';
 import { notifyCashierAboutConfirmedProductsUseCase } from './notifications/notify-cashier-about-confirmed-products.use-case';
 import { notifyCashierAboutInappropriateBehaviorUseCase } from './notifications/notify-cashier-about-inappropriate-behavior.use-case';
@@ -233,6 +234,16 @@ export const processIncomingMessageUseCase = async (
     from,
     branch.id,
   );
+
+  // Detectar y guardar la ubicación tan pronto como se menciona
+  const location = extractLocationFromMessageUtil(processedMessage);
+  if (location && location !== conversation.location) {
+    logger.log(`Detected location in message: ${location}`);
+    await conversationService.updateConversationLocation(
+      conversation.conversationId,
+      location,
+    );
+  }
 
   const isInitialConfirmation = isInitialOrderConfirmationUtil(response);
   const isProductUpdate = isProductUpdateUtil(processedMessage, response);
