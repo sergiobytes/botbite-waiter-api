@@ -39,7 +39,9 @@ export class OrdersGateway implements OnGatewayConnection, OnGatewayDisconnect {
     const rooms = Array.from(client.rooms).filter(
       (room) => room.startsWith('branch-') && room !== client.id,
     );
-    rooms.forEach((room) => client.leave(room));
+    for (const room of rooms) {
+      client.leave(room);
+    }
 
     // Unirse a la room de la nueva sucursal
     const roomName = `branch-${branchId}`;
