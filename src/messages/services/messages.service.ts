@@ -24,13 +24,15 @@ export class MessagesService {
   ) {}
 
   async handleWhatsappTwilioMessage(body: WebhookDataTwilio) {
+    const startTime = Date.now();
     this.logger.log(
-      `Received Twilio webhook: ${JSON.stringify(body, null, 2)}`,
+      `[${new Date().toISOString()}] Received Twilio webhook: ${JSON.stringify(body, null, 2)}`,
     );
 
     try {
       await this.processIncomingMessage(body);
-      this.logger.log('Message processed successfully');
+      const duration = Date.now() - startTime;
+      this.logger.log(`Message processed successfully in ${duration}ms`);
     } catch (error) {
       this.logger.error('Error processing Twilio webhook');
       throw error;

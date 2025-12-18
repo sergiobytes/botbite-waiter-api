@@ -20,6 +20,9 @@ export const processMessageUseCase = async (
   } = params;
 
   try {
+    const startTime = Date.now();
+    logger.log(`[PERF] Starting message processing for ${phoneNumber}`);
+    
     const conversation = await getOrCreateConversationUseCase({
       phoneNumber,
       branchId,
@@ -27,11 +30,14 @@ export const processMessageUseCase = async (
       repository: conversationRepository,
       service,
     });
+    logger.log(`[PERF] Conversation loaded in ${Date.now() - startTime}ms`);
 
+    const historyStart = Date.now();
     const { messages } = await getConversationHistoryUseCase({
       conversationId: conversation.conversationId,
       repository: conversationMessageRepository,
     });
+    logger.log(`[PERF] History loaded in ${Date.now() - historyStart}ms`);
 
     // ✅ Validar QR solo si no está validado
     if (!conversation.isQrValidated) {
@@ -68,13 +74,17 @@ export const processMessageUseCase = async (
     }
 
     // ✅ Continuar con el flujo normal solo si ya está validado
+    const saveStart = Date.now();
     await saveMessageUseCase({
       conversationId: conversation.conversationId,
       role: 'user',
       content: userMessage,
       repository: conversationMessageRepository,
     });
+    logger.log(`[PERF] Message saved in ${Date.now() - saveStart}ms`);
 
+    const aiStart = Date.now();
+    logger.log(`[PERF] Calling OpenAI for conversation ${conversation.conversationId}`);
     const aiResponse = await service.sendMessage(
       conversation.conversationId,
       userMessage,
@@ -82,6 +92,7 @@ export const processMessageUseCase = async (
       customerContext,
       branchContext,
     );
+    logger.log(`[PERF] OpenAI response received in ${Date.now() - aiStart}ms`);
 
     await saveMessageUseCase({
       conversationId: conversation.conversationId,
