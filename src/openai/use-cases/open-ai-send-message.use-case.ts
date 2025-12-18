@@ -52,12 +52,12 @@ export const openAiSendMessageUseCase = async (
       },
     ];
 
-    // Timeout de 30 segundos para respuesta rápida
-    // gpt-4o normalmente responde en 2-5 segundos
+    // Timeout de 60 segundos - OpenAI puede tardar 20-40s bajo carga
+    // Balanceado para evitar timeouts innecesarios manteniendo buena UX
     const timeoutPromise = new Promise<never>((_, reject) => {
       setTimeout(
-        () => reject(new Error('OpenAI request timeout after 30s')),
-        30000,
+        () => reject(new Error('OpenAI request timeout after 60s')),
+        60000,
       );
     });
 
