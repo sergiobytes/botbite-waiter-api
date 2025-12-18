@@ -9,15 +9,11 @@ import { isUUID } from 'class-validator';
 export const findOneRestaurantUseCase = async (
   params: FindRestaurant,
 ): Promise<RestaurantResponse> => {
-  const { term, userId, lang, repository, translationService } = params;
+  const { term, lang, repository, translationService } = params;
 
   const whereCondition: FindOptionsWhere<Restaurant>[] = isUUID(term)
     ? [{ id: term }, { name: term }]
     : [{ name: term }];
-
-  if (userId && Array.isArray(whereCondition)) {
-    whereCondition.forEach((condition) => (condition.userId = userId));
-  }
 
   const restaurant = await repository.findOne({
     where: whereCondition,
