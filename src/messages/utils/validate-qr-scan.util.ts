@@ -3,13 +3,13 @@ export const validateQrScanUtil = (
 ): { isValidQrScan: boolean; token: string | null } => {
   const trimmedMessage = message.trim();
 
-  if (!trimmedMessage.startsWith('🛡️ INICIO')) {
-    return { isValidQrScan: false, token: null };
-  }
-
   const tokenMatch = trimmedMessage.match(/QR-\d+-[a-f0-9]+/);
 
   if (!tokenMatch) {
+    return { isValidQrScan: false, token: null };
+  }
+
+  if (!trimmedMessage.includes('INICIO')) {
     return { isValidQrScan: false, token: null };
   }
 
