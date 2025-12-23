@@ -26,6 +26,7 @@
     "migration:revert": "typeorm-ts-node-commonjs migration:revert -d src/database/data-source.ts"
   },
   "dependencies": {
+    "@nestjs/bullmq": "^11.0.4",
     "@nestjs/common": "^11.0.1",
     "@nestjs/config": "^4.0.2",
     "@nestjs/core": "^11.0.1",
@@ -40,12 +41,14 @@
     "@nestjs/websockets": "^11.1.9",
     "argon2": "^0.44.0",
     "axios": "^1.13.2",
+    "bullmq": "^5.66.2",
     "class-transformer": "^0.5.1",
     "class-validator": "^0.14.1",
     "cloudinary": "^2.7.0",
     "csv-parser": "^3.2.0",
     "form-data": "^4.0.5",
     "glob": "^11.0.3",
+    "ioredis": "^5.8.2",
     "multer": "^2.0.2",
     "p-queue": "^9.0.1",
     "passport": "^0.7.0",

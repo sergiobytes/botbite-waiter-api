@@ -1,4 +1,4 @@
-import { Module } from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
 import { MessagesService } from './services/messages.service';
 import { MessagesController } from './messages.controller';
@@ -16,6 +16,7 @@ import { ConversationMessage } from './entities/conversation-message.entity';
 import { MenusModule } from '../menus/menus.module';
 import { CustomJwtModule } from '../custom-jwt/custom-jwt.module';
 import { OrdersGateway } from './gateways/orders.gateway';
+import { QueueModule } from '../queue/queue.module';
 
 @Module({
   imports: [
@@ -27,6 +28,7 @@ import { OrdersGateway } from './gateways/orders.gateway';
     OrdersModule,
     MenusModule,
     CustomJwtModule,
+    forwardRef(() => QueueModule),
     TypeOrmModule.forFeature([Conversation, ConversationMessage]),
   ],
   controllers: [MessagesController],
