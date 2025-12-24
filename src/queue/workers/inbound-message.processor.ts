@@ -18,19 +18,17 @@ export class InboundMessageProcessor extends WorkerHost {
   }
 
   async process(job: Job<WebhookDataTwilio>): Promise<void> {
-    this.logger.log(
-      `Processing job ${job.id} (attempt ${job.attemptsMade + 1}/${job.opts.attempts})`,
-    );
-
-    try {
-      await this.messagesService.processIncomingMessage(job.data);
-      this.logger.log(`Job ${job.id} completed successfully`);
-
-      const isQueueEmpty = await this.queueService.isQueueEmpty();
-      if (isQueueEmpty) await this.queueService.pauseQueue();
-    } catch (error) {
-      this.logger.log(`Job ${job.id} failed: `, error);
-      throw error;
-    }
+    // this.logger.log(
+    //   `Processing job ${job.id} (attempt ${job.attemptsMade + 1}/${job.opts.attempts})`,
+    // );
+    // try {
+    //   await this.messagesService.processIncomingMessage(job.data);
+    //   this.logger.log(`Job ${job.id} completed successfully`);
+    //   const isQueueEmpty = await this.queueService.isQueueEmpty();
+    //   if (isQueueEmpty) await this.queueService.pauseQueue();
+    // } catch (error) {
+    //   this.logger.log(`Job ${job.id} failed: `, error);
+    //   throw error;
+    // }
   }
 }

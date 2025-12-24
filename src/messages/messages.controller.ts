@@ -14,10 +14,12 @@ import { ConversationsListResponse } from './interfaces/messages.interfaces';
 import { Auth } from '../auth/decorators/auth.decorator';
 import { UserRoles } from '../users/enums/user-roles';
 import { QueueService } from '../queue/queue.service';
+import { MessagesService } from './services/messages.service';
 
 @Controller('messages')
 export class MessagesController {
   constructor(
+    private readonly messagesService: MessagesService,
     private readonly conversationService: ConversationService,
     private readonly queuesService: QueueService,
   ) {}
@@ -25,8 +27,9 @@ export class MessagesController {
   @Post('webhook')
   @HttpCode(HttpStatus.OK)
   async handleTwilioWebhook(@Body() body: WebhookDataTwilio) {
-    await this.queuesService.addInboundMessage(body);
-    return { status: 'queued' };
+    return await this.messagesService.handleWhatsappTwilioMessage(body);
+    // await this.queuesService.addInboundMessage(body);
+    // return { status: 'queued' };
   }
 
   @Get('conversations')

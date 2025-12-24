@@ -15,31 +15,31 @@ import { RedisMiddleware } from './redis.middleware';
 @Module({
   imports: [
     ConfigModule,
-    BullModule.forRootAsync({
-      imports: [ConfigModule],
-      inject: [ConfigService],
-      useFactory: (cfg: ConfigService) => {
-        const redisUrl = cfg.get<string>('REDIS_URL');
-        const password = cfg.get<string>('REDIS_PASSWORD');
-        const tlsEnabled = cfg.get<boolean>('REDIS_TLS');
-        const prefix = cfg.get<string>('QUEUE_PREFIX');
+    // BullModule.forRootAsync({
+    //   imports: [ConfigModule],
+    //   inject: [ConfigService],
+    //   useFactory: (cfg: ConfigService) => {
+    //     const redisUrl = cfg.get<string>('REDIS_URL');
+    //     const password = cfg.get<string>('REDIS_PASSWORD');
+    //     const tlsEnabled = cfg.get<boolean>('REDIS_TLS');
+    //     const prefix = cfg.get<string>('QUEUE_PREFIX');
 
-        return {
-          connection: {
-            url: redisUrl,
-            password: password,
-            ...(tlsEnabled ? { tls: {} } : {}),
-          },
-          stalledInterval: 60000,
-          lockDuration: 300000,
-          maxStalledCount: 1,
-          prefix,
-        };
-      },
-    }),
-    BullModule.registerQueue({
-      name: QUEUES.INBOUND_MESSAGE,
-    }),
+    //     return {
+    //       connection: {
+    //         url: redisUrl,
+    //         password: password,
+    //         ...(tlsEnabled ? { tls: {} } : {}),
+    //       },
+    //       stalledInterval: 60000,
+    //       lockDuration: 300000,
+    //       maxStalledCount: 1,
+    //       prefix,
+    //     };
+    //   },
+    // }),
+    // BullModule.registerQueue({
+    //   name: QUEUES.INBOUND_MESSAGE,
+    // }),
     forwardRef(() => MessagesModule),
   ],
   providers: [QueueService, InboundMessageProcessor],
