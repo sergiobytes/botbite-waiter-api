@@ -30,6 +30,16 @@ export class QueueService {
     }
   }
 
+  async pauseQueue() {
+    await this.inboundMessageQueue.pause();
+    this.logger.log('Inbound message queue paused');
+  }
+
+  async resumeQueue() {
+    await this.inboundMessageQueue.resume();
+    this.logger.log('Inbound message queue resumed');
+  }
+
   async closeRedisConnection() {
     if (this.redisConnection) {
       await this.inboundMessageQueue.close();
@@ -45,6 +55,7 @@ export class QueueService {
 
   async addInboundMessage(data: WebhookDataTwilio): Promise<void> {
     try {
+      await this.resumeQueue();
       const job = await this.inboundMessageQueue.add(
         'process-incoming-message',
         data,

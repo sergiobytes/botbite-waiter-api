@@ -30,6 +30,9 @@ import { RedisMiddleware } from './redis.middleware';
             password: password,
             ...(tlsEnabled ? { tls: {} } : {}),
           },
+          stalledInterval: 60000,
+          lockDuration: 300000,
+          maxStalledCount: 1,
           prefix,
         };
       },
