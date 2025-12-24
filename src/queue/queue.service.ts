@@ -7,11 +7,41 @@ import { WebhookDataTwilio } from '../messages/models/webhook-data.twilio';
 @Injectable()
 export class QueueService {
   private readonly logger = new Logger(QueueService.name);
+  private redisConnection: any;
 
   constructor(
     @InjectQueue(QUEUES.INBOUND_MESSAGE)
     private readonly inboundMessageQueue: Queue,
   ) {}
+
+  initializeRedis() {
+    if (!this.redisConnection) {
+      const redisUrl = process.env.REDIS_URL;
+      const password = process.env.REDIS_PASSWORD;
+      const tlsEnabled = process.env.REDIS_TLS === 'true';
+
+      this.redisConnection = {
+        url: redisUrl,
+        password: password,
+        ...(tlsEnabled ? { tls: {} } : {}),
+      };
+
+      this.logger.log('Redis connection initialized');
+    }
+  }
+
+  async closeRedisConnection() {
+    if (this.redisConnection) {
+      await this.inboundMessageQueue.close();
+      this.redisConnection = null;
+      this.logger.log('Redis connection closed');
+    }
+  }
+
+  async isQueueEmpty(): Promise<boolean> {
+    const jobCounts = await this.inboundMessageQueue.getJobCounts();
+    return jobCounts.waiting === 0 && jobCounts.active === 0;
+  }
 
   async addInboundMessage(data: WebhookDataTwilio): Promise<void> {
     try {
