@@ -27,19 +27,18 @@ export class MessagesController {
 
   @Post('webhook')
   @HttpCode(HttpStatus.OK)
-  async handleTwilioWebhook(@Body() body: WebhookDataTwilio) {
+  handleTwilioWebhook(@Body() body: WebhookDataTwilio) {
     this.logger.log(`📥 Webhook received from: ${body.From}`);
     this.logger.log(`📝 Message: ${body.Body}`);
 
-    try {
-      // Agregar mensaje a cola para procesamiento asíncrono
-      await this.queuesService.addInboundMessage(body);
-      this.logger.log('✅ Message successfully queued');
-      return { status: 'queued', message: 'Mensaje en proceso' };
-    } catch (error) {
-      this.logger.error('❌ Error queuing message:', error);
-      throw error;
-    }
+    // Fire-and-forget: encolar sin bloquear respuesta a Twilio
+    this.queuesService
+      .addInboundMessage(body)
+      .then(() => this.logger.log('✅ Message successfully queued'))
+      .catch((error) => this.logger.error('❌ Error queuing message:', error));
+
+    // Responder inmediatamente a Twilio
+    return { status: 'queued', message: 'Mensaje en proceso' };
   }
 
   @Get('conversations')
