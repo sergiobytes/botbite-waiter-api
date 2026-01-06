@@ -1,16 +1,10 @@
 import { BullModule } from '@nestjs/bullmq';
-import {
-  forwardRef,
-  MiddlewareConsumer,
-  Module,
-  NestModule,
-} from '@nestjs/common';
+import { forwardRef, Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { MessagesModule } from '../messages/messages.module';
 import { QUEUES } from './queue.constants';
 import { QueueService } from './queue.service';
 import { InboundMessageProcessor } from './workers/inbound-message.processor';
-import { RedisMiddleware } from './redis.middleware';
 
 @Module({
   imports: [
@@ -45,8 +39,4 @@ import { RedisMiddleware } from './redis.middleware';
   providers: [QueueService, InboundMessageProcessor],
   exports: [QueueService],
 })
-export class QueueModule implements NestModule {
-  configure(consumer: MiddlewareConsumer) {
-    consumer.apply(RedisMiddleware).forRoutes('messages/webhook');
-  }
-}
+export class QueueModule {}

@@ -118,14 +118,23 @@ export class CacheService {
     windowSeconds: number = 60,
   ): Promise<{ allowed: boolean; remaining: number; resetIn: number }> {
     try {
+      this.logger.log(`🔄 Checking rate limit for: ${phoneNumber}`);
       const key = `rate_limit:${phoneNumber}`;
+
+      this.logger.log(`⏳ Calling Redis INCR...`);
       const current = await this.redis.incr(key);
+      this.logger.log(`✅ INCR result: ${current}`);
 
       if (current === 1) {
+        this.logger.log(`⏳ Setting EXPIRE...`);
         await this.redis.expire(key, windowSeconds);
+        this.logger.log(`✅ EXPIRE set`);
       }
 
+      this.logger.log(`⏳ Getting TTL...`);
       const ttl = await this.redis.ttl(key);
+      this.logger.log(`✅ TTL: ${ttl}`);
+
       const allowed = current <= maxRequests;
       const remaining = Math.max(0, maxRequests - current);
 

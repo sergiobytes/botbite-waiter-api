@@ -18,11 +18,14 @@ export class RateLimitMiddleware implements NestMiddleware {
   }
 
   async use(req: Request, res: Response, next: NextFunction) {
+    this.logger.log('🔍 Rate limit middleware triggered');
     try {
       // Extraer número de teléfono del body (Twilio webhook)
       const phoneNumber = req.body?.From || req.ip;
+      this.logger.log(`📱 Phone number: ${phoneNumber}`);
 
       if (!phoneNumber) {
+        this.logger.log('⚠️ No phone number, skipping rate limit');
         return next();
       }
 
@@ -50,6 +53,7 @@ export class RateLimitMiddleware implements NestMiddleware {
         });
       }
 
+      this.logger.log('✅ Rate limit passed, calling next()');
       next();
     } catch (error) {
       this.logger.error('Error in rate limit middleware:', error);
