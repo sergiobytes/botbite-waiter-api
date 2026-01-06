@@ -17,12 +17,13 @@ export const processMessageUseCase = async (
     conversationRepository,
     conversationMessageRepository,
     service,
+    cacheService,
   } = params;
 
   try {
     const startTime = Date.now();
     logger.log(`[PERF] Starting message processing for ${phoneNumber}`);
-    
+
     const conversation = await getOrCreateConversationUseCase({
       phoneNumber,
       branchId,
@@ -83,16 +84,65 @@ export const processMessageUseCase = async (
     });
     logger.log(`[PERF] Message saved in ${Date.now() - saveStart}ms`);
 
-    const aiStart = Date.now();
-    logger.log(`[PERF] Calling OpenAI for conversation ${conversation.conversationId}`);
-    const aiResponse = await service.sendMessage(
-      conversation.conversationId,
-      userMessage,
-      messages,
-      customerContext,
-      branchContext,
-    );
-    logger.log(`[PERF] OpenAI response received in ${Date.now() - aiStart}ms`);
+    // 🚀 VERIFICAR CACHÉ ANTES DE LLAMAR A OPENAI
+    let aiResponse: string;
+
+    if (cacheService) {
+      const cacheStart = Date.now();
+      const conversationContext = messages.slice(-3).map((m) => m.content);
+      const cachedResponse = await cacheService.getOpenAICachedResponse(
+        branchId!,
+        userMessage,
+        conversationContext,
+      );
+      logger.log(`[PERF] Cache check in ${Date.now() - cacheStart}ms`);
+
+      if (cachedResponse) {
+        logger.log(`✅ Using CACHED response - Saved OpenAI call!`);
+        aiResponse = cachedResponse;
+      } else {
+        // Cache miss - llamar a OpenAI
+        const aiStart = Date.now();
+        logger.log(
+          `[PERF] Calling OpenAI for conversation ${conversation.conversationId}`,
+        );
+        aiResponse = await service.sendMessage(
+          conversation.conversationId,
+          userMessage,
+          messages,
+          customerContext,
+          branchContext,
+        );
+        logger.log(
+          `[PERF] OpenAI response received in ${Date.now() - aiStart}ms`,
+        );
+
+        // Guardar en caché
+        await cacheService.setOpenAICachedResponse(
+          branchId!,
+          userMessage,
+          aiResponse,
+          conversationContext,
+          300, // 5 minutos TTL
+        );
+      }
+    } else {
+      // Fallback sin caché
+      const aiStart = Date.now();
+      logger.log(
+        `[PERF] Calling OpenAI for conversation ${conversation.conversationId}`,
+      );
+      aiResponse = await service.sendMessage(
+        conversation.conversationId,
+        userMessage,
+        messages,
+        customerContext,
+        branchContext,
+      );
+      logger.log(
+        `[PERF] OpenAI response received in ${Date.now() - aiStart}ms`,
+      );
+    }
 
     await saveMessageUseCase({
       conversationId: conversation.conversationId,

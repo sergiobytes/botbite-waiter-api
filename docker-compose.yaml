@@ -11,3 +11,29 @@ services:
     container_name: botbite-waiter-app
     volumes:
       - ./postgres:/var/lib/postgresql/data
+    networks:
+      - botbite-network
+
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    container_name: botbite-redis
+    command: redis-server --appendonly yes
+    volumes:
+      - redis-data:/data
+    networks:
+      - botbite-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 3
+
+networks:
+  botbite-network:
+    driver: bridge
+
+volumes:
+  redis-data:

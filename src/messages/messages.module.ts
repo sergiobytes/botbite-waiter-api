@@ -1,4 +1,9 @@
-import { forwardRef, Module } from '@nestjs/common';
+import {
+  forwardRef,
+  MiddlewareConsumer,
+  Module,
+  NestModule,
+} from '@nestjs/common';
 import { ScheduleModule } from '@nestjs/schedule';
 import { MessagesService } from './services/messages.service';
 import { MessagesController } from './messages.controller';
@@ -17,6 +22,7 @@ import { MenusModule } from '../menus/menus.module';
 import { CustomJwtModule } from '../custom-jwt/custom-jwt.module';
 import { OrdersGateway } from './gateways/orders.gateway';
 import { QueueModule } from '../queue/queue.module';
+import { RateLimitMiddleware } from './middlewares/rate-limit.middleware';
 
 @Module({
   imports: [
@@ -38,7 +44,12 @@ import { QueueModule } from '../queue/queue.module';
     ConversationService,
     ConversationCleanupService,
     OrdersGateway,
+    RateLimitMiddleware,
   ],
   exports: [TypeOrmModule, MessagesService, TwilioService, ConversationService],
 })
-export class MessagesModule {}
+export class MessagesModule implements NestModule {
+  configure(consumer: MiddlewareConsumer) {
+    consumer.apply(RateLimitMiddleware).forRoutes('messages/webhook');
+  }
+}

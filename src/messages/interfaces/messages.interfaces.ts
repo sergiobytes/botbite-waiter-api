@@ -3,6 +3,7 @@ import { Repository } from 'typeorm';
 import { BranchesService } from '../../branches/branches.service';
 import { Branch } from '../../branches/entities/branch.entity';
 import { TranslationService } from '../../common/services/translation.service';
+import { CacheService } from '../../common/services/cache.service';
 import { CustomersService } from '../../customers/customers.service';
 import { Customer } from '../../customers/entities/customer.entity';
 import { MenusService } from '../../menus/menus.service';
@@ -36,6 +37,7 @@ export interface ProcessMessage {
   conversationMessageRepository: Repository<ConversationMessage>;
   conversationRepository: Repository<Conversation>;
   service: OpenAIService;
+  cacheService?: CacheService;
 }
 
 export interface ProcessIncomingMessage {
