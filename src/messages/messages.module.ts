@@ -52,6 +52,6 @@ import { ConfigModule } from '@nestjs/config';
 })
 export class MessagesModule implements NestModule {
   configure(consumer: MiddlewareConsumer) {
-    consumer.apply(RateLimitMiddleware).forRoutes('messages/webhook');
+    consumer.apply(RateLimitMiddleware).forRoutes(MessagesController);
   }
 }
