@@ -23,10 +23,12 @@ import { CustomJwtModule } from '../custom-jwt/custom-jwt.module';
 import { OrdersGateway } from './gateways/orders.gateway';
 import { QueueModule } from '../queue/queue.module';
 import { RateLimitMiddleware } from './middlewares/rate-limit.middleware';
+import { ConfigModule } from '@nestjs/config';
 
 @Module({
   imports: [
     ScheduleModule.forRoot(),
+    ConfigModule,
     BranchesModule,
     CustomersModule,
     CommonModule,
