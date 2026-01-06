@@ -55,7 +55,10 @@ export class QueueService {
 
   async addInboundMessage(data: WebhookDataTwilio): Promise<void> {
     try {
+      this.logger.log(`🔄 Resuming queue before adding message...`);
       await this.resumeQueue();
+
+      this.logger.log(`➕ Adding message to queue: ${data.From}`);
       const job = await this.inboundMessageQueue.add(
         'process-incoming-message',
         data,
@@ -70,9 +73,10 @@ export class QueueService {
         },
       );
 
-      this.logger.log(`Message queued with Job ID: ${job.id}`);
+      this.logger.log(`✅ Message queued with Job ID: ${job.id}`);
     } catch (error) {
-      this.logger.error('Error adding message to queue', error);
+      this.logger.error('❌ Error adding message to queue:', error.message);
+      this.logger.error('Stack:', error.stack);
       throw error;
     }
   }

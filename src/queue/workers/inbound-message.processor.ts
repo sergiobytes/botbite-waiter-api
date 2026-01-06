@@ -28,6 +28,7 @@ export class InboundMessageProcessor extends WorkerHost {
     this.logger.log(
       `🔄 Processing job ${job.id} (attempt ${job.attemptsMade + 1}/${job.opts.attempts})`,
     );
+    this.logger.log(`📞 From: ${job.data.From} | Message: ${job.data.Body}`);
 
     try {
       await this.messagesService.processIncomingMessage(job.data);

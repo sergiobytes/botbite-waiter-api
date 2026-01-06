@@ -4,6 +4,7 @@ import {
   Get,
   HttpCode,
   HttpStatus,
+  Logger,
   Post,
   Query,
 } from '@nestjs/common';
@@ -17,6 +18,8 @@ import { QueueService } from '../queue/queue.service';
 
 @Controller('messages')
 export class MessagesController {
+  private readonly logger = new Logger(MessagesController.name);
+
   constructor(
     private readonly conversationService: ConversationService,
     private readonly queuesService: QueueService,
@@ -25,9 +28,18 @@ export class MessagesController {
   @Post('webhook')
   @HttpCode(HttpStatus.OK)
   async handleTwilioWebhook(@Body() body: WebhookDataTwilio) {
-    // Agregar mensaje a cola para procesamiento asíncrono
-    await this.queuesService.addInboundMessage(body);
-    return { status: 'queued', message: 'Mensaje en proceso' };
+    this.logger.log(`📥 Webhook received from: ${body.From}`);
+    this.logger.log(`📝 Message: ${body.Body}`);
+
+    try {
+      // Agregar mensaje a cola para procesamiento asíncrono
+      await this.queuesService.addInboundMessage(body);
+      this.logger.log('✅ Message successfully queued');
+      return { status: 'queued', message: 'Mensaje en proceso' };
+    } catch (error) {
+      this.logger.error('❌ Error queuing message:', error);
+      throw error;
+    }
   }
 
   @Get('conversations')
