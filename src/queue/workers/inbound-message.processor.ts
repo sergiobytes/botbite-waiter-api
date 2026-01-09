@@ -7,7 +7,7 @@ import { WebhookDataTwilio } from '../../messages/models/webhook-data.twilio';
 import { QueueService } from '../queue.service';
 
 @Processor(QUEUES.INBOUND_MESSAGE, {
-  concurrency: 5, // Procesar hasta 5 mensajes en paralelo
+  concurrency: 10, // Procesar hasta 10 mensajes en paralelo
   limiter: {
     max: 10, // Máximo 10 jobs
     duration: 1000, // por segundo

@@ -47,6 +47,9 @@ lerna-debug.log*
 .temp
 .tmp
 
+# Documentation (sensitive)
+SCALING-PLAN.md
+
 # Runtime data
 pids
 *.pid
