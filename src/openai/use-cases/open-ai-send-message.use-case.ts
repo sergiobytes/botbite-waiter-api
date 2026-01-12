@@ -61,10 +61,12 @@ export const openAiSendMessageUseCase = async (
       );
     });
 
+    const isComplexOrder = message.length > 100 || filteredHistory.length > 5;
+
     const responsePromise = openai.chat.completions.create({
-      model: 'gpt-4o',
+      model: isComplexOrder ? 'gpt-4o' : 'gpt-4o-mini',
       messages: messages,
-      max_tokens: 800, // Balance entre velocidad y respuestas completas (cubre pedidos grandes)
+      max_tokens: isComplexOrder ? 800 : 600,
       temperature: 0.3,
       top_p: 1,
       frequency_penalty: 0,

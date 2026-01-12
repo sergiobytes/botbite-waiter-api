@@ -66,6 +66,13 @@ export class OrdersGateway implements OnGatewayConnection, OnGatewayDisconnect {
   emitOrderUpdate(branchId: string) {
     const roomName = `branch-${branchId}`;
     this.logger.log(`Emitting order update to room: ${roomName}`);
-    this.server.to(roomName).emit('orderUpdate', { branchId });
+
+    if (this.server) {
+      this.server.to(roomName).emit('orderUpdate', { branchId });
+    } else {
+      this.logger.warn(
+        `WebSocket server not ready, skipping emit to ${roomName}`,
+      );
+    }
   }
 }
