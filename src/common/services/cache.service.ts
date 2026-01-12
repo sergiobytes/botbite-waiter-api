@@ -61,7 +61,7 @@ export class CacheService {
       const cacheKey = this.generateCacheKey('openai', {
         branchId,
         message: userMessage.toLowerCase().trim(),
-        context: conversationContext?.slice(-3), // Solo últimos 3 mensajes
+        // Context removed to allow cache sharing between users with same message
       });
 
       const cached = await this.redis.get(cacheKey);
@@ -95,7 +95,7 @@ export class CacheService {
       const cacheKey = this.generateCacheKey('openai', {
         branchId,
         message: userMessage.toLowerCase().trim(),
-        context: conversationContext?.slice(-3),
+        // Context removed to allow cache sharing between users with same message
       });
 
       await this.redis.setex(cacheKey, ttl || this.defaultTTL, response);

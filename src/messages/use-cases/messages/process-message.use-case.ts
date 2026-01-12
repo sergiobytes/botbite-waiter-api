@@ -117,13 +117,12 @@ export const processMessageUseCase = async (
           `[PERF] OpenAI response received in ${Date.now() - aiStart}ms`,
         );
 
-        // Guardar en caché
+        // Guardar en caché (usa CACHE_TTL de env)
         await cacheService.setOpenAICachedResponse(
           branchId!,
           userMessage,
           aiResponse,
           conversationContext,
-          300, // 5 minutos TTL
         );
       }
     } else {
