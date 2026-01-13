@@ -94,6 +94,7 @@ export const processMessageUseCase = async (
         branchId!,
         userMessage,
         conversationContext,
+        phoneNumber, // Cache por cliente para evitar respuestas mezcladas
       );
       logger.log(`[PERF] Cache check in ${Date.now() - cacheStart}ms`);
 
@@ -123,6 +124,8 @@ export const processMessageUseCase = async (
           userMessage,
           aiResponse,
           conversationContext,
+          undefined, // ttl (usa defaultTTL)
+          phoneNumber, // Cache por cliente
         );
       }
     } else {

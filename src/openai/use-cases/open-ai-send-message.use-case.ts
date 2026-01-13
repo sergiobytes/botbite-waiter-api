@@ -23,12 +23,13 @@ export const openAiSendMessageUseCase = async (
     logger,
   );
 
-  // Limitar historial a últimos 10 mensajes para optimizar tokens
-  if (filteredHistory.length > 10) {
+  // Limitar historial a últimos 20 mensajes para dar más contexto a gpt-4o-mini
+  // Mini necesita más historial que gpt-4o para recordar pedidos correctamente
+  if (filteredHistory.length > 20) {
     logger.log(
-      `Limiting conversation history from ${filteredHistory.length} to 10 messages`,
+      `Limiting conversation history from ${filteredHistory.length} to 20 messages`,
     );
-    filteredHistory = filteredHistory.slice(-10);
+    filteredHistory = filteredHistory.slice(-20);
   }
 
   try {
@@ -61,12 +62,15 @@ export const openAiSendMessageUseCase = async (
       );
     });
 
-    // Usar gpt-4o-mini siempre para evitar rate limits y mejorar velocidad
-    // gpt-4o-mini es 70% más rápido y suficiente para tomar órdenes de restaurante
+    // Modelo híbrido inteligente:
+    // - Conversaciones cortas (<15 msgs): gpt-4o-mini (rápido, barato)
+    // - Conversaciones largas (>15 msgs): gpt-4o (más preciso, no confunde pedidos)
+    const isLongConversation = filteredHistory.length > 15;
+
     const responsePromise = openai.chat.completions.create({
-      model: 'gpt-4o-mini',
+      model: isLongConversation ? 'gpt-4o' : 'gpt-4o-mini',
       messages: messages,
-      max_tokens: 600,
+      max_tokens: isLongConversation ? 800 : 600,
       temperature: 0.3,
       top_p: 1,
       frequency_penalty: 0,

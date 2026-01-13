@@ -48,31 +48,48 @@ export class CacheService {
 
   /**
    * Obtener respuesta de OpenAI desde caché
+   * Usa cache híbrido:
+   * - Consultas genéricas (menú, ingredientes): cache compartido entre clientes
+   * - Respuestas personalizadas (pedidos, cuenta): cache por cliente
    * @param branchId - ID de la sucursal
    * @param userMessage - Mensaje del usuario
    * @param conversationContext - Contexto de la conversación (últimos 3 mensajes)
+   * @param phoneNumber - Número de teléfono del usuario
    */
   async getOpenAICachedResponse(
     branchId: string,
     userMessage: string,
     conversationContext?: string[],
+    phoneNumber?: string,
   ): Promise<string | null> {
     try {
+      // Detectar si es consulta genérica o personalizada
+      const isGenericQuery = this.isGenericQuery(
+        userMessage,
+        conversationContext,
+      );
+
+      // Cache compartido para consultas genéricas, personal para el resto
       const cacheKey = this.generateCacheKey('openai', {
         branchId,
+        phone: isGenericQuery ? undefined : phoneNumber,
         message: userMessage.toLowerCase().trim(),
-        // Context removed to allow cache sharing between users with same message
+        context: isGenericQuery ? undefined : conversationContext?.slice(-2), // Solo últimos 2 para personalizado
       });
 
       const cached = await this.redis.get(cacheKey);
 
       if (cached) {
-        this.logger.log(`✅ Cache HIT for key: ${cacheKey}`);
+        this.logger.log(
+          `✅ Cache HIT (${isGenericQuery ? 'SHARED' : 'PERSONAL'}) for key: ${cacheKey}`,
+        );
         await this.incrementCacheHits();
         return cached;
       }
 
-      this.logger.log(`❌ Cache MISS for key: ${cacheKey}`);
+      this.logger.log(
+        `❌ Cache MISS (${isGenericQuery ? 'SHARED' : 'PERSONAL'}) for key: ${cacheKey}`,
+      );
       await this.incrementCacheMisses();
       return null;
     } catch (error) {
@@ -83,6 +100,7 @@ export class CacheService {
 
   /**
    * Guardar respuesta de OpenAI en caché
+   * Usa la misma lógica híbrida que getOpenAICachedResponse
    */
   async setOpenAICachedResponse(
     branchId: string,
@@ -90,19 +108,212 @@ export class CacheService {
     response: string,
     conversationContext?: string[],
     ttl?: number,
+    phoneNumber?: string,
   ): Promise<void> {
     try {
+      // Usar misma lógica de detección que en get
+      const isGenericQuery = this.isGenericQuery(
+        userMessage,
+        conversationContext,
+      );
+
       const cacheKey = this.generateCacheKey('openai', {
         branchId,
+        phone: isGenericQuery ? undefined : phoneNumber,
         message: userMessage.toLowerCase().trim(),
-        // Context removed to allow cache sharing between users with same message
+        context: isGenericQuery ? undefined : conversationContext?.slice(-2),
       });
 
       await this.redis.setex(cacheKey, ttl || this.defaultTTL, response);
-      this.logger.log(`✅ Cached response for key: ${cacheKey}`);
+      this.logger.log(
+        `✅ Cached response (${isGenericQuery ? 'SHARED' : 'PERSONAL'}) for key: ${cacheKey}`,
+      );
     } catch (error) {
       this.logger.error('Error setting cache:', error);
     }
+  }
+
+  /**
+   * Determina si una consulta es genérica (cacheable compartido) o personalizada
+   * Soporta múltiples idiomas: Español, Inglés, Francés, Alemán, Italiano, Portugués, Coreano
+   * @param message - Mensaje del usuario
+   * @param context - Contexto de la conversación
+   */
+  private isGenericQuery(message: string, context?: string[]): boolean {
+    const msg = message.toLowerCase();
+
+    // Palabras clave genéricas (menú, precios, ingredientes) - MULTIIDIOMA
+    const genericKeywords = [
+      // Español
+      'qué',
+      'que',
+      'cuál',
+      'cual',
+      'cuánto',
+      'cuanto',
+      'cómo',
+      'como',
+      'menú',
+      'menu',
+      'carta',
+      'tiene',
+      'tienes',
+      'hay',
+      'pizza',
+      'hamburguesa',
+      'bebida',
+      'cerveza',
+      'botana',
+      'ingredientes',
+      'lleva',
+      'contiene',
+      'precio',
+      'cuesta',
+      'opciones',
+      'sabores',
+      'tamaños',
+      'tamaño',
+      // Inglés
+      'what',
+      'which',
+      'how much',
+      'how many',
+      'do you have',
+      'menu',
+      'price',
+      'cost',
+      'ingredients',
+      'contains',
+      'options',
+      'flavors',
+      'sizes',
+      'size',
+      // Francés
+      'quel',
+      'quelle',
+      'combien',
+      'avez-vous',
+      'prix',
+      // Alemán
+      'was',
+      'welche',
+      'wie viel',
+      'haben sie',
+      'preis',
+      // Italiano
+      'cosa',
+      'quale',
+      'quanto',
+      'prezzo',
+      // Portugués
+      'qual',
+      'quanto',
+      'tem',
+      'preço',
+      // Coreano
+      '무엇',
+      '뭐',
+      '어떤',
+      '얼마',
+      '메뉴',
+      '가격',
+      '있어요',
+      '있나요',
+      '재료',
+      '포함',
+      '옵션',
+      '크기',
+    ];
+
+    // Palabras de acción personalizada (hacer pedido, confirmar) - MULTIIDIOMA
+    const personalKeywords = [
+      // Español
+      'quiero',
+      'pedir',
+      'ordenar',
+      'confirmar',
+      'agregar',
+      'añadir',
+      'cambiar',
+      'cancelar',
+      'cuenta',
+      'pagar',
+      'factura',
+      'mesa',
+      'mi pedido',
+      'mi orden',
+      'para llevar',
+      // Inglés
+      'i want',
+      "i'd like",
+      'order',
+      'add',
+      'confirm',
+      'change',
+      'cancel',
+      'bill',
+      'check',
+      'pay',
+      'my order',
+      'table',
+      'to go',
+      'takeout',
+      // Francés
+      'je veux',
+      'commander',
+      'ajouter',
+      'confirmer',
+      'addition',
+      // Alemán
+      'ich möchte',
+      'bestellen',
+      'hinzufügen',
+      'rechnung',
+      // Italiano
+      'voglio',
+      'ordinare',
+      'aggiungere',
+      'conto',
+      // Portugués
+      'quero',
+      'pedir',
+      'adicionar',
+      'conta',
+      // Coreano
+      '주문',
+      '원해요',
+      '원합니다',
+      '추가',
+      '확인',
+      '변경',
+      '취소',
+      '계산',
+      '결제',
+      '테이블',
+      '내 주문',
+      '포장',
+    ];
+
+    // Si tiene palabras personalizadas, NO es genérico
+    if (personalKeywords.some((keyword) => msg.includes(keyword))) {
+      return false;
+    }
+
+    // Si tiene palabras genéricas y no es muy largo, es genérico
+    if (
+      genericKeywords.some((keyword) => msg.includes(keyword)) &&
+      msg.length < 100
+    ) {
+      return true;
+    }
+
+    // Si ya hay contexto (conversación activa), es personalizado
+    if (context && context.length > 0) {
+      return false;
+    }
+
+    // Por defecto, mensajes cortos son genéricos
+    return msg.length < 50;
   }
 
   /**
