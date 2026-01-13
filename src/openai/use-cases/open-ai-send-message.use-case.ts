@@ -61,12 +61,12 @@ export const openAiSendMessageUseCase = async (
       );
     });
 
-    const isComplexOrder = message.length > 100 || filteredHistory.length > 5;
-
+    // Usar gpt-4o-mini siempre para evitar rate limits y mejorar velocidad
+    // gpt-4o-mini es 70% más rápido y suficiente para tomar órdenes de restaurante
     const responsePromise = openai.chat.completions.create({
-      model: isComplexOrder ? 'gpt-4o' : 'gpt-4o-mini',
+      model: 'gpt-4o-mini',
       messages: messages,
-      max_tokens: isComplexOrder ? 800 : 600,
+      max_tokens: 600,
       temperature: 0.3,
       top_p: 1,
       frequency_penalty: 0,
