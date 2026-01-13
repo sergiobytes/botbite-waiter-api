@@ -48,13 +48,12 @@ export class CacheService {
 
   /**
    * Obtener respuesta de OpenAI desde caché
-   * Usa cache híbrido:
-   * - Consultas genéricas (menú, ingredientes): cache compartido entre clientes
-   * - Respuestas personalizadas (pedidos, cuenta): cache por cliente
+   * Solo cachea consultas genéricas (menú, ingredientes, precios)
+   * Consultas personalizadas (pedidos, cuenta) NO se cachean
    * @param branchId - ID de la sucursal
    * @param userMessage - Mensaje del usuario
    * @param conversationContext - Contexto de la conversación (últimos 3 mensajes)
-   * @param phoneNumber - Número de teléfono del usuario
+   * @param phoneNumber - Número de teléfono del usuario (no usado en nueva implementación)
    */
   async getOpenAICachedResponse(
     branchId: string,
@@ -69,27 +68,29 @@ export class CacheService {
         conversationContext,
       );
 
-      // Cache compartido para consultas genéricas, personal para el resto
+      // Solo cachear consultas genéricas
+      if (!isGenericQuery) {
+        this.logger.log(
+          `⏭️ SKIP CACHE (PERSONAL query): "${userMessage.substring(0, 50)}..."`,
+        );
+        return null;
+      }
+
+      // Cache compartido solo para consultas genéricas
       const cacheKey = this.generateCacheKey('openai', {
         branchId,
-        phone: isGenericQuery ? undefined : phoneNumber,
         message: userMessage.toLowerCase().trim(),
-        context: isGenericQuery ? undefined : conversationContext?.slice(-2), // Solo últimos 2 para personalizado
       });
 
       const cached = await this.redis.get(cacheKey);
 
       if (cached) {
-        this.logger.log(
-          `✅ Cache HIT (${isGenericQuery ? 'SHARED' : 'PERSONAL'}) for key: ${cacheKey}`,
-        );
+        this.logger.log(`✅ Cache HIT (SHARED) for key: ${cacheKey}`);
         await this.incrementCacheHits();
         return cached;
       }
 
-      this.logger.log(
-        `❌ Cache MISS (${isGenericQuery ? 'SHARED' : 'PERSONAL'}) for key: ${cacheKey}`,
-      );
+      this.logger.log(`❌ Cache MISS (SHARED) for key: ${cacheKey}`);
       await this.incrementCacheMisses();
       return null;
     } catch (error) {
@@ -100,7 +101,8 @@ export class CacheService {
 
   /**
    * Guardar respuesta de OpenAI en caché
-   * Usa la misma lógica híbrida que getOpenAICachedResponse
+   * Solo cachea consultas genéricas (menú, ingredientes, precios)
+   * Consultas personalizadas (pedidos, cuenta) NO se cachean
    */
   async setOpenAICachedResponse(
     branchId: string,
@@ -117,17 +119,21 @@ export class CacheService {
         conversationContext,
       );
 
+      // Solo cachear consultas genéricas
+      if (!isGenericQuery) {
+        this.logger.log(
+          `⏭️ SKIP CACHE SAVE (PERSONAL query): "${userMessage.substring(0, 50)}..."`,
+        );
+        return;
+      }
+
       const cacheKey = this.generateCacheKey('openai', {
         branchId,
-        phone: isGenericQuery ? undefined : phoneNumber,
         message: userMessage.toLowerCase().trim(),
-        context: isGenericQuery ? undefined : conversationContext?.slice(-2),
       });
 
       await this.redis.setex(cacheKey, ttl || this.defaultTTL, response);
-      this.logger.log(
-        `✅ Cached response (${isGenericQuery ? 'SHARED' : 'PERSONAL'}) for key: ${cacheKey}`,
-      );
+      this.logger.log(`✅ Cached response (SHARED) for key: ${cacheKey}`);
     } catch (error) {
       this.logger.error('Error setting cache:', error);
     }
