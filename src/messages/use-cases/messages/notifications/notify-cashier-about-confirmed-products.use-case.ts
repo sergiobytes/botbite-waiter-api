@@ -149,7 +149,8 @@ export const notifyCashierAboutConfirmedProductsUseCase = async (
 
         // Para ser válido, debe tener productos Y (sección completa O (keyword de agregado O formato con cantidad))
         const isValidProductMessage =
-          hasProducts && (hasCompleteOrderSection || hasAddedKeyword || !!hasQuantityFormat);
+          hasProducts &&
+          (hasCompleteOrderSection || hasAddedKeyword || !!hasQuantityFormat);
 
         logger.log(
           `Checking message ${i}: isRecommendation=${isRecommendation}, isConfirmation=${isConfirmation}, hasProducts=${!!hasProducts}, hasCompleteOrderSection=${hasCompleteOrderSection}, hasAddedKeyword=${hasAddedKeyword}, hasQuantityFormat=${!!hasQuantityFormat}, isValid=${isValidProductMessage}`,
@@ -170,25 +171,99 @@ export const notifyCashierAboutConfirmedProductsUseCase = async (
 
     logger.log(`Complete order message found: ${productMessage !== null}`);
 
-    if (!productMessage) {
-      logger.warn(
-        'Could not find complete order message immediately before confirmation',
+    // NUEVA LÓGICA ROBUSTA: Si no encontramos un mensaje con "pedido completo",
+    // acumular productos de TODOS los mensajes "He agregado" desde la última confirmación
+    let currentOrder: Record<
+      string,
+      { price: number; quantity: number; menuItemId: string; notes?: string }
+    > = {};
+
+    if (productMessage) {
+      // Caso ideal: encontramos el mensaje con pedido completo
+      logger.log(
+        `=== PRODUCT MESSAGE CONTENT ===\n${productMessage}\n=== END PRODUCT MESSAGE ===`,
       );
-      return;
+      currentOrder = extractOrderFromResponseUtil(productMessage, logger);
+    } else {
+      // Caso fallback: acumular productos de todos los mensajes "He agregado"
+      logger.warn(
+        'No complete order message found, accumulating products from all "added" messages since last confirmation',
+      );
+
+      const startIndex =
+        lastConfirmationIndex >= 0 ? lastConfirmationIndex + 1 : 0;
+
+      logger.log(
+        `\n=== ACCUMULATING PRODUCTS FROM MESSAGES ${startIndex} to ${messages.length - 1} ===`,
+      );
+
+      for (let i = startIndex; i < messages.length; i++) {
+        const message = messages[i];
+        if (message.role === 'assistant') {
+          const contentLower = message.content.toLowerCase();
+
+          // Buscar mensajes con "He agregado" o equivalentes
+          const hasAddedKeyword =
+            contentLower.includes('he agregado') ||
+            contentLower.includes('he actualizado') ||
+            contentLower.includes('i added') ||
+            contentLower.includes('i updated') ||
+            contentLower.includes("j'ai ajouté") ||
+            contentLower.includes("j'ai mis à jour") ||
+            contentLower.includes('추가했습니다') ||
+            contentLower.includes('업데이트했습니다');
+
+          // Y que tenga productos con formato [ID:xxx]
+          const hasProducts =
+            message.content.includes('• ') &&
+            message.content.match(/\[ID:[^\]]+\]/);
+
+          if (hasAddedKeyword && hasProducts) {
+            logger.log(`\n  ✅ Found "added" message at index ${i}`);
+            logger.log(
+              `  First 200 chars: ${message.content.substring(0, 200)}...`,
+            );
+
+            // Extraer productos de este mensaje
+            const productsInMessage = extractOrderFromResponseUtil(
+              message.content,
+              logger,
+            );
+
+            // Acumular productos (si un producto ya existe, REEMPLAZAR con la cantidad más reciente)
+            // Esto mantiene el comportamiento correcto: la última interacción tiene prioridad
+            Object.assign(currentOrder, productsInMessage);
+
+            logger.log(
+              `  Products extracted: ${Object.keys(productsInMessage).length}`,
+            );
+          }
+        }
+      }
+
+      logger.log(`\n=== ACCUMULATED ORDER ===`);
+      logger.log(JSON.stringify(currentOrder, null, 2));
+      logger.log(`=== END ACCUMULATED ORDER ===\n`);
+
+      if (Object.keys(currentOrder).length === 0) {
+        logger.warn(
+          'No products found in accumulated messages, cannot notify cashier',
+        );
+        return;
+      }
     }
 
-    logger.log(
-      `=== PRODUCT MESSAGE CONTENT ===\n${productMessage}\n=== END PRODUCT MESSAGE ===`,
-    );
-
-    const currentOrder = extractOrderFromResponseUtil(productMessage, logger);
     logger.log(
       `=== EXTRACTED CURRENT ORDER ===\n${JSON.stringify(currentOrder, null, 2)}\n=== END CURRENT ORDER ===`,
     );
 
     // Extraer amenidades de todos los mensajes recientes del AI
     const amenities: Record<string, number> = {};
-    for (let i = messages.length - 1; i >= 0 && i >= lastConfirmationIndex; i--) {
+    for (
+      let i = messages.length - 1;
+      i >= 0 && i >= lastConfirmationIndex;
+      i--
+    ) {
       const message = messages[i];
       if (message.role === 'assistant') {
         const extractedAmenities = extractAmenitiesFromResponseUtil(
@@ -223,7 +298,10 @@ export const notifyCashierAboutConfirmedProductsUseCase = async (
     );
 
     // Si hay amenidades O cambios de productos, notificar
-    if (Object.keys(orderChanges).length === 0 && Object.keys(amenities).length === 0) {
+    if (
+      Object.keys(orderChanges).length === 0 &&
+      Object.keys(amenities).length === 0
+    ) {
       logger.log('No changes or amenities to notify cashier about');
       return;
     }

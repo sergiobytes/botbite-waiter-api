@@ -7,19 +7,20 @@ export const openAiBuildSystemContext = (
   branchContext?: Branch,
 ): string => {
   // Determinar si hay menú PDF disponible
-  const hasPdfMenu = branchContext?.menus?.some(menu => menu.pdfLink);
-  const pdfMenus = branchContext?.menus?.filter(menu => menu.pdfLink) || [];
-  
+  const hasPdfMenu = branchContext?.menus?.some((menu) => menu.pdfLink);
+  const pdfMenus = branchContext?.menus?.filter((menu) => menu.pdfLink) || [];
+
   // Obtener categorías únicas si NO hay PDF
-  const categories = !hasPdfMenu && branchContext?.menus?.[0]?.menuItems
-    ? Array.from(
-        new Set(
-          branchContext.menus[0].menuItems
-            .filter(item => item.isActive)
-            .map(item => item.category.name)
+  const categories =
+    !hasPdfMenu && branchContext?.menus?.[0]?.menuItems
+      ? Array.from(
+          new Set(
+            branchContext.menus[0].menuItems
+              .filter((item) => item.isActive)
+              .map((item) => item.category.name),
+          ),
         )
-      )
-    : [];
+      : [];
 
   return `
 Eres un asistente virtual de restaurante. Actúa siempre con tono amable y profesional.
@@ -64,7 +65,18 @@ Eres un asistente virtual de restaurante. Actúa siempre con tono amable y profe
   * El ID está disponible en la lista de productos como [ID:xxx] al inicio de cada producto
   * La categoría ayuda al cliente a confirmar que es el producto correcto (puede haber varios con el mismo nombre)
 - **Si el menú expone id/sku del producto, úsalo internamente al confirmar la orden** (no dependas del nombre).
-- **IMPORTANTE: Si el cliente pide un producto que NO aparece en el menú disponible** (es decir, no está en la lista de productos activos que ves arriba), responde: "Lo siento, [Nombre del producto] no está disponible temporalmente. ¿Te gustaría ordenar algo más?" - **NO digas que cometiste un error ni que te equivocaste**.
+- **🚨 CRÍTICO - VALIDACIÓN DE PRODUCTOS 🚨**: ANTES de agregar CUALQUIER producto al pedido:
+  * **VERIFICA que el producto EXISTE en la lista de productos activos que ves arriba**
+  * Busca el ID del producto en la lista (formato: [ID:xxx])
+  * **SI NO encuentras el ID** → El producto NO existe o no está disponible
+  * **NUNCA agregues un producto sin su ID correspondiente**
+  * Si el cliente pide algo que NO está en la lista, responde: "Lo siento, [Nombre del producto] no está disponible en este momento. ¿Te gustaría ordenar algo del menú?"
+  * **NO inventes productos, precios ni IDs** - SOLO usa los que aparecen en la lista de productos activos
+- **Ejemplo de validación correcta**:
+  * Cliente pide: "un refresco de cola"
+  * Buscas en la lista: ¿Hay un producto con "refresco" o "cola" en su nombre?
+  * SI encuentras "[ID:abc-123] REFRESCO COLA" → Agregarlo con ese ID
+  * SI NO encuentras ningún refresco → "Lo siento, no tenemos refrescos disponibles en este momento. ¿Te gustaría ordenar algo más?"
 
 Ejemplo de mapeo:
 Cliente: "tacos de chicharron en salsa verde"
@@ -120,16 +132,16 @@ Cliente: "2 tostadas de ceviche"
      hasPdfMenu
        ? `
      * **TIENES menú digital PDF disponible**. Proporciona el enlace EN SU IDIOMA:
-       - **Español**: "Perfecto, [ubicación]. Aquí puedes ver nuestro menú completo:\\n📄 ${pdfMenus.map(m => convertToInlineUrl(m.pdfLink!, m.id, m.name)).join('\\n📄 ')}\\n\\nToca el enlace para verlo 📱\\n\\n¿Ya sabes qué te gustaría ordenar o necesitas ayuda con alguna recomendación?"
-       - **Inglés**: "Perfect, [location]. Here you can see our complete menu:\\n📄 ${pdfMenus.map(m => convertToInlineUrl(m.pdfLink!, m.id, m.name)).join('\\n📄 ')}\\n\\nTap the link to view it 📱\\n\\nDo you already know what you'd like to order or do you need help with a recommendation?"
-       - **Francés**: "Parfait, [emplacement]. Voici notre menu complet:\\n📄 ${pdfMenus.map(m => convertToInlineUrl(m.pdfLink!, m.id, m.name)).join('\\n📄 ')}\\n\\nAppuyez sur le lien pour le voir 📱\\n\\nSavez-vous déjà ce que vous aimeriez commander ou avez-vous besoin d'aide avec une recommandation?"
-       - **Coreano**: "완벽합니다, [위치]. 여기에서 전체 메뉴를 볼 수 있습니다:\\n📄 ${pdfMenus.map(m => convertToInlineUrl(m.pdfLink!, m.id, m.name)).join('\\n📄 ')}\\n\\n링크를 눌러 확인하세요 📱\\n\\n이미 주문하실 것을 아시나요, 아니면 추천이 필요하신가요?"`
+       - **Español**: "Perfecto, [ubicación]. Aquí puedes ver nuestro menú completo:\\n📄 ${pdfMenus.map((m) => convertToInlineUrl(m.pdfLink!, m.id, m.name)).join('\\n📄 ')}\\n\\nToca el enlace para verlo 📱\\n\\n¿Ya sabes qué te gustaría ordenar o necesitas ayuda con alguna recomendación?"
+       - **Inglés**: "Perfect, [location]. Here you can see our complete menu:\\n📄 ${pdfMenus.map((m) => convertToInlineUrl(m.pdfLink!, m.id, m.name)).join('\\n📄 ')}\\n\\nTap the link to view it 📱\\n\\nDo you already know what you'd like to order or do you need help with a recommendation?"
+       - **Francés**: "Parfait, [emplacement]. Voici notre menu complet:\\n📄 ${pdfMenus.map((m) => convertToInlineUrl(m.pdfLink!, m.id, m.name)).join('\\n📄 ')}\\n\\nAppuyez sur le lien pour le voir 📱\\n\\nSavez-vous déjà ce que vous aimeriez commander ou avez-vous besoin d'aide avec une recommandation?"
+       - **Coreano**: "완벽합니다, [위치]. 여기에서 전체 메뉴를 볼 수 있습니다:\\n📄 ${pdfMenus.map((m) => convertToInlineUrl(m.pdfLink!, m.id, m.name)).join('\\n📄 ')}\\n\\n링크를 눌러 확인하세요 📱\\n\\n이미 주문하실 것을 아시나요, 아니면 추천이 필요하신가요?"`
        : `
      * **NO tienes menú digital PDF**. Muestra las categorías disponibles EN SU IDIOMA (SIN NÚMEROS):
-       - **Español**: "Perfecto, [ubicación]. Tenemos las siguientes categorías:\\n${categories.map(cat => `• ${cat}`).join('\\n')}\\n\\n¿Ya sabes qué te gustaría ordenar o te gustaría que te ayude con alguna categoría?"
-       - **Inglés**: "Perfect, [location]. We have the following categories:\\n${categories.map(cat => `• ${cat}`).join('\\n')}\\n\\nDo you already know what you'd like to order or would you like help with a specific category?"
-       - **Francés**: "Parfait, [emplacement]. Nous avons les catégories suivantes:\\n${categories.map(cat => `• ${cat}`).join('\\n')}\\n\\nSavez-vous déjà ce que vous aimeriez commander ou souhaitez-vous de l'aide avec une catégorie?"
-       - **Coreano**: "완벽합니다, [위치]. 다음 카테고리가 있습니다:\\n${categories.map(cat => `• ${cat}`).join('\\n')}\\n\\n이미 주문하실 것을 아시나요, 아니면 특정 카테고리에 대한 도움이 필요하신가요?"`
+       - **Español**: "Perfecto, [ubicación]. Tenemos las siguientes categorías:\\n${categories.map((cat) => `• ${cat}`).join('\\n')}\\n\\n¿Ya sabes qué te gustaría ordenar o te gustaría que te ayude con alguna categoría?"
+       - **Inglés**: "Perfect, [location]. We have the following categories:\\n${categories.map((cat) => `• ${cat}`).join('\\n')}\\n\\nDo you already know what you'd like to order or would you like help with a specific category?"
+       - **Francés**: "Parfait, [emplacement]. Nous avons les catégories suivantes:\\n${categories.map((cat) => `• ${cat}`).join('\\n')}\\n\\nSavez-vous déjà ce que vous aimeriez commander ou souhaitez-vous de l'aide avec une catégorie?"
+       - **Coreano**: "완벽합니다, [위치]. 다음 카테고리가 있습니다:\\n${categories.map((cat) => `• ${cat}`).join('\\n')}\\n\\n이미 주문하실 것을 아시나요, 아니면 특정 카테고리에 대한 도움이 필요하신가요?"`
    }
    - Si ya tienes la ubicación en el historial (conversación existente), puedes continuar normalmente sin volver a mostrar el menú
    
@@ -395,8 +407,10 @@ ${menu.menuItems
   ?.map((item) => {
     if (item.isActive) {
       const recommended = item.shouldRecommend ? '⭐ RECOMENDADO' : '';
-      const imageInfo = item.product.imageUrl ? ` 📸 [Imagen disponible: ${item.product.imageUrl}]` : '';
-      return `• [ID:${item.id}] ${item.product.name} (${item.category.name}): ${item.product.description} - $${item.price}${recommended ? ` ${recommended}` : ''}${imageInfo}`;
+      const imageInfo = item.product.imageUrl
+        ? ` 📸 [Imagen disponible: ${item.product.imageUrl}]`
+        : '';
+      return `• [ID:${item.id}] ${item.product.name} (${item.category.name}): $${item.price}${recommended ? ` ${recommended}` : ''}${imageInfo ? ` 📸` : ''}`;
     }
   })
   .join('\n')}`,
