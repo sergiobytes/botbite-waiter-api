@@ -49,7 +49,8 @@ export const findMenuItemsUseCase = async (
   }
 
   const [items, total] = await queryBuilder
-    .orderBy('menuItem.createdAt', 'DESC')
+    .orderBy('product.name', 'ASC')
+    .addOrderBy('menuItem.createdAt', 'ASC')
     .skip(offset)
     .take(limit)
     .getManyAndCount();

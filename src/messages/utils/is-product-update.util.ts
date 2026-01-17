@@ -31,7 +31,7 @@ export const isProductUpdateUtil = (
     'give me',
     'i want',
     'i need',
-    'i\'d like',
+    "i'd like",
     'bring me',
     'another',
     'more',
@@ -48,7 +48,7 @@ export const isProductUpdateUtil = (
   }
 
   // Palabras que indican que el cliente está MODIFICANDO el pedido (notas, cambios)
-  const isModifyingOrder = 
+  const isModifyingOrder =
     clientLower.includes('sin ') ||
     clientLower.includes('con ') ||
     clientLower.includes('without') ||
@@ -81,13 +81,13 @@ export const isProductUpdateUtil = (
     'suficiente',
     'nothing',
     'nothing else',
-    'that\'s all',
-    'that\'s it',
+    "that's all",
+    "that's it",
     'no more',
-    'i\'m good',
-    'we\'re good',
+    "i'm good",
+    "we're good",
     'rien',
-    'c\'est tout',
+    "c'est tout",
     'ça suffit',
     '됐습니다',
     '그만',
@@ -101,20 +101,31 @@ export const isProductUpdateUtil = (
   // El AI debe haber preguntado si desea agregar algo más O haber agregado productos
   const aiAskForMore =
     aiResponseLower.includes('deseas agregar algo más') ||
+    aiResponseLower.includes('deseas agregar') ||
+    aiResponseLower.includes('te gustaría agregar') ||
+    aiResponseLower.includes('quieres agregar') ||
+    aiResponseLower.includes('agregar algo más') ||
+    aiResponseLower.includes('agregar a tu pedido') ||
+    aiResponseLower.includes('agregar o modificar') ||
     aiResponseLower.includes('would you like to add something else') ||
+    aiResponseLower.includes('would you like to add') ||
+    aiResponseLower.includes('want to add') ||
+    aiResponseLower.includes('add to your order') ||
+    aiResponseLower.includes('add something else') ||
     aiResponseLower.includes('souhaitez-vous ajouter autre chose') ||
+    aiResponseLower.includes('souhaitez-vous ajouter') ||
+    aiResponseLower.includes('ajouter à votre commande') ||
     aiResponseLower.includes('다른 것을 추가하시겠습니까') ||
-    aiResponseLower.includes('te gustaría agregar algo más') ||
     aiResponseLower.includes('hay algo más que te gustaría ordenar') ||
     aiResponseLower.includes('algo más que pueda ayudarte');
 
-  const aiHasProducts = 
+  const aiHasProducts =
     aiResponseLower.includes('he agregado') ||
     aiResponseLower.includes('he actualizado') ||
     aiResponseLower.includes('i added') ||
     aiResponseLower.includes('i updated') ||
-    aiResponseLower.includes('j\'ai ajouté') ||
-    aiResponseLower.includes('j\'ai mis à jour');
+    aiResponseLower.includes("j'ai ajouté") ||
+    aiResponseLower.includes("j'ai mis à jour");
 
   // O el AI confirmó explícitamente el pedido
   const aiConfirmsOrder =
@@ -125,7 +136,7 @@ export const isProductUpdateUtil = (
   // - Dice "tu pedido está ahora en proceso"
   // - NO tiene "he agregado/actualizado" (porque no hubo productos previos)
   // - NO pregunta "¿deseas agregar algo más?" (porque ya terminó)
-  const isInitialConfirmation = 
+  const isInitialConfirmation =
     aiResponseLower.includes('tu pedido está ahora en proceso') &&
     !aiHasProducts &&
     !aiAskForMore;

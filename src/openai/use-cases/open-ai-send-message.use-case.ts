@@ -1,7 +1,8 @@
 import OpenAI from 'openai';
-import { openAiBuildSystemContext } from '../context/open-ai-build-system-context.use-case';
+import { buildDynamicSystemContext } from '../context/build-dynamic-system-context.use-case';
 import { OpenAiSendMessage } from '../interfaces/opean-ai.interfaces';
 import { filterHistoryAfterLastConfirmation } from '../utils/filter-history-after-last-confirmation.util';
+import { detectCustomerIntention } from '../utils/detect-customer-intention.util';
 
 export const openAiSendMessageUseCase = async (
   params: OpenAiSendMessage,
@@ -32,8 +33,17 @@ export const openAiSendMessageUseCase = async (
     filteredHistory = filteredHistory.slice(-20);
   }
 
+  // Detectar la intención del cliente para seleccionar el prompt más apropiado
+  const intention = detectCustomerIntention(message, filteredHistory);
+
+  logger.log(
+    `Detected intention: ${intention} for conversation: ${conversationId}`,
+  );
+
   try {
-    const systemContext = openAiBuildSystemContext(
+    // Construir contexto del sistema dinámicamente según la intención
+    const systemContext = buildDynamicSystemContext(
+      intention,
       customerContext,
       branchContext,
     );
@@ -62,15 +72,31 @@ export const openAiSendMessageUseCase = async (
       );
     });
 
-    // Modelo híbrido inteligente:
-    // - Conversaciones cortas (<15 msgs): gpt-4o-mini (rápido, barato)
-    // - Conversaciones largas (>15 msgs): gpt-4o (más preciso, no confunde pedidos)
-    const isLongConversation = filteredHistory.length > 15;
+    // Selección de modelo basada en INTENCIÓN (más inteligente que por longitud)
+    // Tareas simples → gpt-4o-mini (rápido, barato)
+    // Tareas complejas → gpt-4o (más preciso, menos errores)
+    const simpleIntentions = [
+      'language_selection',
+      'location_needed',
+      'view_menu',
+      'view_category',
+      'confirm_order',
+      'total_query',
+      'payment_method',
+      'request_amenities',
+      'general',
+    ];
+
+    const useGpt4oMini = simpleIntentions.includes(intention);
+    const model = useGpt4oMini ? 'gpt-4o-mini' : 'gpt-4o';
+    const maxTokens = useGpt4oMini ? 800 : 1500;
+
+    logger.log(`Using model: ${model} for intention: ${intention}`);
 
     const responsePromise = openai.chat.completions.create({
-      model: isLongConversation ? 'gpt-4o' : 'gpt-4o-mini',
+      model,
       messages: messages,
-      max_tokens: isLongConversation ? 800 : 600,
+      max_tokens: maxTokens,
       temperature: 0.3,
       top_p: 1,
       frequency_penalty: 0,
@@ -114,7 +140,8 @@ export const openAiSendMessageUseCase = async (
             [
               {
                 role: 'system',
-                content: openAiBuildSystemContext(
+                content: buildDynamicSystemContext(
+                  intention,
                   customerContext,
                   branchContext,
                 ),

@@ -147,22 +147,40 @@ export const notifyCashierAboutConfirmedProductsUseCase = async (
           /\$\d+\.\d{2}\s*x\s*\d+/,
         );
 
+        // Detectar si es un mensaje con cuentas separadas (múltiples secciones de personas)
+        const hasSeparateAccounts =
+          (message.content.match(/\*\*[A-Za-zÁ-ú\s]+:\*\*/g) || []).length >= 2;
+
         // Para ser válido, debe tener productos Y (sección completa O (keyword de agregado O formato con cantidad))
         const isValidProductMessage =
           hasProducts &&
           (hasCompleteOrderSection || hasAddedKeyword || !!hasQuantityFormat);
 
         logger.log(
-          `Checking message ${i}: isRecommendation=${isRecommendation}, isConfirmation=${isConfirmation}, hasProducts=${!!hasProducts}, hasCompleteOrderSection=${hasCompleteOrderSection}, hasAddedKeyword=${hasAddedKeyword}, hasQuantityFormat=${!!hasQuantityFormat}, isValid=${isValidProductMessage}`,
+          `Checking message ${i}: isRecommendation=${isRecommendation}, isConfirmation=${isConfirmation}, hasProducts=${!!hasProducts}, hasCompleteOrderSection=${hasCompleteOrderSection}, hasAddedKeyword=${hasAddedKeyword}, hasQuantityFormat=${!!hasQuantityFormat}, hasSeparateAccounts=${hasSeparateAccounts}, isValid=${isValidProductMessage}`,
         );
 
         if (!isRecommendation && !isConfirmation && isValidProductMessage) {
-          productMessage = message.content;
-          logger.log(`✅ FOUND COMPLETE ORDER MESSAGE at index ${i}!`);
-          logger.log(
-            `=== FULL PRODUCT MESSAGE ===\n${productMessage}\n=== END ===`,
-          );
-          break; // Encontramos el mensaje con el pedido completo, salimos del loop
+          // Si ya tenemos un mensaje candidato pero este tiene cuentas separadas, reemplazarlo
+          const shouldReplace =
+            !productMessage ||
+            (hasSeparateAccounts &&
+              !productMessage.match(/\*\*[A-Za-zÁ-ú\s]+:\*\*/g));
+
+          if (shouldReplace || hasSeparateAccounts) {
+            productMessage = message.content;
+            logger.log(
+              `✅ FOUND ${hasSeparateAccounts ? 'SEPARATE ACCOUNTS' : 'COMPLETE'} ORDER MESSAGE at index ${i}!`,
+            );
+            logger.log(
+              `=== FULL PRODUCT MESSAGE ===\n${productMessage.substring(0, 500)}...\n=== END ===`,
+            );
+
+            // Si tiene cuentas separadas, este es el mensaje definitivo
+            if (hasSeparateAccounts) {
+              break;
+            }
+          }
         }
       }
     }
