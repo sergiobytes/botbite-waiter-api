@@ -3,6 +3,7 @@ import { buildDynamicSystemContext } from '../context/build-dynamic-system-conte
 import { OpenAiSendMessage } from '../interfaces/opean-ai.interfaces';
 import { filterHistoryAfterLastConfirmation } from '../utils/filter-history-after-last-confirmation.util';
 import { detectCustomerIntention } from '../utils/detect-customer-intention.util';
+import { countOffTopicRedirectionsUtil } from '../../messages/utils/count-off-topic-redirections.util';
 
 export const openAiSendMessageUseCase = async (
   params: OpenAiSendMessage,
@@ -40,12 +41,22 @@ export const openAiSendMessageUseCase = async (
     `Detected intention: ${intention} for conversation: ${conversationId}`,
   );
 
+  // Contar cuántas veces hemos redirigido por conversación fuera de contexto
+  const offTopicRedirectionCount =
+    countOffTopicRedirectionsUtil(filteredHistory);
+  if (offTopicRedirectionCount > 0) {
+    logger.log(
+      `Off-topic redirections count: ${offTopicRedirectionCount} for conversation: ${conversationId}`,
+    );
+  }
+
   try {
     // Construir contexto del sistema dinámicamente según la intención
     const systemContext = buildDynamicSystemContext(
       intention,
       customerContext,
       branchContext,
+      offTopicRedirectionCount,
     );
 
     const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [

@@ -7,6 +7,7 @@ import { isInitialOrderConfirmationUtil } from '../../utils/is-initial-order-con
 import { isProductUpdateUtil } from '../../utils/is-product-update.util';
 import { removeMenuItemsIdsUtil } from '../../utils/remove-menu-items-ids.util';
 import { extractLocationFromMessageUtil } from '../../utils/extract-location-from-message.util';
+import { detectOffTopicTerminationUtil } from '../../utils/detect-off-topic-termination.util';
 import { notifyCashierAboutConfirmedBillUseCase } from './notifications/notify-cashier-about-confirmed-bill.use-case';
 import { notifyCashierAboutConfirmedProductsUseCase } from './notifications/notify-cashier-about-confirmed-products.use-case';
 import { notifyCashierAboutInappropriateBehaviorUseCase } from './notifications/notify-cashier-about-inappropriate-behavior.use-case';
@@ -130,6 +131,12 @@ export const processIncomingMessageUseCase = async (
   const invalidTableResponse = detectInvalidTableResponseUtil(processedMessage);
 
   if (inappropriateBehavior || invalidTableResponse) {
+    // Obtener conversación antes de borrarla
+    const conversation = await conversationService.getOrCreateConversation(
+      from,
+      branch.id,
+    );
+
     await notifyCashierAboutInappropriateBehaviorUseCase({
       branch,
       customer: customerData!,
@@ -141,6 +148,7 @@ export const processIncomingMessageUseCase = async (
       branchesService,
       menuService,
       ordersService,
+      location: conversation.location,
     });
 
     await sendMessageUseCase({
@@ -151,6 +159,12 @@ export const processIncomingMessageUseCase = async (
       twilioService,
       logger,
     });
+
+    // Borrar conversación para que no puedan seguir escribiendo
+    logger.warn(
+      `Deleting conversation ${conversation.conversationId} due to inappropriate behavior`,
+    );
+    await conversationService.deleteConversation(conversation.conversationId);
 
     return;
   }
@@ -229,6 +243,42 @@ export const processIncomingMessageUseCase = async (
   });
 
   await branchesService.updateAvailableMessages(branch);
+
+  // ✅ Detectar si el bot terminó cortésmente la conversación por persistencia fuera de contexto
+  const isOffTopicTermination = detectOffTopicTerminationUtil(response);
+  if (isOffTopicTermination) {
+    logger.warn(
+      `Off-topic termination detected for customer ${from}. Notifying cashier.`,
+    );
+
+    // Obtener conversación antes de borrarla
+    const conversation = await conversationService.getOrCreateConversation(
+      from,
+      branch.id,
+    );
+
+    await notifyCashierAboutInappropriateBehaviorUseCase({
+      branch,
+      customer: customerData!,
+      message: processedMessage,
+      conversationService,
+      twilioService,
+      logger,
+      from,
+      branchesService,
+      menuService,
+      ordersService,
+      location: conversation.location,
+    });
+
+    // Borrar conversación para que no puedan seguir escribiendo
+    logger.warn(
+      `Deleting conversation ${conversation.conversationId} due to off-topic persistence`,
+    );
+    await conversationService.deleteConversation(conversation.conversationId);
+
+    return; // Terminar aquí para no procesar más
+  }
 
   const conversation = await conversationService.getOrCreateConversation(
     from,

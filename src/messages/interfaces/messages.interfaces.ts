@@ -72,6 +72,7 @@ export interface NotifyCashier {
   ordersService: OrdersService;
   logger: Logger;
   paymentMethod?: string; // 'efectivo', 'tarjeta', o 'no especificado'
+  location?: string; // Número de mesa o ubicación del cliente
 }
 
 export interface GenerateCashierMessage {

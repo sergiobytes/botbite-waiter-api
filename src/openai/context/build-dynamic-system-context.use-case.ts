@@ -28,6 +28,7 @@ export const buildDynamicSystemContext = (
   intention: CustomerIntention,
   customerContext?: Customer,
   branchContext?: Branch,
+  offTopicRedirectionCount = 0,
 ): string => {
   // Determinar si hay menú PDF disponible
   const hasPdfMenu = branchContext?.menus?.some((menu) => menu.pdfLink);
@@ -178,8 +179,25 @@ ${customerContext.name}, Tel: ${customerContext.phone}`
       break;
   }
 
+  // Agregar instrucciones dinámicas basadas en redirecciones fuera de contexto
+  let offTopicInstructions = '';
+  if (offTopicRedirectionCount >= 1) {
+    offTopicInstructions = `
+
+🚨 **INSTRUCCIÓN CRÍTICA - YA HAS REDIRIGIDO ${offTopicRedirectionCount} VEZ/VECES**:
+- El cliente ha intentado conversación fuera de contexto y ya lo redirigiste ${offTopicRedirectionCount} vez/veces
+- **SI el mensaje actual es NUEVAMENTE fuera de contexto (no relacionado con pedidos/menú/cuenta)**:
+  * **NO REPITAS** el mensaje de redirección ("Gracias por tu interés...")
+  * **ENVÍA el mensaje de TERMINACIÓN** EN SU IDIOMA:
+    - **Español**: "Entiendo. Si más adelante necesitas hacer un pedido o consultar el menú, estaré disponible para ayudarte. ¡Que tengas un excelente día!"
+    - **Inglés**: "I understand. If you need to place an order or check the menu later, I'll be available to help you. Have a great day!"
+    - **Francés**: "Je comprends. Si vous avez besoin de passer une commande ou de consulter le menu plus tard, je serai disponible pour vous aider. Passez une excellente journée!"
+- **SI el mensaje actual SÍ es relacionado con pedidos/menú/cuenta**: Procesa normalmente
+`;
+  }
+
   // Construir el prompt final
-  return `${BASE_RULES}
+  return `${BASE_RULES}${offTopicInstructions}
 
 ${specificPrompts}
 

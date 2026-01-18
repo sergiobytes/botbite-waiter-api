@@ -4,12 +4,14 @@ import { sendMessageUseCase } from '../send-message.use-case';
 export const notifyCashierAboutInappropriateBehaviorUseCase = async (
   params: NotifyCashier,
 ): Promise<void> => {
-  const { from, message, customer, branch, twilioService, logger } = params;
+  const { from, message, customer, branch, twilioService, logger, location } =
+    params;
 
   try {
+    const locationInfo = location ? `\nUbicación: ${location}` : '';
     const notificationMessage = `🚨: Comportamiento inapropiado detectado de ${from}: "${message}"
-    Cliente: ${customer.name}
-    Se ha terminado la conversación con el cliente. Por favor, tome las medidas necesarias.
+Cliente: ${customer.name}${locationInfo}
+Se ha terminado la conversación con el cliente. Por favor, tome las medidas necesarias.
     `;
 
     await sendMessageUseCase({
