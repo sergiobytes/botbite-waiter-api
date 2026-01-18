@@ -1,6 +1,24 @@
 export const isInitialOrderConfirmationUtil = (aiResponse: string): boolean => {
   const responseLower = aiResponse.toLowerCase();
 
+  // 🔴 VALIDACIÓN CRÍTICA: Si el mensaje contiene preguntas de "agregar más", NO es confirmación
+  const isAskingToAddMore =
+    responseLower.includes('¿deseas agregar algo más?') ||
+    responseLower.includes('deseas agregar algo más?') ||
+    responseLower.includes('¿te gustaría agregar') ||
+    responseLower.includes('te gustaría agregar') ||
+    responseLower.includes('¿quieres agregar') ||
+    responseLower.includes('quieres agregar') ||
+    responseLower.includes('would you like to add') ||
+    responseLower.includes('want to add something') ||
+    responseLower.includes('add something else') ||
+    responseLower.includes('souhaitez-vous ajouter') ||
+    responseLower.includes('voulez-vous ajouter');
+
+  if (isAskingToAddMore) {
+    return false; // NO es confirmación si está preguntando si quiere agregar más
+  }
+
   // Buscar variantes del mensaje de confirmación en diferentes idiomas
   const confirmationPhrases = [
     // Español - variantes

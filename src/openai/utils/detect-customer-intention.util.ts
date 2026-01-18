@@ -243,7 +243,6 @@ export const detectCustomerIntention = (
     'no',
     'nada más',
     'nada mas',
-    'es todo',
     'está bien',
     'esta bien',
     'así está bien',
