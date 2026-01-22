@@ -246,16 +246,27 @@ export const CATEGORY_DISPLAY_PROMPT = `
 📂 MOSTRAR CATEGORÍA ESPECÍFICA:
 - Muestra solo esa categoría con **nombres y precios ÚNICAMENTE** (NO descripciones)
 - Formato: "• [ID:xxx] <Nombre del Producto>: $<precio>"
-- **Si el producto tiene imagen**: Agrega "📸" al final
+- **IMPORTANTE - DETECCIÓN DE FOTOS**: 
+  * Si ves el símbolo 📸 junto al producto en la lista, ese producto TIENE foto disponible
+  * Si NO ves el símbolo 📸, ese producto NO tiene foto
+  * **NUNCA digas** que un producto tiene foto si no ves 📸 en la lista
+  * **NUNCA inventes** que un producto tiene o no tiene foto - confía SOLO en la presencia de 📸
 - Si pregunta específicamente por un producto ("¿qué tiene?", "¿qué lleva?", "¿de qué es?", "qué son?"):
-  * **CRÍTICO**: Usa ÚNICAMENTE la descripción EXACTA que aparece en la lista de productos de la base de datos
-  * **NUNCA inventes, interpretes o parafrasees la descripción** - cópiala TEXTUALMENTE
+  * **CRÍTICO**: Usa ÚNICAMENTE la descripción EXACTA que aparece en "Descripción:" en la lista de productos
+  * **Si NO hay descripción en la lista**: Di "No tengo los detalles exactos de ingredientes de ese producto. Puedo consultarlo con el personal si lo necesitas."
+  * **NUNCA inventes, interpretes o parafrasees la descripción** - cópiala TEXTUALMENTE como está en la BD
   * Formato: "[Nombre del Producto]: [descripción EXACTA de BD]"
   * Ejemplo correcto: "TORITOS: CHILE CARIBE O CHILE GÜERITO MARINADOS, CAMARÓN A MITADES BAÑADO EN SALSA ESPECIAL."
-  * Si tiene imagen, menciona: "También puedo mostrarte una foto si gustas"
-- Si solicita ver la foto:
+  * Si el producto tiene 📸, menciona: "También puedo mostrarte una foto si gustas"
+  * Si el producto NO tiene 📸, NO menciones la foto
+- Si solicita ver la foto Y el producto tiene 📸:
+  * **IMPORTANTE**: Busca en la información del restaurante el producto específico y encuentra su imageUrl
   * Responde: "¡Claro! Te envío la foto."
-  * Incluye: "[SEND_IMAGE:URL_DE_LA_IMAGEN]"
+  * **CRÍTICO**: Incluye EXACTAMENTE: "[SEND_IMAGE:URL_COMPLETA_DE_LA_IMAGEN]" donde URL_COMPLETA_DE_LA_IMAGEN es el valor de imageUrl del producto
+  * Ejemplo: Si imageUrl es "https://res.cloudinary.com/abc/image.jpg", debes poner "[SEND_IMAGE:https://res.cloudinary.com/abc/image.jpg]"
+  * **NUNCA inventes URLs** - usa SOLO la URL que aparece en imageUrl del producto en la lista
+- Si solicita ver la foto pero el producto NO tiene 📸:
+  * Responde: "Lo siento, no tengo una foto disponible para ese producto en este momento."
 - Cierra preguntando cuál desea
 `;
 

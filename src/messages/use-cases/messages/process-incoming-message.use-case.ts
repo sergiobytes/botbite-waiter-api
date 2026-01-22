@@ -8,6 +8,7 @@ import { isProductUpdateUtil } from '../../utils/is-product-update.util';
 import { removeMenuItemsIdsUtil } from '../../utils/remove-menu-items-ids.util';
 import { extractLocationFromMessageUtil } from '../../utils/extract-location-from-message.util';
 import { detectOffTopicTerminationUtil } from '../../utils/detect-off-topic-termination.util';
+import { isOrderAndBillRequestUtil } from '../../utils/is-order-and-bill-request.util';
 import { notifyCashierAboutConfirmedBillUseCase } from './notifications/notify-cashier-about-confirmed-bill.use-case';
 import { notifyCashierAboutConfirmedProductsUseCase } from './notifications/notify-cashier-about-confirmed-products.use-case';
 import { notifyCashierAboutInappropriateBehaviorUseCase } from './notifications/notify-cashier-about-inappropriate-behavior.use-case';
@@ -293,6 +294,39 @@ export const processIncomingMessageUseCase = async (
       conversation.conversationId,
       location,
     );
+  }
+
+  // Detectar si el cliente pidió productos Y la cuenta en el mismo mensaje
+  const { isOrderAndBill, hasProducts, hasBillRequest } =
+    isOrderAndBillRequestUtil(processedMessage, response);
+
+  if (isOrderAndBill) {
+    logger.log(
+      'Detected order AND bill request in same message - processing order directly without confirmation',
+    );
+
+    // 1. Procesar el pedido SIN pedir confirmación al cliente (ya pidió la cuenta)
+    await notifyCashierAboutConfirmedProductsUseCase({
+      branch,
+      customer: customerData!,
+      logger,
+      from,
+      message: processedMessage,
+      conversationService,
+      twilioService,
+      branchesService,
+      menuService,
+      ordersService,
+    });
+
+    // 2. Inmediatamente después, iniciar el flujo de solicitud de cuenta
+    // El AI ya debería haber mostrado la cuenta en su respuesta
+    // Ahora solo necesitamos esperar el método de pago
+    logger.log(
+      'Order processed. Waiting for payment method response to complete bill request.',
+    );
+
+    return; // No procesar más, esperar método de pago en siguiente mensaje
   }
 
   const isInitialConfirmation = isInitialOrderConfirmationUtil(response);

@@ -86,7 +86,13 @@ ${Array.from(uniqueItems.values())
   .map((item) => {
     const recommended = item.shouldRecommend ? '⭐ RECOMENDADO' : '';
     const imageInfo = item.product.imageUrl ? ` 📸` : '';
-    return `• [ID:${item.id}] ${item.product.name} (${item.category.name}): $${item.price}${recommended ? ` ${recommended}` : ''}${imageInfo}`;
+    const imageUrl = item.product.imageUrl
+      ? `\n  ImageUrl: ${item.product.imageUrl}`
+      : '';
+    const description = item.product.description
+      ? `\n  Descripción: ${item.product.description}`
+      : '';
+    return `• [ID:${item.id}] ${item.product.name} (${item.category.name}): $${item.price}${recommended ? ` ${recommended}` : ''}${imageInfo}${description}${imageUrl}`;
   })
   .join('\n')}`;
         })

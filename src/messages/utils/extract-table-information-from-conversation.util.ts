@@ -40,23 +40,34 @@ export const extractTableInfoFromConversationUtil = async (
           return `la mesa ${numberMatch[1]}`;
         }
 
-        // Patrón 5: "planta baja mesa 3"
+        // Patrón 5: "C6", "A5", "B3" - formato letra + número
+        const letterNumberMatch = content.match(/^([a-z])(\d+)$/);
+        if (letterNumberMatch) {
+          const letter = letterNumberMatch[1].toUpperCase();
+          const number = letterNumberMatch[2];
+          return `la mesa ${letter}${number}`;
+        }
+
+        // Patrón 6: "mesa C6", "mesa A5"
+        const mesaLetterNumberMatch = content.match(/mesa\s+([a-z])(\d+)/);
+        if (mesaLetterNumberMatch) {
+          const letter = mesaLetterNumberMatch[1].toUpperCase();
+          const number = mesaLetterNumberMatch[2];
+          return `la mesa ${letter}${number}`;
+        }
+
+        // Patrón 7: "table C6" (inglés)
+        const tableLetterNumberMatch = content.match(/table\s+([a-z])(\d+)/);
+        if (tableLetterNumberMatch) {
+          const letter = tableLetterNumberMatch[1].toUpperCase();
+          const number = tableLetterNumberMatch[2];
+          return `la mesa ${letter}${number}`;
+        }
+
+        // Patrón 8: "planta baja mesa 3"
         const plantaMatch = content.match(/(planta\s+\w+\s+mesa\s+\d+)/);
         if (plantaMatch) {
           return plantaMatch[1];
         }
-
-        // Patrón 6: "terraza", "barra", "patio"
-        const ubicacionMatch = content.match(/(terraza|barra|patio)/);
-        if (ubicacionMatch) {
-          return `la ${ubicacionMatch[1]}`;
-        }
-      }
-    }
-
-    return 'ubicación no especificada';
-  } catch (error) {
-    logger.warn('Could not extract table info from conversation:', error);
-    return 'ubicación no especificada';
-  }
-};
+        
+        // Patrón 9: "terraza", "barra", "patio"

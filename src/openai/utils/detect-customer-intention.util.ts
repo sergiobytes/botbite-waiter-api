@@ -57,7 +57,7 @@ export const detectCustomerIntention = (
 
   // 2. Verificar si necesita ubicación (no hay ubicación en historial)
   const hasLocation = conversationHistory.some((msg) =>
-    /mesa|table|terraza|terrace|barra|bar|patio/i.test(msg.content),
+    /mesa|table|terraza|terrace|barra|bar|patio|^[a-z]\d+$/i.test(msg.content),
   );
 
   if (!hasLocation && conversationHistory.length > 2) {
@@ -68,7 +68,9 @@ export const detectCustomerIntention = (
   // 2b. Si el mensaje ACTUAL contiene ubicación Y el último mensaje del bot preguntó por ubicación
   // entonces acaba de dar su ubicación → debe mostrar menú inmediatamente
   const messageContainsLocation =
-    /mesa|table|terraza|terrace|barra|bar|patio|\d+/i.test(lowerMessage);
+    /mesa|table|terraza|terrace|barra|bar|patio|\d+|^[a-z]\d+$/i.test(
+      lowerMessage,
+    );
   const botAskedForLocation =
     lastBotMessage &&
     (lastBotMessage.content.includes('número de mesa') ||
