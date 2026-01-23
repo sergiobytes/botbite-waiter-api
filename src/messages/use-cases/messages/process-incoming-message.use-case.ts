@@ -297,8 +297,10 @@ export const processIncomingMessageUseCase = async (
   }
 
   // Detectar si el cliente pidió productos Y la cuenta en el mismo mensaje
-  const { isOrderAndBill, hasProducts, hasBillRequest } =
-    isOrderAndBillRequestUtil(processedMessage, response);
+  const { isOrderAndBill } = isOrderAndBillRequestUtil(
+    processedMessage,
+    response,
+  );
 
   if (isOrderAndBill) {
     logger.log(

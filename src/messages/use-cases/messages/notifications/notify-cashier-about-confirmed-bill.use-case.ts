@@ -38,16 +38,33 @@ export const notifyCashierAboutConfirmedBillUseCase = async (
     // Usar la ubicación guardada en la conversación, o extraerla si no existe
     let tableInfo = conversation.location;
     if (!tableInfo) {
-      tableInfo = await extractTableInfoFromConversationUtil(
-        conversation.conversationId,
-        conversationService,
-        logger,
-      );
-      // Guardar la ubicación en la conversación si se acaba de extraer
-      await conversationService.updateConversationLocation(
-        conversation.conversationId,
-        tableInfo,
-      );
+      try {
+        tableInfo = await extractTableInfoFromConversationUtil(
+          conversation.conversationId,
+          conversationService,
+          logger,
+        );
+        // Guardar la ubicación en la conversación si se acaba de extraer
+        await conversationService.updateConversationLocation(
+          conversation.conversationId,
+          tableInfo,
+        );
+      } catch (error) {
+        // Enviar el mensaje de error al cliente (recepción)
+        await sendMessageUseCase({
+          assistantPhone: branch.phoneNumberAssistant,
+          customerPhone: branch.phoneNumberReception!,
+          message:
+            error.message ||
+            'Could not identify the table or location. Could you please specify which table or area you are referring to?',
+          logger,
+          twilioService,
+        });
+        logger.warn(
+          'Could not identify the table or location, message sent to reception.',
+        );
+        return;
+      }
     }
 
     let totalAmount = 0;
