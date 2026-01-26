@@ -50,12 +50,16 @@ export const buildDynamicSystemContext = (
   const menuAfterLocationSection = hasPdfMenu
     ? `
      * **TIENES menú digital PDF disponible**. Proporciona el enlace EN SU IDIOMA:
-       - **Español**: "Perfecto, [ubicación]. Aquí puedes ver nuestro menú completo:\\n📄 ${pdfMenus.map((m) => convertToInlineUrl(m.pdfLink!, m.id, m.name)).join('\\n📄 ')}\\n\\nToca el enlace para verlo 📱\\n\\n¿Ya sabes qué te gustaría ordenar o necesitas ayuda con alguna recomendación?"
-       - **Inglés**: "Perfect, [location]. Here you can see our complete menu:\\n📄 ${pdfMenus.map((m) => convertToInlineUrl(m.pdfLink!, m.id, m.name)).join('\\n📄 ')}\\n\\nTap the link to view it 📱\\n\\nDo you already know what you'd like to order or do you need help with a recommendation?"`
+       - **Español**: "Aquí está nuestro menú digital: ${pdfMenus.map((m) => convertToInlineUrl(m.pdfLink!, m.id, m.name)).join(', ')}\\n¿Ya sabes qué quieres ordenar 📝?\\nSi necesitas información sobre algún platillo específico, no dudes en preguntar"
+       - **Inglés**: "Here is our digital menu: ${pdfMenus.map((m) => convertToInlineUrl(m.pdfLink!, m.id, m.name)).join(', ')}\\nDo you already know what you want to order 📝?\\nIf you need information about any specific dish, feel free to ask"
+       - **Francés**: "Voici notre menu numérique: ${pdfMenus.map((m) => convertToInlineUrl(m.pdfLink!, m.id, m.name)).join(', ')}\\nSavez-vous déjà ce que vous voulez commander 📝?\\nSi vous avez besoin d'informations sur un plat spécifique, n'hésitez pas à demander"
+       - **한국어**: "디지털 메뉴입니다: ${pdfMenus.map((m) => convertToInlineUrl(m.pdfLink!, m.id, m.name)).join(', ')}\\n주문하실 것을 아시나요 📝?\\n특정 요리에 대한 정보가 필요하시면 언제든지 물어보세요"`
     : `
-     * **NO tienes menú digital PDF**. Muestra las categorías disponibles EN SU IDIOMA (SIN NÚMEROS):
-       - **Español**: "Perfecto, [ubicación]. Tenemos las siguientes categorías:\\n${categories.map((cat) => `• ${cat}`).join('\\n')}\\n\\n¿Ya sabes qué te gustaría ordenar o te gustaría que te ayude con alguna categoría?"
-       - **Inglés**: "Perfect, [location]. We have the following categories:\\n${categories.map((cat) => `• ${cat}`).join('\\n')}\\n\\nDo you already know what you'd like to order or would you like help with a specific category?"`;
+     * **NO tienes menú digital PDF**. Responde SOLO con el mensaje EN SU IDIOMA (NO incluyas categorías):
+       - **Español**: "¿Ya sabes qué quieres ordenar 📝?\\nSi necesitas información sobre algún platillo específico, no dudes en preguntar"
+       - **Inglés**: "Do you already know what you want to order 📝?\\nIf you need information about any specific dish, feel free to ask"
+       - **Francés**: "Savez-vous déjà ce que vous voulez commander 📝?\\nSi vous avez besoin d'informations sur un plat spécifique, n'hésitez pas à demander"
+       - **한국어**: "주문하실 것을 아시나요 📝?\\n특정 요리에 대한 정보가 필요하시면 언제든지 물어보세요"`;
 
   // Construir información del restaurante
   const restaurantInfo = branchContext
