@@ -31,20 +31,16 @@ export const buildDynamicSystemContext = (
   offTopicRedirectionCount = 0,
 ): string => {
   // Determinar si hay menú PDF disponible
-  const hasPdfMenu = branchContext?.menus?.some((menu) => menu.pdfLink);
-  const pdfMenus = branchContext?.menus?.filter((menu) => menu.pdfLink) || [];
-
-  // Obtener categorías únicas si NO hay PDF
-  const categories =
-    !hasPdfMenu && branchContext?.menus?.[0]?.menuItems
-      ? Array.from(
-          new Set(
-            branchContext.menus[0].menuItems
-              .filter((item) => item.isActive)
-              .map((item) => item.category.name),
-          ),
-        )
-      : [];
+  // IMPORTANTE: pdfLink puede ser null, undefined, vacío o la cadena "None" cuando no está disponible
+  const hasPdfMenu = branchContext?.menus?.some(
+    (menu) =>
+      menu.pdfLink && menu.pdfLink !== 'None' && menu.pdfLink.trim() !== '',
+  );
+  const pdfMenus =
+    branchContext?.menus?.filter(
+      (menu) =>
+        menu.pdfLink && menu.pdfLink !== 'None' && menu.pdfLink.trim() !== '',
+    ) || [];
 
   // Construir sección de menú según ubicación
   const menuAfterLocationSection = hasPdfMenu
@@ -78,13 +74,20 @@ ${
             if (item.isActive) {
               const key = `${item.product.name}-${item.category.name}`;
               if (!uniqueItems.has(key)) {
+                // Refuerzo: si el producto tiene imageUrl, asegúrate de que el símbolo 📸 esté presente
+                if (
+                  item.product.imageUrl &&
+                  !item.product.name.includes('📸')
+                ) {
+                  item.product.name = `${item.product.name} 📸`;
+                }
                 uniqueItems.set(key, item);
               }
             }
           });
 
           return `
-${menu.pdfLink ? convertToInlineUrl(menu.pdfLink, menu.id, menu.name) : '—'}
+${menu.pdfLink && menu.pdfLink !== 'None' && menu.pdfLink.trim() !== '' ? convertToInlineUrl(menu.pdfLink, menu.id, menu.name) : '—'}
 ${menu.name}:
 ${Array.from(uniqueItems.values())
   .map((item) => {
@@ -124,7 +127,7 @@ ${customerContext.name}, Tel: ${customerContext.phone}`
       break;
 
     case CustomerIntention.VIEW_MENU:
-      // Mostrar menú: si hay PDF mostrar enlace, si no mostrar categorías específicas
+      // Mostrar menú: si hay PDF mostrar enlace, si no mostrar solo el mensaje simple
       if (hasPdfMenu) {
         specificPrompts = `${MENU_DISPLAY_PROMPT}
 
@@ -134,9 +137,9 @@ ${customerContext.name}, Tel: ${customerContext.phone}`
       } else {
         specificPrompts = `${MENU_DISPLAY_PROMPT}
 
-**ACCIÓN**: Muestra INMEDIATAMENTE las siguientes categorías EN SU IDIOMA:
-- **Español**: "¡Perfecto! Tenemos las siguientes categorías disponibles:\\n${categories.map((cat) => `• ${cat}`).join('\\n')}\\n\\n¿Qué categoría te gustaría conocer?"
-- **Inglés**: "Perfect! We have the following categories available:\\n${categories.map((cat) => `• ${cat}`).join('\\n')}\\n\\nWhich category would you like to know about?"`;
+**ACCIÓN**: Responde SOLO con el mensaje EN SU IDIOMA (NO incluyas categorías):
+- **Español**: "¿Ya sabes qué quieres ordenar 📝?\\nSi necesitas información sobre algún platillo específico, no dudes en preguntar"
+- **Inglés**: "Do you already know what you want to order 📝?\\nIf you need information about any specific dish, feel free to ask"`;
       }
       break;
 

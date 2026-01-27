@@ -272,17 +272,17 @@ export const detectCustomerIntention = (
   const lastMessageWasAddMore =
     lastBotMessage &&
     (lastBotMessage.content.includes('agregar algo más') ||
-      lastBotMessage.content.includes('agregar a tu pedido') ||
-      lastBotMessage.content.includes('deseas agregar') ||
-      lastBotMessage.content.includes('te gustaría agregar') ||
-      lastBotMessage.content.includes('quieres agregar') ||
       lastBotMessage.content.includes('add something else') ||
-      lastBotMessage.content.includes('add to your order') ||
-      lastBotMessage.content.includes('would you like to add') ||
-      lastBotMessage.content.includes('want to add') ||
-      lastBotMessage.content.includes('ajouter autre chose') ||
-      lastBotMessage.content.includes('souhaitez-vous ajouter') ||
-      lastBotMessage.content.includes('ajouter à votre commande'));
+      lastBotMessage.content.includes('ajouter autre chose'));
+
+  const lastMessageAskedToAddProduct =
+    lastBotMessage &&
+    (lastBotMessage.content.includes('agregar') ||
+      lastBotMessage.content.includes('add') ||
+      lastBotMessage.content.includes('ajouter')) &&
+    (lastBotMessage.content.includes('a tu pedido') ||
+      lastBotMessage.content.includes('to your order') ||
+      lastBotMessage.content.includes('à votre commande'));
 
   const lastMessageAskedToConfirm =
     lastBotMessage &&
@@ -313,6 +313,14 @@ export const detectCustomerIntention = (
   const hasOrderContext = orderRelatedKeywords.some((keyword) =>
     lowerMessage.includes(keyword),
   );
+
+  // SPECIAL CASE: If bot asked to add a specific product and user says yes, it's an order
+  if (
+    lastMessageAskedToAddProduct &&
+    affirmativeKeywords.some((keyword) => lowerMessage.includes(keyword))
+  ) {
+    return CustomerIntention.PLACE_ORDER;
+  }
 
   // Only treat as confirmation if:
   // 1. Bot asked "add more?" AND user said "no" AND no order keywords present

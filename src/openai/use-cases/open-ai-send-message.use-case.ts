@@ -90,12 +90,10 @@ export const openAiSendMessageUseCase = async (
       'language_selection',
       'location_needed',
       'view_menu',
-      'view_category',
       'confirm_order',
       'total_query',
       'payment_method',
       'request_amenities',
-      'general',
     ];
 
     const useGpt4oMini = simpleIntentions.includes(intention);
@@ -116,9 +114,53 @@ export const openAiSendMessageUseCase = async (
 
     const response = await Promise.race([responsePromise, timeoutPromise]);
 
-    const assistantResponse =
+    let assistantResponse =
       response.choices[0].message.content ||
       'Lo siento, no pude procesar tu mensaje. ¿Puedes intentarlo de nuevo?';
+
+    // POST-PROCESAMIENTO: Detectar productos mencionados y agregar nota si tienen foto
+    // Solo agregar nota si NO se está enviando la foto directamente
+    if (branchContext?.menus && !assistantResponse.includes('[SEND_IMAGE:')) {
+      // Extraer nombres de productos mencionados en la respuesta (entre **)
+      const productMatches = assistantResponse.matchAll(/\*\*([^*]+)\*\*/g);
+      const mentionedProducts = Array.from(productMatches, (m) =>
+        m[1]
+          .replace(/📸/g, '')
+          .replace(/\([^)]+\)/g, '')
+          .trim(),
+      );
+
+      // Buscar si algún producto mencionado tiene imageUrl
+      for (const productName of mentionedProducts) {
+        let hasImageUrl = false;
+
+        for (const menu of branchContext.menus) {
+          if (menu.menuItems) {
+            const item = menu.menuItems.find((mi) => {
+              const menuProductName = mi.product.name.toLowerCase();
+              const mentionedName = productName.toLowerCase();
+              return (
+                menuProductName.includes(mentionedName) ||
+                mentionedName.includes(menuProductName)
+              );
+            });
+
+            if (item?.product?.imageUrl) {
+              hasImageUrl = true;
+              break;
+            }
+          }
+        }
+
+        if (hasImageUrl) {
+          assistantResponse += '\n\n📸 FOTO DISPONIBLE';
+          logger.log(
+            `Photo availability note added for product: ${productName}`,
+          );
+          break; // Solo agregar la nota una vez
+        }
+      }
+    }
 
     logger.log(`Response generated for conversation: ${conversationId}`);
 
