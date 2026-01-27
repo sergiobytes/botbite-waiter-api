@@ -113,6 +113,8 @@ export const processMessageUseCase = async (
           messages,
           customerContext,
           branchContext,
+          conversation.location,
+          conversation.lastOrderSentToCashier,
         );
         logger.log(
           `[PERF] OpenAI response received in ${Date.now() - aiStart}ms`,
@@ -140,6 +142,8 @@ export const processMessageUseCase = async (
         messages,
         customerContext,
         branchContext,
+        conversation.location,
+        conversation.lastOrderSentToCashier,
       );
       logger.log(
         `[PERF] OpenAI response received in ${Date.now() - aiStart}ms`,

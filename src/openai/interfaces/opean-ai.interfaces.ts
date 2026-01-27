@@ -9,6 +9,11 @@ export interface OpenAiSendMessage {
   conversationHistory: Array<{ role: 'user' | 'assistant'; content: string }>;
   customerContext?: Customer;
   branchContext?: Branch;
+  conversationLocation?: string | null;
+  lastOrderSentToCashier?: Record<
+    string,
+    { price: number; quantity: number; menuItemId: string; notes?: string }
+  > | null;
   openai: OpenAI;
   logger: Logger;
 }

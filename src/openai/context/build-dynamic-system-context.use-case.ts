@@ -29,6 +29,10 @@ export const buildDynamicSystemContext = (
   customerContext?: Customer,
   branchContext?: Branch,
   offTopicRedirectionCount = 0,
+  lastOrderSentToCashier?: Record<
+    string,
+    { price: number; quantity: number; menuItemId: string; notes?: string }
+  > | null,
 ): string => {
   // Determinar si hay menú PDF disponible
   // IMPORTANTE: pdfLink puede ser null, undefined, vacío o la cadena "None" cuando no está disponible
@@ -58,7 +62,7 @@ export const buildDynamicSystemContext = (
        - **한국어**: "주문하실 것을 아시나요 📝?\\n특정 요리에 대한 정보가 필요하시면 언제든지 물어보세요"`;
 
   // Construir información del restaurante
-  const restaurantInfo = branchContext
+  let restaurantInfo = branchContext
     ? `
 🏪 RESTAURANTE:
 - ${branchContext.name}
@@ -74,13 +78,6 @@ ${
             if (item.isActive) {
               const key = `${item.product.name}-${item.category.name}`;
               if (!uniqueItems.has(key)) {
-                // Refuerzo: si el producto tiene imageUrl, asegúrate de que el símbolo 📸 esté presente
-                if (
-                  item.product.imageUrl &&
-                  !item.product.name.includes('📸')
-                ) {
-                  item.product.name = `${item.product.name} 📸`;
-                }
                 uniqueItems.set(key, item);
               }
             }
@@ -92,14 +89,13 @@ ${menu.name}:
 ${Array.from(uniqueItems.values())
   .map((item) => {
     const recommended = item.shouldRecommend ? '⭐ RECOMENDADO' : '';
-    const imageInfo = item.product.imageUrl ? ` 📸` : '';
     const imageUrl = item.product.imageUrl
       ? `\n  ImageUrl: ${item.product.imageUrl}`
       : '';
     const description = item.product.description
       ? `\n  Descripción: ${item.product.description}`
       : '';
-    return `• [ID:${item.id}] ${item.product.name} (${item.category.name}): $${item.price}${recommended ? ` ${recommended}` : ''}${imageInfo}${description}${imageUrl}`;
+    return `• [ID:${item.id}] ${item.product.name} (${item.category.name}): $${item.price}${recommended ? ` ${recommended}` : ''}${description}${imageUrl}`;
   })
   .join('\n')}`;
         })
@@ -114,6 +110,25 @@ ${Array.from(uniqueItems.values())
 ${customerContext.name}, Tel: ${customerContext.phone}`
     : '';
 
+  // Calcular total del pedido desde lastOrderSentToCashier
+  let orderTotalInfo = '';
+  if (
+    lastOrderSentToCashier &&
+    Object.keys(lastOrderSentToCashier).length > 0
+  ) {
+    const total = Object.values(lastOrderSentToCashier).reduce(
+      (sum, item) => sum + item.price * item.quantity,
+      0,
+    );
+    orderTotalInfo = `
+
+💰 TOTAL DEL PEDIDO ACTUAL:
+- Total calculado del backend: $${total.toFixed(2)}
+- **IMPORTANTE**: USA ESTE TOTAL cuando muestres el pedido completo al cliente
+- Este es el total OFICIAL que se enviará a caja
+- NO calcules el total manualmente, USA este valor`;
+  }
+
   // Seleccionar prompts según la intención
   let specificPrompts = '';
 
@@ -123,7 +138,19 @@ ${customerContext.name}, Tel: ${customerContext.phone}`
       break;
 
     case CustomerIntention.LOCATION_NEEDED:
-      specificPrompts = `${LOCATION_PROMPT}\n\n- **Una vez recibida la ubicación**, INMEDIATAMENTE muestra el menú:${menuAfterLocationSection}`;
+      // CRITICAL: DO NOT include menu context when location is missing
+      // This prevents the model from processing orders without location
+      specificPrompts = LOCATION_PROMPT;
+
+      // Clear restaurant info to prevent order processing
+      restaurantInfo = branchContext
+        ? `
+🏪 RESTAURANTE:
+- ${branchContext.name}
+- ${branchContext.address}
+- Tel: ${branchContext.phoneNumberReception}
+(Menú no disponible hasta que proporciones tu ubicación)`
+        : '';
       break;
 
     case CustomerIntention.VIEW_MENU:
@@ -217,5 +244,6 @@ ${specificPrompts}
 ${restaurantInfo}
 
 ${customerInfo}
+${orderTotalInfo}
 `;
 };

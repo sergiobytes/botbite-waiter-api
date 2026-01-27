@@ -4,6 +4,7 @@ import { OpenAiSendMessage } from '../interfaces/opean-ai.interfaces';
 import { filterHistoryAfterLastConfirmation } from '../utils/filter-history-after-last-confirmation.util';
 import { detectCustomerIntention } from '../utils/detect-customer-intention.util';
 import { countOffTopicRedirectionsUtil } from '../../messages/utils/count-off-topic-redirections.util';
+import { fixOrderTotalUtil } from '../utils/fix-order-total.util';
 
 export const openAiSendMessageUseCase = async (
   params: OpenAiSendMessage,
@@ -14,6 +15,8 @@ export const openAiSendMessageUseCase = async (
     conversationHistory = [],
     customerContext,
     branchContext,
+    conversationLocation,
+    lastOrderSentToCashier,
     openai,
     logger,
   } = params;
@@ -35,7 +38,11 @@ export const openAiSendMessageUseCase = async (
   }
 
   // Detectar la intención del cliente para seleccionar el prompt más apropiado
-  const intention = detectCustomerIntention(message, filteredHistory);
+  const intention = detectCustomerIntention(
+    message,
+    filteredHistory,
+    conversationLocation,
+  );
 
   logger.log(
     `Detected intention: ${intention} for conversation: ${conversationId}`,
@@ -57,6 +64,7 @@ export const openAiSendMessageUseCase = async (
       customerContext,
       branchContext,
       offTopicRedirectionCount,
+      lastOrderSentToCashier,
     );
 
     const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
@@ -164,6 +172,10 @@ export const openAiSendMessageUseCase = async (
 
     logger.log(`Response generated for conversation: ${conversationId}`);
 
+    // POST-PROCESAMIENTO FINAL: Corregir el total del pedido
+    // El backend calcula el total correcto basado en los subtotales de los productos
+    assistantResponse = fixOrderTotalUtil(assistantResponse, logger);
+
     return assistantResponse;
   } catch (error) {
     logger.error('Error sending message to OpenAI');
@@ -220,10 +232,14 @@ export const openAiSendMessageUseCase = async (
               frequency_penalty: 0,
               presence_penalty: 0,
             });
-            return (
+            let retryContent =
               retryResponse.choices[0].message.content ||
-              'Lo siento, no pude procesar tu mensaje. ¿Puedes intentarlo de nuevo?'
-            );
+              'Lo siento, no pude procesar tu mensaje. ¿Puedes intentarlo de nuevo?';
+
+            // Corregir total en retry también
+            retryContent = fixOrderTotalUtil(retryContent, logger);
+
+            return retryContent;
           } catch {
             logger.error('Retry after rate limit also failed');
             throw new Error(`OpenAI API error after retry: ${error.message}`);

@@ -33,7 +33,9 @@ export class OpenAIService {
       timeout: 120000, // 2 minutos timeout en cola
     });
 
-    this.logger.log('OpenAI service initialized (concurrency: 3, rate: 400/min, optimized to avoid rate limits)');
+    this.logger.log(
+      'OpenAI service initialized (concurrency: 3, rate: 400/min, optimized to avoid rate limits)',
+    );
   }
 
   createConversation(): string {
@@ -49,6 +51,11 @@ export class OpenAIService {
     }> = [],
     customerContext?: Customer,
     branchContext?: Branch,
+    conversationLocation?: string | null,
+    lastOrderSentToCashier?: Record<
+      string,
+      { price: number; quantity: number; menuItemId: string; notes?: string }
+    > | null,
   ): Promise<string> {
     // Encolar la llamada para evitar sobrecarga
     return this.queue.add(
@@ -56,13 +63,15 @@ export class OpenAIService {
         this.logger.log(
           `Processing OpenAI request for conversation ${conversationId} (queue size: ${this.queue.size}, pending: ${this.queue.pending})`,
         );
-        
+
         return openAiSendMessageUseCase({
           conversationId,
           message,
           conversationHistory,
           customerContext,
           branchContext,
+          conversationLocation,
+          lastOrderSentToCashier,
           openai: this.openai,
           logger: this.logger,
         });

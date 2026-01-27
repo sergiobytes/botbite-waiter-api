@@ -23,6 +23,7 @@ export enum CustomerIntention {
 export const detectCustomerIntention = (
   message: string,
   conversationHistory: Array<{ role: string; content: string }>,
+  conversationLocation?: string | null,
 ): CustomerIntention => {
   const lowerMessage = message.toLowerCase().trim();
 
@@ -55,18 +56,11 @@ export const detectCustomerIntention = (
     return CustomerIntention.LANGUAGE_SELECTION;
   }
 
-  // 2. Verificar si necesita ubicación (no hay ubicación en historial)
-  const hasLocation = conversationHistory.some((msg) =>
-    /mesa|table|terraza|terrace|barra|bar|patio|^[a-z]\d+$/i.test(msg.content),
-  );
+  // 2. Verificar si necesita ubicación usando el campo de la BD
+  // CRITICAL: Use the actual database field, not conversation history
+  const hasLocation = !!(conversationLocation && conversationLocation.trim());
 
-  if (!hasLocation && conversationHistory.length > 2) {
-    // Si ya pasó selección de idioma y no tiene ubicación
-    return CustomerIntention.LOCATION_NEEDED;
-  }
-
-  // 2b. Si el mensaje ACTUAL contiene ubicación Y el último mensaje del bot preguntó por ubicación
-  // entonces acaba de dar su ubicación → debe mostrar menú inmediatamente
+  // 2a. FIRST: Check if user just gave location (before checking if they need one)
   const messageContainsLocation =
     /mesa|table|terraza|terrace|barra|bar|patio|\d+|^[a-z]\d+$/i.test(
       lowerMessage,
@@ -81,8 +75,40 @@ export const detectCustomerIntention = (
       lastBotMessage.content.includes("where you're located"));
 
   if (messageContainsLocation && botAskedForLocation) {
-    // Acaba de dar ubicación, debe mostrar menú
+    // Just gave location - show menu and ask what they want to order
     return CustomerIntention.VIEW_MENU;
+  }
+
+  // 2b. CRITICAL: Check if user is trying to order WITHOUT location
+  // Must check this BEFORE generic location check
+  const orderRelatedKeywords = [
+    'agregar',
+    'agrega',
+    'agrégame',
+    'dame',
+    'quiero',
+    'queremos',
+    'añade',
+    'add',
+    'give me',
+    'i want',
+    'we want',
+    'ajoute',
+    'je veux',
+  ];
+  const hasOrderContext = orderRelatedKeywords.some((keyword) =>
+    lowerMessage.includes(keyword),
+  );
+
+  // If trying to order without location, FORCE location request immediately
+  if (hasOrderContext && !hasLocation) {
+    return CustomerIntention.LOCATION_NEEDED;
+  }
+
+  // 2c. If no location after language selection, request it
+  if (!hasLocation && conversationHistory.length > 2) {
+    // Si ya pasó selección de idioma y no tiene ubicación
+    return CustomerIntention.LOCATION_NEEDED;
   }
 
   // 3. Método de pago (responde después de pedir cuenta)
@@ -294,26 +320,6 @@ export const detectCustomerIntention = (
       lastBotMessage.content.includes('confirmer cette commande') ||
       lastBotMessage.content.includes('souhaitez-vous confirmer'));
 
-  // Check if message contains order-related keywords that indicate it's actually an order, not confirmation
-  const orderRelatedKeywords = [
-    'agregar',
-    'agrega',
-    'agrégame',
-    'dame',
-    'quiero',
-    'queremos',
-    'añade',
-    'add',
-    'give me',
-    'i want',
-    'we want',
-    'ajoute',
-    'je veux',
-  ];
-  const hasOrderContext = orderRelatedKeywords.some((keyword) =>
-    lowerMessage.includes(keyword),
-  );
-
   // SPECIAL CASE: If bot asked to add a specific product and user says yes, it's an order
   if (
     lastMessageAskedToAddProduct &&
@@ -341,6 +347,8 @@ export const detectCustomerIntention = (
     /\d+/.test(lowerMessage) || // Tiene números (cantidades)
     lowerMessage.split(' ').length <= 5; // Mensaje corto (típico de pedidos)
 
+  // Note: Location check already done at the top of function (line ~75)
+  // If we reach here and have order context, location is already present
   if (hasProductContext && hasLocation) {
     return CustomerIntention.PLACE_ORDER;
   }
