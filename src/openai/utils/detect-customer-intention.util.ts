@@ -343,6 +343,29 @@ export const detectCustomerIntention = (
 
   // 12. Hacer pedido (menciona productos o números)
   // Si el mensaje tiene contexto de productos o cantidades, probablemente es un pedido
+
+  // CRITICAL: Detectar pedidos de múltiples personas (cuentas separadas)
+  const multiPersonOrderKeywords = [
+    'cuentas separadas',
+    'separate accounts',
+    'comptes séparés',
+    'somos',
+    'we are',
+    'nous sommes',
+  ];
+
+  const hasMultiPersonOrder = multiPersonOrderKeywords.some((keyword) =>
+    lowerMessage.includes(keyword),
+  );
+
+  const hasMultiplePeoplePattern =
+    (lowerMessage.match(/quiere|quieren|queremos/g) || []).length >= 2;
+
+  // Si es pedido multi-persona, SIEMPRE clasificar como PLACE_ORDER
+  if ((hasMultiPersonOrder || hasMultiplePeoplePattern) && hasLocation) {
+    return CustomerIntention.PLACE_ORDER;
+  }
+
   const hasProductContext =
     /\d+/.test(lowerMessage) || // Tiene números (cantidades)
     lowerMessage.split(' ').length <= 5; // Mensaje corto (típico de pedidos)

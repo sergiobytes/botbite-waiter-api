@@ -173,8 +173,12 @@ export const openAiSendMessageUseCase = async (
     logger.log(`Response generated for conversation: ${conversationId}`);
 
     // POST-PROCESAMIENTO FINAL: Corregir el total del pedido
-    // El backend calcula el total correcto basado en los subtotales de los productos
-    assistantResponse = fixOrderTotalUtil(assistantResponse, logger);
+    // El backend calcula el total correcto basado en lastOrderSentToCashier (fuente de verdad)
+    assistantResponse = fixOrderTotalUtil(
+      assistantResponse,
+      logger,
+      lastOrderSentToCashier || undefined,
+    );
 
     return assistantResponse;
   } catch (error) {
@@ -237,7 +241,11 @@ export const openAiSendMessageUseCase = async (
               'Lo siento, no pude procesar tu mensaje. ¿Puedes intentarlo de nuevo?';
 
             // Corregir total en retry también
-            retryContent = fixOrderTotalUtil(retryContent, logger);
+            retryContent = fixOrderTotalUtil(
+              retryContent,
+              logger,
+              lastOrderSentToCashier || undefined,
+            );
 
             return retryContent;
           } catch {

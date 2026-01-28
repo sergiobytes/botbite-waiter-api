@@ -29,9 +29,23 @@ export const isOrderAndBillRequestUtil = (
     '계산할게요',
   ];
 
-  const hasBillRequest = billKeywords.some((keyword) =>
+  // Excluir casos donde NO es solicitud de cuenta
+  const separateAccountsKeywords = [
+    'cuentas separadas',
+    'separate accounts',
+    'comptes séparés',
+    'separate bills',
+    'split bill',
+    'dividir la cuenta',
+  ];
+
+  const isSeparateAccountsRequest = separateAccountsKeywords.some((keyword) =>
     clientLower.includes(keyword),
   );
+
+  const hasBillRequest =
+    !isSeparateAccountsRequest &&
+    billKeywords.some((keyword) => clientLower.includes(keyword));
 
   // Detectar si el AI agregó productos (formato con ID)
   const hasProducts =

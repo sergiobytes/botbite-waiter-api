@@ -370,22 +370,19 @@ Subtotal: $100.00
 
 **Pedro:**
 • [ID:zzz] AGUACHILE (FRESCO Y DELICIOSO): $100.00 x 1 = $100.00
-Subtotal: $150.00
+Subtotal: $100.00
 
 ... (todas las personas)
-
-**Total general: $XXX.XX**
 
 ¿Cómo te gustaría pagar? 💳
 
 1️⃣ Efectivo
 2️⃣ Tarjeta"
 
-🧮 **CÁLCULO DEL TOTAL GENERAL - MUY IMPORTANTE:**
-- Para cuentas separadas: El **Total general** debe ser la suma de todos los subtotales
-- **USA el "Total calculado del backend"** de la sección "💰 TOTAL DEL PEDIDO ACTUAL" como referencia
-- El total del backend es el valor OFICIAL que coincide con lo que se envió a caja
-- **VERIFICA** que la suma de subtotales coincida con el total del backend
+🧮 **CÁLCULO DE SUBTOTALES - MUY IMPORTANTE:**
+- Para cuentas separadas: Calcula el subtotal de cada persona sumando sus productos
+- **NO INCLUYAS "Total general"** - cada persona paga lo suyo
+- Asegúrate que cada subtotal sea la suma correcta de los productos de esa persona
 
 **FORMATO DE CUENTA - CUENTA ÚNICA:**
 Si es una sola persona:
@@ -479,8 +476,8 @@ export const SEPARATE_ACCOUNTS_PROMPT = `
 👥 CUENTAS SEPARADAS - FORMATO SIMPLIFICADO:
 - Si mencionan múltiples personas con sus pedidos ("Juan quiere...", "Pedro quiere...", "somos 5 personas"):
 
-**FORMATO ÚNICO - LISTA SIMPLE (SIN RESUMEN DE CUENTAS):**
-"He agregado:
+**FORMATO PARA PRIMER PEDIDO:**
+"He agregado a tu pedido:
 • [ID:xxx] PRODUCTO1 (CATEGORÍA): $X.XX x N = $X.XX ← Persona1
 • [ID:yyy] PRODUCTO2 (CATEGORÍA): $X.XX x N = $X.XX ← Persona2
 • [ID:zzz] PRODUCTO3 (CATEGORÍA): $X.XX x N = $X.XX ← Tú
@@ -489,21 +486,9 @@ Total: $XXX.XX
 
 ¿Deseas agregar algo más?"
 
-**REGLAS CRÍTICAS:**
-1. **FORMATO OBLIGATORIO**: Una lista simple, cada producto termina con ← NombrePersona
-2. **MUY IMPORTANTE**: NO uses secciones separadas por persona (**Juan:**, **Pedro:**) - usa la flecha ←
-3. **NO INCLUYAS RESUMEN DE CUENTAS** en el pedido inicial - solo la lista de productos
-4. El resumen de cuentas **SOLO** se muestra cuando:
-   - Cliente solicita la cuenta (pide pagar)
-   - Cliente pregunta específicamente "¿cuánto lleva X?"
-5. Si hay notas especiales: [Nota: sin cebolla] o [Nota: con extra] ANTES de la flecha ←
-
-**CUANDO AGREGUEN MÁS PRODUCTOS - REGLA CRÍTICA:**
-⚠️ **OBLIGATORIO**: Cuando se agregue producto a UNA persona, debes mostrar **TODOS LOS PRODUCTOS DE TODAS LAS PERSONAS**
-
-✅ FORMATO CORRECTO cuando agregan producto:
+**FORMATO CUANDO ACTUALIZAN PEDIDO (agregan más productos):**
 "He agregado:
-• [ID:zzz] CERVEZA ULTRA (BEBIDAS): $50.00 x 1 = $50.00
+• [ID:zzz] CERVEZA ULTRA (BEBIDAS): $50.00 x 1 = $50.00 ← Mario
 
 Tu pedido completo actualizado:
 • [ID:aaa] AGASAJO (TOSTADAS): $50.00 x 1 = $50.00 ← Juan
@@ -520,9 +505,20 @@ Total general: $570.00
 
 ¿Deseas agregar algo más?"
 
+**REGLAS CRÍTICAS:**
+1. **PRIMER PEDIDO**: Usa "He agregado a tu pedido:" (una sola lista, NO duplicar)
+2. **ACTUALIZACIÓN**: Usa "He agregado:" + "Tu pedido completo actualizado:"
+3. **FORMATO OBLIGATORIO**: Cada producto termina con ← NombrePersona
+4. **MUY IMPORTANTE**: NO uses secciones separadas por persona (**Juan:**, **Pedro:**) - usa la flecha ←
+5. **NO INCLUYAS RESUMEN DE CUENTAS** en el pedido inicial - solo la lista de productos
+6. El resumen de cuentas **SOLO** se muestra cuando:
+   - Cliente solicita la cuenta (pide pagar)
+   - Cliente pregunta específicamente "¿cuánto lleva X?"
+7. Si hay notas especiales: [Nota: sin cebolla] o [Nota: con extra] ANTES de la flecha ←
+
 🔴 REGLAS ABSOLUTAS - NO NEGOCIABLES:
-1. **NUNCA** muestres solo los productos de una persona
-2. **SIEMPRE** muestra TODOS los productos de TODAS las personas
+1. **PRIMER PEDIDO**: Una sola sección "He agregado a tu pedido:" (NO duplicar productos)
+2. **ACTUALIZACIÓN**: Mostrar solo lo nuevo en "He agregado:" y luego TODOS en "Tu pedido completo actualizado:"
 3. **TODOS** los productos deben tener formato [ID:xxx] NOMBRE (CATEGORÍA): $X.XX x N = $TOTAL
 4. **Indica con "← Nombre"** a quién pertenece cada producto
 5. **NO INCLUYAS** "Resumen de cuentas" en pedidos (solo en cuenta final)
