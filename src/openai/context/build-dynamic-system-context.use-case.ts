@@ -197,14 +197,14 @@ ${customerContext.name}, Tel: ${customerContext.phone}`
     case CustomerIntention.REQUEST_BILL:
       specificPrompts = `${BILL_REQUEST_PROMPT}\n\n${SEPARATE_ACCOUNTS_PROMPT}`;
       if (branchContext?.surveyUrl) {
-        specificPrompts += `\n\n**ENCUESTA DISPONIBLE**: ${branchContext.surveyUrl}`;
+        specificPrompts += `\n\n**ENCUESTA DE SATISFACCI\u00d3N DISPONIBLE**: Despu\u00e9s de confirmar el m\u00e9todo de pago, agrega:\n\n\"\ud83d\udcdd Nos encantar\u00eda conocer tu opini\u00f3n sobre tu experiencia. Por favor, completa esta breve encuesta de satisfacci\u00f3n:\n\ud83d\udd17 ${branchContext.surveyUrl}\n\n\u00a1Que tengas un excelente d\u00eda!\"\n\n(Ajusta el mensaje al idioma del cliente: ingl\u00e9s, franc\u00e9s, etc.)`;
       }
       break;
 
     case CustomerIntention.PAYMENT_METHOD:
       specificPrompts = PAYMENT_METHOD_PROMPT;
       if (branchContext?.surveyUrl) {
-        specificPrompts += `\n\n**DESPUÉS del mensaje de confirmación**, agrega la encuesta:\n🔗 ${branchContext.surveyUrl}`;
+        specificPrompts += `\n\n**ENCUESTA DE SATISFACCI\u00d3N DISPONIBLE**: Despu\u00e9s de confirmar el m\u00e9todo de pago, agrega:\n\n\"\ud83d\udcdd Nos encantar\u00eda conocer tu opini\u00f3n sobre tu experiencia. Por favor, completa esta breve encuesta de satisfacci\u00f3n:\n\ud83d\udd17 ${branchContext.surveyUrl}\n\n\u00a1Que tengas un excelente d\u00eda!\"\n\n(Ajusta el mensaje al idioma del cliente: ingl\u00e9s, franc\u00e9s, etc.)`;
       }
       break;
 
