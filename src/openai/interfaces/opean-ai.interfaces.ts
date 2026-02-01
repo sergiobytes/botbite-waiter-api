@@ -14,6 +14,7 @@ export interface OpenAiSendMessage {
     string,
     { price: number; quantity: number; menuItemId: string; notes?: string }
   > | null;
+  preferredLanguage?: string | null;
   openai: OpenAI;
   logger: Logger;
 }

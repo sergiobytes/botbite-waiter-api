@@ -17,6 +17,7 @@ export const openAiSendMessageUseCase = async (
     branchContext,
     conversationLocation,
     lastOrderSentToCashier,
+    preferredLanguage,
     openai,
     logger,
   } = params;
@@ -65,6 +66,7 @@ export const openAiSendMessageUseCase = async (
       branchContext,
       offTopicRedirectionCount,
       lastOrderSentToCashier,
+      preferredLanguage,
     );
 
     const messages: OpenAI.Chat.Completions.ChatCompletionMessageParam[] = [
@@ -213,6 +215,9 @@ export const openAiSendMessageUseCase = async (
                   intention,
                   customerContext,
                   branchContext,
+                  offTopicRedirectionCount,
+                  lastOrderSentToCashier,
+                  preferredLanguage,
                 ),
               },
               ...filteredHistory.map((msg) => ({

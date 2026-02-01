@@ -56,6 +56,9 @@ export class Conversation extends BaseEntity {
   @Column({ type: 'boolean', default: false })
   isQrValidated: boolean;
 
+  @Column({ type: 'varchar', length: 10, nullable: true })
+  preferredLanguage?: string;
+
   @OneToMany(() => ConversationMessage, (message) => message.conversation, {
     cascade: true,
   })

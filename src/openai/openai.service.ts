@@ -56,6 +56,7 @@ export class OpenAIService {
       string,
       { price: number; quantity: number; menuItemId: string; notes?: string }
     > | null,
+    preferredLanguage?: string | null,
   ): Promise<string> {
     // Encolar la llamada para evitar sobrecarga
     return this.queue.add(
@@ -72,6 +73,7 @@ export class OpenAIService {
           branchContext,
           conversationLocation,
           lastOrderSentToCashier,
+          preferredLanguage,
           openai: this.openai,
           logger: this.logger,
         });

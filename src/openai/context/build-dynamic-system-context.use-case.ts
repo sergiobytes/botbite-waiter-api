@@ -33,6 +33,7 @@ export const buildDynamicSystemContext = (
     string,
     { price: number; quantity: number; menuItemId: string; notes?: string }
   > | null,
+  preferredLanguage?: string | null,
 ): string => {
   // Determinar si hay menú PDF disponible
   // IMPORTANTE: pdfLink puede ser null, undefined, vacío o la cadena "None" cuando no está disponible
@@ -45,21 +46,6 @@ export const buildDynamicSystemContext = (
       (menu) =>
         menu.pdfLink && menu.pdfLink !== 'None' && menu.pdfLink.trim() !== '',
     ) || [];
-
-  // Construir sección de menú según ubicación
-  const menuAfterLocationSection = hasPdfMenu
-    ? `
-     * **TIENES menú digital PDF disponible**. Proporciona el enlace EN SU IDIOMA:
-       - **Español**: "Aquí está nuestro menú digital: ${pdfMenus.map((m) => convertToInlineUrl(m.pdfLink!, m.id, m.name)).join(', ')}\\n¿Ya sabes qué quieres ordenar 📝?\\nSi necesitas información sobre algún platillo específico, no dudes en preguntar"
-       - **Inglés**: "Here is our digital menu: ${pdfMenus.map((m) => convertToInlineUrl(m.pdfLink!, m.id, m.name)).join(', ')}\\nDo you already know what you want to order 📝?\\nIf you need information about any specific dish, feel free to ask"
-       - **Francés**: "Voici notre menu numérique: ${pdfMenus.map((m) => convertToInlineUrl(m.pdfLink!, m.id, m.name)).join(', ')}\\nSavez-vous déjà ce que vous voulez commander 📝?\\nSi vous avez besoin d'informations sur un plat spécifique, n'hésitez pas à demander"
-       - **한국어**: "디지털 메뉴입니다: ${pdfMenus.map((m) => convertToInlineUrl(m.pdfLink!, m.id, m.name)).join(', ')}\\n주문하실 것을 아시나요 📝?\\n특정 요리에 대한 정보가 필요하시면 언제든지 물어보세요"`
-    : `
-     * **NO tienes menú digital PDF**. Responde SOLO con el mensaje EN SU IDIOMA (NO incluyas categorías):
-       - **Español**: "¿Ya sabes qué quieres ordenar 📝?\\nSi necesitas información sobre algún platillo específico, no dudes en preguntar"
-       - **Inglés**: "Do you already know what you want to order 📝?\\nIf you need information about any specific dish, feel free to ask"
-       - **Francés**: "Savez-vous déjà ce que vous voulez commander 📝?\\nSi vous avez besoin d'informations sur un plat spécifique, n'hésitez pas à demander"
-       - **한국어**: "주문하실 것을 아시나요 📝?\\n특정 요리에 대한 정보가 필요하시면 언제든지 물어보세요"`;
 
   // Construir información del restaurante
   let restaurantInfo = branchContext
@@ -109,6 +95,29 @@ ${Array.from(uniqueItems.values())
 👤 CLIENTE:
 ${customerContext.name}, Tel: ${customerContext.phone}`
     : '';
+
+  // Agregar información del idioma preferido si está configurado
+  let languageInstruction = '';
+  if (preferredLanguage) {
+    const languageNames = {
+      es: 'Español',
+      en: 'English',
+      fr: 'Français',
+      ko: '한국어',
+      de: 'Deutsch',
+      it: 'Italiano',
+      pt: 'Português',
+    };
+    const languageName = languageNames[preferredLanguage] || preferredLanguage;
+    languageInstruction = `
+
+🌍 IDIOMA PREFERIDO DEL CLIENTE: ${languageName} (${preferredLanguage})
+⚠️ **OBLIGATORIO**: TODA tu conversación DEBE ser en ${languageName}
+- NO cambies a ningún otro idioma
+- Ignora si el cliente escribe ocasionalmente en otro idioma
+- SIEMPRE responde en ${languageName}
+`;
+  }
 
   // Calcular total del pedido desde lastOrderSentToCashier
   let orderTotalInfo = '';
@@ -197,14 +206,14 @@ ${customerContext.name}, Tel: ${customerContext.phone}`
     case CustomerIntention.REQUEST_BILL:
       specificPrompts = `${BILL_REQUEST_PROMPT}\n\n${SEPARATE_ACCOUNTS_PROMPT}`;
       if (branchContext?.surveyUrl) {
-        specificPrompts += `\n\n**ENCUESTA DE SATISFACCI\u00d3N DISPONIBLE**: Despu\u00e9s de confirmar el m\u00e9todo de pago, agrega:\n\n\"\ud83d\udcdd Nos encantar\u00eda conocer tu opini\u00f3n sobre tu experiencia. Por favor, completa esta breve encuesta de satisfacci\u00f3n:\n\ud83d\udd17 ${branchContext.surveyUrl}\n\n\u00a1Que tengas un excelente d\u00eda!\"\n\n(Ajusta el mensaje al idioma del cliente: ingl\u00e9s, franc\u00e9s, etc.)`;
+        specificPrompts += `\n\n**ENCUESTA DE SATISFACCI\u00d3N DISPONIBLE**: Despu\u00e9s de confirmar el m\u00e9todo de pago, agrega:\n\n"\ud83d\udcdd Nos encantar\u00eda conocer tu opini\u00f3n sobre tu experiencia. Por favor, completa esta breve encuesta de satisfacci\u00f3n:\n\ud83d\udd17 ${branchContext.surveyUrl}\n\n\u00a1Que tengas un excelente d\u00eda!"\n\n(Ajusta el mensaje al idioma del cliente: ingl\u00e9s, franc\u00e9s, etc.)`;
       }
       break;
 
     case CustomerIntention.PAYMENT_METHOD:
       specificPrompts = PAYMENT_METHOD_PROMPT;
       if (branchContext?.surveyUrl) {
-        specificPrompts += `\n\n**ENCUESTA DE SATISFACCI\u00d3N DISPONIBLE**: Despu\u00e9s de confirmar el m\u00e9todo de pago, agrega:\n\n\"\ud83d\udcdd Nos encantar\u00eda conocer tu opini\u00f3n sobre tu experiencia. Por favor, completa esta breve encuesta de satisfacci\u00f3n:\n\ud83d\udd17 ${branchContext.surveyUrl}\n\n\u00a1Que tengas un excelente d\u00eda!\"\n\n(Ajusta el mensaje al idioma del cliente: ingl\u00e9s, franc\u00e9s, etc.)`;
+        specificPrompts += `\n\n**ENCUESTA DE SATISFACCI\u00d3N DISPONIBLE**: Despu\u00e9s de confirmar el m\u00e9todo de pago, agrega:\n\n"\ud83d\udcdd Nos encantar\u00eda conocer tu opini\u00f3n sobre tu experiencia. Por favor, completa esta breve encuesta de satisfacci\u00f3n:\n\ud83d\udd17 ${branchContext.surveyUrl}\n\n\u00a1Que tengas un excelente d\u00eda!"\n\n(Ajusta el mensaje al idioma del cliente: ingl\u00e9s, franc\u00e9s, etc.)`;
       }
       break;
 
@@ -243,7 +252,7 @@ ${specificPrompts}
 
 ${restaurantInfo}
 
-${customerInfo}
+${customerInfo}${languageInstruction}
 ${orderTotalInfo}
 `;
 };

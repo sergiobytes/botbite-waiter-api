@@ -3,6 +3,7 @@ import { getOrCreateConversationUseCase } from '../conversations/get-create-conv
 import { getConversationHistoryUseCase } from './get-conversation-history.use-case';
 import { saveMessageUseCase } from './save-message.use-case';
 import { validateQrScanUtil } from '../../utils/validate-qr-scan.util';
+import { detectLanguageUtil } from '../../utils/detect-language.util';
 
 export const processMessageUseCase = async (
   params: ProcessMessage,
@@ -84,6 +85,18 @@ export const processMessageUseCase = async (
     });
     logger.log(`[PERF] Message saved in ${Date.now() - saveStart}ms`);
 
+    // 🌍 Detectar y guardar idioma preferido si no está configurado
+    if (!conversation.preferredLanguage) {
+      const detectedLanguage = detectLanguageUtil(userMessage);
+      if (detectedLanguage) {
+        logger.log(
+          `Detected and saving preferred language: ${detectedLanguage}`,
+        );
+        conversation.preferredLanguage = detectedLanguage;
+        await conversationRepository.save(conversation);
+      }
+    }
+
     // 🚀 VERIFICAR CACHÉ ANTES DE LLAMAR A OPENAI
     let aiResponse: string;
 
@@ -115,6 +128,7 @@ export const processMessageUseCase = async (
           branchContext,
           conversation.location,
           conversation.lastOrderSentToCashier,
+          conversation.preferredLanguage,
         );
         logger.log(
           `[PERF] OpenAI response received in ${Date.now() - aiStart}ms`,
@@ -144,6 +158,7 @@ export const processMessageUseCase = async (
         branchContext,
         conversation.location,
         conversation.lastOrderSentToCashier,
+        conversation.preferredLanguage,
       );
       logger.log(
         `[PERF] OpenAI response received in ${Date.now() - aiStart}ms`,

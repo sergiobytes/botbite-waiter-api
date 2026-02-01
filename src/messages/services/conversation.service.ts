@@ -113,6 +113,19 @@ export class ConversationService {
     });
   }
 
+  async updatePreferredLanguage(
+    conversationId: string,
+    language: string,
+  ): Promise<void> {
+    this.logger.log(
+      `Updating preferred language for conversation ${conversationId} to: ${language}`,
+    );
+    await this.conversationRepository.update(
+      { conversationId },
+      { preferredLanguage: language },
+    );
+  }
+
   async findByBranch(branchId: string): Promise<ConversationsListResponse> {
     return findConversationsByBranchUseCase({
       branchId,
