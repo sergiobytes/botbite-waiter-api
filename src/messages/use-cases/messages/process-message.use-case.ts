@@ -32,6 +32,13 @@ export const processMessageUseCase = async (
       repository: conversationRepository,
       service,
     });
+
+    if (!conversation || !conversation.conversationId) {
+      throw new Error(
+        `Invalid conversation returned for phone ${phoneNumber}: ${JSON.stringify({ id: conversation?.id, conversationId: conversation?.conversationId })}`,
+      );
+    }
+
     logger.log(`[PERF] Conversation loaded in ${Date.now() - startTime}ms`);
 
     const historyStart = Date.now();

@@ -60,7 +60,7 @@ export class Conversation extends BaseEntity {
   preferredLanguage?: string;
 
   @OneToMany(() => ConversationMessage, (message) => message.conversation, {
-    cascade: true,
+    cascade: false, // Prevent cascade updates that could set conversationId to undefined
   })
   messages: ConversationMessage[];
 }

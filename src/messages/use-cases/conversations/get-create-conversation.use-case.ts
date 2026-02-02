@@ -13,13 +13,13 @@ export const getOrCreateConversationUseCase = async (
 
   try {
     // Intentar obtener la conversación con lock FOR UPDATE
-    let conversation = await queryRunner.manager
+    let conversation = (await queryRunner.manager
       .createQueryBuilder()
       .select('conversation')
       .from('conversations', 'conversation')
       .where('conversation.phoneNumber = :phoneNumber', { phoneNumber })
       .setLock('pessimistic_write') // Lock para evitar duplicados
-      .getOne() as Conversation | null;
+      .getOne()) as Conversation | null;
 
     if (conversation) {
       // Actualizar lastActivity
@@ -42,13 +42,19 @@ export const getOrCreateConversationUseCase = async (
 
     await queryRunner.commitTransaction();
 
-    // Cargar relaciones después del commit
-    const fullConversation = await repository.findOne({
-      where: { phoneNumber },
-      relations: { messages: true },
-    });
+    // Return the conversation from the transaction context
+    // No need to reload with messages since they're not used immediately
+    if (!conversation) {
+      throw new Error(
+        `Conversation object is null after transaction for phone ${phoneNumber}`,
+      );
+    }
 
-    return fullConversation!;
+    logger.log(
+      `Returning conversation ${conversation.conversationId} for phone ${phoneNumber}`,
+    );
+
+    return conversation;
   } catch (error) {
     await queryRunner.rollbackTransaction();
     logger.error(`Error in getOrCreateConversation: ${error.message}`);

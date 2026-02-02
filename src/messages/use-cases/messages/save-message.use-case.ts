@@ -6,6 +6,10 @@ export const saveMessageUseCase = async (
 ): Promise<ConversationMessage> => {
   const { conversationId, role, content, repository } = params;
 
+  if (!conversationId) {
+    throw new Error(`Cannot save message: conversationId is null or undefined`);
+  }
+
   const message = repository.create({
     conversationId,
     role,
