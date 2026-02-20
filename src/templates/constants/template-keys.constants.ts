@@ -3,15 +3,19 @@ export const TEMPLATE_KEYS = {
   GREETING_INITIAL: 'greeting.initial',
   GREETING_RETURNING: 'greeting.returning',
 
+  // Productos
   PRODUCT_SINGLE: 'product.single',
   PRODUCT_MULTIPLE: 'product.multiple',
   PRODUCT_NOT_AVAILABLE: 'product.not_available',
   PRODUCT_OUT_OF_STOCK: 'product.out_of_stock',
 
-  // Órdenes
+  // Órdenes - Nuevas plantillas estructuradas
+  ORDER_ITEMS_ADDED: 'order.items_added',
   ORDER_CONFIRMATION: 'order.confirmation',
-  ORDER_SEPARATE_BILLS: 'order.separate_bills',
-  ORDER_SINGLE_BILL: 'order.single_bill',
+  ORDER_REQUEST_BILL: 'order.request_bill',
+  ORDER_SEPARATE_BILLS: 'order.separate_bills_detailed',
+  ORDER_MODIFY_ITEM: 'order.modify_item',
+  ORDER_EMPTY_CART: 'order.empty_cart',
   ORDER_SUMMARY: 'order.summary',
 
   // Menú
