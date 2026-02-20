@@ -19,6 +19,7 @@ import { MessagesModule } from './messages/messages.module';
 import { OpenAIModule } from './openai/openai.module';
 import { QueueModule } from './queue/queue.module';
 import { HealthModule } from './health/health.module';
+import { TemplatesModule } from './templates/templates.module';
 
 @Module({
   imports: [
@@ -40,6 +41,7 @@ import { HealthModule } from './health/health.module';
     OpenAIModule,
     QueueModule,
     HealthModule,
+    TemplatesModule,
   ],
   controllers: [AppController],
   providers: [AppService],
