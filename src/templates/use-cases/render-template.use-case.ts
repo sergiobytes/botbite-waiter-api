@@ -36,8 +36,15 @@ export class RenderTemplateUseCase {
     let result = content;
 
     Object.keys(variables).forEach((key) => {
+      const value = variables[key];
+      const stringVariable =
+        value !== null && value !== undefined
+          ? typeof value === 'object'
+            ? JSON.stringify(value)
+            : String(value)
+          : '';
       const regex = new RegExp(`{{${key}}}`, 'g');
-      result = result.replace(regex, String(variables[key]));
+      result = result.replace(regex, stringVariable);
     });
 
     result = this.handleEachLoop(result, variables);
@@ -65,8 +72,15 @@ export class RenderTemplateUseCase {
           let itemContent = template;
 
           Object.keys(item).forEach((key) => {
+            const value = item[key];
+            const stringVariable =
+              value !== null && value !== undefined
+                ? typeof value === 'object'
+                  ? JSON.stringify(value)
+                  : String(value)
+                : '';
             const regex = new RegExp(`{{${key}}}`, 'g');
-            itemContent = itemContent.replace(regex, String(item[key]));
+            itemContent = itemContent.replace(regex, stringVariable);
           });
 
           itemContent = itemContent.replace(/{{@index}}/g, String(index + 1));
