@@ -9,6 +9,6 @@ import { ProcessOrderWithAIUseCase } from './use-cases/process-order-with-ai.use
 @Module({
   imports: [MenusModule, ProductsModule, OrdersModule, TemplatesModule],
   providers: [OpenAIService, ProcessOrderWithAIUseCase],
-  exports: [OpenAIService],
+  exports: [OpenAIService, ProcessOrderWithAIUseCase],
 })
 export class OpenAIModule {}

@@ -38,6 +38,10 @@ export interface ProcessMessage {
   conversationRepository: Repository<Conversation>;
   service: OpenAIService;
   cacheService?: CacheService;
+  detectTemplateResponseUseCase?: any;
+  detectOrderActionUseCase?: any;
+  renderOrderResponseUseCase?: any;
+  processOrderWithAIUseCase?: any;
 }
 
 export interface ProcessIncomingMessage {

@@ -45,6 +45,13 @@ export class OpenAIService {
     return openAiCreateConversationUseCase();
   }
 
+  /**
+   * Obtiene la instancia de OpenAI para uso en use cases
+   */
+  getOpenAI(): OpenAI {
+    return this.openai;
+  }
+
   async sendMessage(
     conversationId: string,
     message: string,
@@ -87,6 +94,11 @@ export class OpenAIService {
           `Processing request for conversation ${conversationId} (queue size: ${this.queue.size}, pending: ${this.queue.pending})`,
         );
 
+        // NOTA: La lógica de plantillas ahora se maneja en el messages module
+        // mediante DetectTemplateResponseUseCase antes de llegar aquí
+        // Este servicio solo maneja procesamiento con IA cuando las plantillas no aplican
+
+        /*
         const templateResponse = await this.tryUseTemplate(
           message,
           conversationHistory,
@@ -102,9 +114,10 @@ export class OpenAIService {
           );
           return templateResponse;
         }
+        */
 
         this.logger.log(
-          `Using OpenAI for conversation: ${conversationId} (no template match)`,
+          `Using OpenAI for conversation: ${conversationId}`,
         );
 
         return openAiSendMessageUseCase({
@@ -272,9 +285,13 @@ export class OpenAIService {
   }
 
   /**
+   * COMENTADO: La lógica de plantillas ahora se maneja en el messages module
+   * mediante DetectTemplateResponseUseCase antes de llegar a OpenAIService
+   *
    * Intenta usar una plantilla para responder al mensaje
    * Retorna null si no hay plantilla aplicable
    */
+  /*
   private async tryUseTemplate(
     message: string,
     conversationHistory: Array<{
@@ -444,19 +461,25 @@ export class OpenAIService {
       return null;
     }
   }
+  */
 
   /**
+   * COMENTADO: Método auxiliar de plantillas (ya no usado)
    * Extrae el nombre del último pedido del cliente
    */
+  /*
   private getLastOrderName(): string | null {
     // TODO: Implementar lógica para obtener el último pedido del cliente
     // Por ahora retornamos null para usar OpenAI
     return null;
   }
+  */
 
   /**
+   * COMENTADO: Método auxiliar de plantillas (ya no usado)
    * Extrae las categorías del menú
    */
+  /*
   private extractMenuCategories(branch: Branch): Array<{ name: string }> {
     const categories: Array<{ name: string }> = [];
     const seenCategories = new Set<string>();
@@ -479,10 +502,13 @@ export class OpenAIService {
 
     return categories;
   }
+  */
 
   /**
+   * COMENTADO: Método auxiliar de plantillas (ya no usado)
    * Extrae variables del pedido para plantillas
    */
+  /*
   private extractOrderVariables(
     order: Record<
       string,
@@ -517,10 +543,13 @@ export class OpenAIService {
       estimatedTime: 25, // Tiempo estimado por defecto
     };
   }
+  */
 
   /**
+   * COMENTADO: Método auxiliar de plantillas (ya no usado)
    * Encuentra el nombre del producto por ID del menu item
    */
+  /*
   private findProductName(menuItemId: string, branch?: Branch): string | null {
     if (!branch?.menus) return null;
 
@@ -535,6 +564,7 @@ export class OpenAIService {
 
     return null;
   }
+  */
 
   /**
    * Genera un número de orden único

@@ -4,6 +4,7 @@ import { getConversationHistoryUseCase } from './get-conversation-history.use-ca
 import { saveMessageUseCase } from './save-message.use-case';
 import { validateQrScanUtil } from '../../utils/validate-qr-scan.util';
 import { detectLanguageUtil } from '../../utils/detect-language.util';
+import { OrderAction } from './detect-order-action.use-case';
 
 export const processMessageUseCase = async (
   params: ProcessMessage,
@@ -19,6 +20,10 @@ export const processMessageUseCase = async (
     conversationMessageRepository,
     service,
     cacheService,
+    detectTemplateResponseUseCase,
+    detectOrderActionUseCase,
+    renderOrderResponseUseCase,
+    processOrderWithAIUseCase,
   } = params;
 
   try {
@@ -104,8 +109,239 @@ export const processMessageUseCase = async (
       }
     }
 
-    // 🚀 VERIFICAR CACHÉ ANTES DE LLAMAR A OPENAI
+    // 🎨 INTENTAR USAR PLANTILLAS PRIMERO (si los use cases están disponibles)
     let aiResponse: string;
+
+    if (detectTemplateResponseUseCase) {
+      logger.log('[TEMPLATE] Checking for template-based response...');
+      const templateStart = Date.now();
+
+      const templateResult = await detectTemplateResponseUseCase.execute(
+        userMessage,
+        messages,
+        customerContext,
+        branchContext,
+        conversation.lastOrderSentToCashier,
+        conversation.preferredLanguage,
+      );
+
+      logger.log(
+        `[PERF] Template detection in ${Date.now() - templateStart}ms`,
+      );
+
+      if (templateResult.shouldUseTemplate && templateResult.response) {
+        logger.log(`✅ Using TEMPLATE response - No OpenAI call needed!`);
+        aiResponse = templateResult.response;
+
+        // Guardar respuesta de plantilla
+        await saveMessageUseCase({
+          conversationId: conversation.conversationId,
+          role: 'assistant',
+          content: aiResponse,
+          repository: conversationMessageRepository,
+        });
+
+        logger.log(
+          `Message processed successfully with TEMPLATE for conversation: ${conversation.conversationId}`,
+        );
+
+        return aiResponse;
+      }
+
+      // 📦 Si no es plantilla simple, detectar acciones de orden
+      if (
+        detectOrderActionUseCase &&
+        renderOrderResponseUseCase &&
+        processOrderWithAIUseCase
+      ) {
+        logger.log('[ORDER] Checking for order-related action...');
+        const orderDetectionStart = Date.now();
+
+        const orderAction = detectOrderActionUseCase.execute(userMessage);
+
+        logger.log(
+          `[PERF] Order detection in ${Date.now() - orderDetectionStart}ms`,
+        );
+
+        if (
+          orderAction.action !== OrderAction.NONE &&
+          orderAction.confidence > 0.7
+        ) {
+          logger.log(
+            `✅ Detected ORDER action: ${orderAction.action} (confidence: ${orderAction.confidence})`,
+          );
+
+          // Procesar orden con IA (para extraer datos estructurados)
+          const orderProcessStart = Date.now();
+
+          try {
+            logger.log(
+              `[ORDER] Processing order action with AI + template rendering...`,
+            );
+
+            // Usar ProcessOrderWithAIUseCase para extraer datos estructurados
+            const processedOrder = await processOrderWithAIUseCase.execute(
+              service.getOpenAI(),
+              userMessage,
+              messages,
+              conversation.lastOrderSentToCashier || {},
+              branchContext,
+            );
+
+            logger.log(
+              `[PERF] Order AI processing in ${Date.now() - orderProcessStart}ms`,
+            );
+
+            // Renderizar respuesta usando plantillas según la acción
+            const renderStart = Date.now();
+            let orderResponse: string;
+
+            switch (processedOrder.action) {
+              case 'add':
+                orderResponse = await renderOrderResponseUseCase.execute(
+                  OrderAction.ADD_ITEMS,
+                  {
+                    items:
+                      processedOrder.items?.map((item) => ({
+                        id: parseInt(item.id) || 0,
+                        name: item.name,
+                        quantity: item.quantity,
+                        unitPrice: item.unitPrice,
+                        totalPrice: item.subtotal,
+                      })) || [],
+                    subtotal: processedOrder.currentTotal,
+                    total: processedOrder.currentTotal,
+                  },
+                  conversation.preferredLanguage || 'es',
+                );
+                break;
+
+              case 'confirm':
+                orderResponse = await renderOrderResponseUseCase.execute(
+                  OrderAction.CONFIRM_ORDER,
+                  {
+                    items:
+                      processedOrder.items?.map((item) => ({
+                        id: parseInt(item.id) || 0,
+                        name: item.name,
+                        quantity: item.quantity,
+                        unitPrice: item.unitPrice,
+                        totalPrice: item.subtotal,
+                      })) || [],
+                    subtotal: processedOrder.currentTotal,
+                    total: processedOrder.currentTotal,
+                  },
+                  conversation.preferredLanguage || 'es',
+                  {
+                    orderNumber: `ORD-${Date.now().toString().slice(-6)}`,
+                    estimatedTime: '15-20 minutos',
+                  },
+                );
+                break;
+
+              case 'request_bill':
+                orderResponse = await renderOrderResponseUseCase.execute(
+                  OrderAction.REQUEST_BILL,
+                  {
+                    items:
+                      processedOrder.items?.map((item) => ({
+                        id: parseInt(item.id) || 0,
+                        name: item.name,
+                        quantity: item.quantity,
+                        unitPrice: item.unitPrice,
+                        totalPrice: item.subtotal,
+                      })) || [],
+                    subtotal: processedOrder.currentTotal,
+                    tax: processedOrder.currentTotal * 0.16,
+                    total: processedOrder.currentTotal * 1.16,
+                  },
+                  conversation.preferredLanguage || 'es',
+                );
+                break;
+
+              case 'separate_bills':
+                if (processedOrder.separateBills) {
+                  orderResponse = await renderOrderResponseUseCase.execute(
+                    OrderAction.SEPARATE_BILLS,
+                    processedOrder.separateBills.map((bill) => ({
+                      customer: bill.customerName,
+                      items: bill.items.map((item) => ({
+                        id: parseInt(item.id) || 0,
+                        name: item.name,
+                        quantity: item.quantity,
+                        unitPrice: item.unitPrice,
+                        totalPrice: item.subtotal,
+                      })),
+                      total: bill.subtotal,
+                    })),
+                    conversation.preferredLanguage || 'es',
+                  );
+                } else {
+                  // Fallback si no hay datos de separación
+                  throw new Error('No separate bill data available');
+                }
+                break;
+
+              case 'show_cart':
+                orderResponse = await renderOrderResponseUseCase.execute(
+                  OrderAction.VIEW_ORDER,
+                  {
+                    items:
+                      processedOrder.items?.map((item) => ({
+                        id: parseInt(item.id) || 0,
+                        name: item.name,
+                        quantity: item.quantity,
+                        unitPrice: item.unitPrice,
+                        totalPrice: item.subtotal,
+                      })) || [],
+                    subtotal: processedOrder.currentTotal,
+                    total: processedOrder.currentTotal,
+                  },
+                  conversation.preferredLanguage || 'es',
+                );
+                break;
+
+              default:
+                // Para acciones 'modify' o 'remove', usar el mensaje de IA
+                orderResponse =
+                  processedOrder.message ||
+                  'Orden procesada correctamente.';
+            }
+
+            logger.log(
+              `[PERF] Order template rendering in ${Date.now() - renderStart}ms`,
+            );
+
+            aiResponse = orderResponse;
+
+            // Guardar respuesta de orden
+            await saveMessageUseCase({
+              conversationId: conversation.conversationId,
+              role: 'assistant',
+              content: aiResponse,
+              repository: conversationMessageRepository,
+            });
+
+            logger.log(
+              `Message processed successfully with ORDER + TEMPLATE for conversation: ${conversation.conversationId}`,
+            );
+
+            return aiResponse;
+          } catch (orderError) {
+            logger.error(
+              `Error processing order with AI: ${orderError.message}`,
+              orderError.stack,
+            );
+            // Caer en el flujo normal de OpenAI si falla el procesamiento de orden
+            logger.log(
+              '[ORDER] Falling back to standard OpenAI processing due to error',
+            );
+          }
+        }
+      }
+    }
+
+    // 🚀 VERIFICAR CACHÉ ANTES DE LLAMAR A OPENAI
 
     if (cacheService) {
       const cacheStart = Date.now();

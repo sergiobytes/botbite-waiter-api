@@ -5,6 +5,7 @@ import { Branch } from '../../branches/entities/branch.entity';
 import { CacheService } from '../../common/services/cache.service';
 import { Customer } from '../../customers/entities/customer.entity';
 import { OpenAIService } from '../../openai/openai.service';
+import { ProcessOrderWithAIUseCase } from '../../openai/use-cases/process-order-with-ai.use-case';
 import { ConversationMessage } from '../entities/conversation-message.entity';
 import { Conversation } from '../entities/conversation.entity';
 import { OrdersGateway } from '../gateways/orders.gateway';
@@ -19,6 +20,9 @@ import { updateConversationLocationUseCase } from '../use-cases/conversations/up
 import { updateLastOrderSentToCashierUseCase } from '../use-cases/conversations/update-last-order-sent-cashier.use-case';
 import { getConversationHistoryUseCase } from '../use-cases/messages/get-conversation-history.use-case';
 import { processMessageUseCase } from '../use-cases/messages/process-message.use-case';
+import { DetectTemplateResponseUseCase } from '../use-cases/messages/detect-template-response.use-case';
+import { DetectOrderActionUseCase } from '../use-cases/messages/detect-order-action.use-case';
+import { RenderOrderResponseUseCase } from '../use-cases/messages/render-order-response.use-case';
 
 @Injectable()
 export class ConversationService {
@@ -32,6 +36,10 @@ export class ConversationService {
     private readonly openaiService: OpenAIService,
     private readonly ordersGateway: OrdersGateway,
     private readonly cacheService: CacheService,
+    private readonly detectTemplateResponseUseCase: DetectTemplateResponseUseCase,
+    private readonly detectOrderActionUseCase: DetectOrderActionUseCase,
+    private readonly renderOrderResponseUseCase: RenderOrderResponseUseCase,
+    private readonly processOrderWithAIUseCase: ProcessOrderWithAIUseCase,
   ) {}
 
   async getOrCreateConversation(
@@ -74,6 +82,10 @@ export class ConversationService {
       conversationMessageRepository: this.messageRepository,
       service: this.openaiService,
       cacheService: this.cacheService,
+      detectTemplateResponseUseCase: this.detectTemplateResponseUseCase,
+      detectOrderActionUseCase: this.detectOrderActionUseCase,
+      renderOrderResponseUseCase: this.renderOrderResponseUseCase,
+      processOrderWithAIUseCase: this.processOrderWithAIUseCase,
     });
   }
 
