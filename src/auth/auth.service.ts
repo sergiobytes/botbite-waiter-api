@@ -1,42 +1,19 @@
-import { Injectable, Logger } from '@nestjs/common';
-import { ConfigService } from '@nestjs/config';
-import { JwtService } from '@nestjs/jwt';
-import { TranslationService } from '../common/services/translation.service';
+import { Injectable } from '@nestjs/common';
 import { User } from '../users/entities/user.entity';
-import { UsersService } from '../users/users.service';
 import { LoginUserDto } from './dto/login-user.dto';
-import {
-  LoginResponse,
-  RefreshTokenResponse,
-} from './interfaces/auth.interfaces';
-import { loginUseCase } from './use-cases/login.use-case';
-import { refreshTokenUseCase } from './use-cases/refresh-token.use-case';
+import { LoginResponse, RefreshTokenResponse, } from './interfaces/auth.interfaces';
+import { LoginUseCase } from './use-cases/login.usecase';
+import { RefreshTokenUseCase } from './use-cases/refresh-token.usecase';
 @Injectable()
 export class AuthService {
-  private readonly logger = new Logger(AuthService.name);
 
   constructor(
-    private readonly usersService: UsersService,
-    private readonly translationService: TranslationService,
-    private readonly jwtService: JwtService,
-    private readonly configService: ConfigService,
-  ) {}
+    private readonly loginUseCase: LoginUseCase,
+    private readonly refreshTokenUseCase: RefreshTokenUseCase
+  ) { }
 
-  async login(
-    loginUserDto: LoginUserDto,
-    lang: string,
-    ip: string,
-  ): Promise<LoginResponse> {
-    return loginUseCase({
-      dto: loginUserDto,
-      logger: this.logger,
-      ip,
-      lang,
-      configService: this.configService,
-      userService: this.usersService,
-      translationService: this.translationService,
-      jwtService: this.jwtService,
-    });
+  async login(loginUserDto: LoginUserDto, lang: string, ip: string,): Promise<LoginResponse> {
+    return await this.loginUseCase.execute(loginUserDto, lang, ip);
   }
 
   async refreshToken(
@@ -44,15 +21,6 @@ export class AuthService {
     currentUser: User,
     lang: string,
   ): Promise<RefreshTokenResponse> {
-    return refreshTokenUseCase({
-      refreshToken,
-      lang,
-      currentUser,
-      logger: this.logger,
-      jwtService: this.jwtService,
-      configService: this.configService,
-      usersService: this.usersService,
-      translationService: this.translationService,
-    });
+    return await this.refreshTokenUseCase.execute(refreshToken, currentUser, lang);
   }
 }

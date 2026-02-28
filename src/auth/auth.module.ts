@@ -8,10 +8,18 @@ import { CustomJwtModule } from '../custom-jwt/custom-jwt.module';
 import { CommonModule } from '../common/common.module';
 import { UsersModule } from '../users/users.module';
 import { ConfigModule } from '@nestjs/config';
+import { LoginUseCase } from './use-cases/login.usecase';
+import { RefreshTokenUseCase } from './use-cases/refresh-token.usecase';
 
 @Module({
   controllers: [AuthController],
-  providers: [AuthService, JwtStrategy, LoginThrottleGuard],
+  providers: [
+    AuthService,
+    JwtStrategy,
+    LoginThrottleGuard,
+    LoginUseCase,
+    RefreshTokenUseCase
+  ],
   imports: [
     ConfigModule,
     CustomPassportModule,
@@ -21,4 +29,4 @@ import { ConfigModule } from '@nestjs/config';
   ],
   exports: [JwtStrategy, CustomPassportModule],
 })
-export class AuthModule {}
+export class AuthModule { }
