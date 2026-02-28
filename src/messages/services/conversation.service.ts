@@ -40,7 +40,7 @@ export class ConversationService {
     private readonly detectOrderActionUseCase: DetectOrderActionUseCase,
     private readonly renderOrderResponseUseCase: RenderOrderResponseUseCase,
     private readonly processOrderWithAIUseCase: ProcessOrderWithAIUseCase,
-  ) {}
+  ) { }
 
   async getOrCreateConversation(
     phoneNumber: string,

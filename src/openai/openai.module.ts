@@ -11,4 +11,4 @@ import { ProcessOrderWithAIUseCase } from './use-cases/process-order-with-ai.use
   providers: [OpenAIService, ProcessOrderWithAIUseCase],
   exports: [OpenAIService, ProcessOrderWithAIUseCase],
 })
-export class OpenAIModule {}
+export class OpenAIModule { }

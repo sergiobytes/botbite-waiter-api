@@ -12,7 +12,7 @@ export interface TemplateDetectionResult {
 export class DetectTemplateResponseUseCase {
   private readonly logger = new Logger(DetectTemplateResponseUseCase.name);
 
-  constructor(private readonly templatesService: TemplatesService) {}
+  constructor(private readonly templatesService: TemplatesService) { }
 
   async execute(
     message: string,
