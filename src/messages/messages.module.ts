@@ -25,9 +25,27 @@ import { ConversationCleanupService } from './services/conversation-cleanup.serv
 import { ConversationService } from './services/conversation.service';
 import { MessagesService } from './services/messages.service';
 import { TwilioService } from './services/twilio.service';
-import { DetectOrderActionUseCase } from './use-cases/messages/detect-order-action.use-case';
-import { DetectTemplateResponseUseCase } from './use-cases/messages/detect-template-response.use-case';
-import { RenderOrderResponseUseCase } from './use-cases/messages/render-order-response.use-case';
+import { CleanupOldConversationsUseCase } from './use-cases/conversations/cleanup-old-conversations.usecase';
+import { DeleteConversationUseCase } from './use-cases/conversations/delete-conversation.usecase';
+import { FindConversationsByBranchUseCase } from './use-cases/conversations/find-conversations-by-branch.usecase';
+import { GetOrCreateConversationUseCase } from './use-cases/conversations/get-create-conversation.usecase';
+import { UpdateConversationLocationUseCase } from './use-cases/conversations/update-conversation-location.usecase';
+import { UpdateLastOrderSentToCashierUseCase } from './use-cases/conversations/update-last-order-sent-cashier.usecase';
+import { DetectOrderActionUseCase } from './use-cases/messages/detect-order-action.usecase';
+import { DetectTemplateResponseUseCase } from './use-cases/messages/detect-template-response.usecase';
+import { GetConversationHistoryUseCase } from './use-cases/messages/get-conversation-history.usecase';
+import { NotifyCashierAboutConfirmedBillUseCase } from './use-cases/messages/notifications/notify-cashier-about-confirmed-bill.usecase';
+import { ProcessIncomingMessageUseCase } from './use-cases/messages/process-incoming-message.usecase';
+import { ProcessMessageUseCase } from './use-cases/messages/process-message.usecase';
+import { RenderOrderResponseUseCase } from './use-cases/messages/render-order-response.usecase';
+import { SaveMessageUseCase } from './use-cases/messages/save-message.usecase';
+import { ProcessIncomingWhatsappMessageUseCase } from './use-cases/twilio/process-incoming-whatsapp-message.usecase';
+import { SendWhatsappMessageUseCase } from './use-cases/twilio/send-whatsapp-message.usecase';
+import { NotifyCashierAboutConfirmedProductsUseCase } from './use-cases/messages/notifications/notify-cashier-about-confirmed-products.usecase';
+import { NotifyCashierAboutInappropriateBehaviorUseCase } from './use-cases/messages/notifications/notify-cashier-about-inappropriate-behavior.usecase';
+import { SendMessageUseCase } from './use-cases/messages/send-message.usecase';
+import { CreateOrderAfterBillRequestUseCase } from './use-cases/messages/create-order-after-bill-request.usecase';
+import { GenerateCashierMessageUseCase } from './use-cases/messages/generate-cashier-message.usecase';
 
 @Module({
   imports: [
@@ -56,9 +74,27 @@ import { RenderOrderResponseUseCase } from './use-cases/messages/render-order-re
     // Middlewares
     RateLimitMiddleware,
     // Use Cases
+    GetOrCreateConversationUseCase,
+    GetConversationHistoryUseCase,
+    ProcessMessageUseCase,
+    UpdateLastOrderSentToCashierUseCase,
+    UpdateConversationLocationUseCase,
+    FindConversationsByBranchUseCase,
+    DeleteConversationUseCase,
+    ProcessIncomingMessageUseCase,
+    ProcessIncomingWhatsappMessageUseCase,
+    SendWhatsappMessageUseCase,
+    CleanupOldConversationsUseCase,
     DetectTemplateResponseUseCase,
     DetectOrderActionUseCase,
     RenderOrderResponseUseCase,
+    SaveMessageUseCase,
+    NotifyCashierAboutConfirmedBillUseCase,
+    NotifyCashierAboutConfirmedProductsUseCase,
+    NotifyCashierAboutInappropriateBehaviorUseCase,
+    SendMessageUseCase,
+    CreateOrderAfterBillRequestUseCase,
+    GenerateCashierMessageUseCase
   ],
   exports: [TypeOrmModule, MessagesService, TwilioService, ConversationService],
 })

@@ -1,6 +1,6 @@
 import { Injectable, Logger } from '@nestjs/common';
 import { TemplatesService } from '../../../templates/templates.service';
-import { OrderAction } from './detect-order-action.use-case';
+import { OrderAction } from './detect-order-action.usecase';
 
 export interface OrderItem {
     id: number;
