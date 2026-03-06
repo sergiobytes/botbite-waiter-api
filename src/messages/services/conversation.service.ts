@@ -13,6 +13,7 @@ import { UpdateConversationLocationUseCase } from '../use-cases/conversations/up
 import { UpdateLastOrderSentToCashierUseCase } from '../use-cases/conversations/update-last-order-sent-cashier.usecase';
 import { GetConversationHistoryUseCase } from '../use-cases/messages/get-conversation-history.usecase';
 import { ProcessMessageUseCase } from '../use-cases/messages/process-message.usecase';
+import { CashierNotification } from '../entities/cashier-notifications.entity';
 
 @Injectable()
 export class ConversationService {
@@ -21,6 +22,8 @@ export class ConversationService {
   constructor(
     @InjectRepository(Conversation)
     private readonly conversationRepository: Repository<Conversation>,
+    @InjectRepository(CashierNotification)
+    private readonly cashierNotificationRepository: Repository<CashierNotification>,
     private readonly ordersGateway: OrdersGateway,
     private readonly getOrCreateConversationUseCase: GetOrCreateConversationUseCase,
     private readonly getConversationHistoryUseCase: GetConversationHistoryUseCase,
@@ -85,5 +88,47 @@ export class ConversationService {
     if (conversation?.branchId) {
       this.ordersGateway.emitOrderUpdate(conversation.branchId);
     }
+  }
+
+  async markNotificationAsRead(notificationId: string): Promise<void> {
+    const notification = await this.cashierNotificationRepository.findOne({
+      where: { id: notificationId },
+    });
+
+    if (notification && notification.isActive) {
+      notification.isActive = false;
+      await this.cashierNotificationRepository.save(notification);
+    }
+  }
+
+  async markNotificationAsUnread(notificationId: string): Promise<void> {
+    const notification = await this.cashierNotificationRepository.findOne({
+      where: { id: notificationId },
+    });
+
+    if (notification && !notification.isActive) {
+      notification.isActive = true;
+      await this.cashierNotificationRepository.save(notification);
+    }
+  }
+
+  async getNotificationsByBranch(branchId: string): Promise<{
+    active: CashierNotification[];
+    inactive: CashierNotification[];
+  }> {
+    const [active, inactive] = await Promise.all([
+      this.cashierNotificationRepository.find({
+        where: { branchId, isActive: true },
+        order: { createdAt: 'DESC' },
+        take: 10,
+      }),
+      this.cashierNotificationRepository.find({
+        where: { branchId, isActive: false },
+        order: { createdAt: 'DESC' },
+        take: 10,
+      }),
+    ]);
+
+    return { active, inactive };
   }
 }

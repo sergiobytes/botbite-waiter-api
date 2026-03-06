@@ -5,6 +5,9 @@ import {
   HttpCode,
   HttpStatus,
   Logger,
+  Param,
+  ParseUUIDPipe,
+  Patch,
   Post,
   Query,
 } from '@nestjs/common';
@@ -23,7 +26,7 @@ export class MessagesController {
   constructor(
     private readonly conversationService: ConversationService,
     private readonly queuesService: QueueService,
-  ) {}
+  ) { }
 
   @Post('webhook')
   @HttpCode(HttpStatus.OK)
@@ -47,5 +50,25 @@ export class MessagesController {
     @Query() query: FindConversationsByBranchDto,
   ): Promise<ConversationsListResponse> {
     return this.conversationService.findByBranch(query.branchId);
+  }
+
+  @Get('notifications')
+  @Auth([UserRoles.SUPER, UserRoles.ADMIN, UserRoles.CLIENT])
+  async getNotificationsByBranch(
+    @Query() query: FindConversationsByBranchDto,
+  ) {
+    return await this.conversationService.getNotificationsByBranch(query.branchId);
+  }
+
+  @Patch(':notificationId/read')
+  @Auth([UserRoles.SUPER, UserRoles.ADMIN, UserRoles.CLIENT])
+  async markNotificationAsRead(@Param('notificationId', ParseUUIDPipe) notificationId: string) {
+    await this.conversationService.markNotificationAsRead(notificationId);
+  }
+
+  @Patch(':notificationId/unread')
+  @Auth([UserRoles.SUPER, UserRoles.ADMIN, UserRoles.CLIENT])
+  async markNotificationAsUnread(@Param('notificationId', ParseUUIDPipe) notificationId: string) {
+    await this.conversationService.markNotificationAsUnread(notificationId);
   }
 }

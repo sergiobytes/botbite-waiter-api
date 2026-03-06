@@ -2,28 +2,29 @@ import { Injectable, Logger } from '@nestjs/common';
 import { Branch } from '../../../../branches/entities/branch.entity';
 import { Customer } from '../../../../customers/entities/customer.entity';
 import { ConversationService } from '../../../services/conversation.service';
-import { TwilioService } from '../../../services/twilio.service';
 import { calculateOrderChangesUtil } from '../../../utils/calculate-order-changes.util';
 import { extractAmenitiesFromResponseUtil } from '../../../utils/extract-amenities-from-response.util';
 import { extractOrderFromResponseUtil } from '../../../utils/extract-order-from-response.util';
 import { extractTableInfoFromConversationUtil } from '../../../utils/extract-table-information-from-conversation.util';
 import { GenerateCashierMessageUseCase } from '../generate-cashier-message.usecase';
 import { SendMessageUseCase } from '../send-message.usecase';
+import { InjectRepository } from '@nestjs/typeorm';
+import { CashierNotification } from '../../../entities/cashier-notifications.entity';
+import { Repository } from 'typeorm';
 
 @Injectable()
 export class NotifyCashierAboutConfirmedProductsUseCase {
   private readonly logger = new Logger(NotifyCashierAboutConfirmedProductsUseCase.name);
 
   constructor(
+    @InjectRepository(CashierNotification)
+    private readonly cashierNotificationRepository: Repository<CashierNotification>,
     private readonly conversationService: ConversationService,
-    private readonly twilioService: TwilioService,
     private readonly generateCashierMessageUseCase: GenerateCashierMessageUseCase,
     private readonly sendMessageUseCase: SendMessageUseCase,
   ) { }
 
   async execute(from: string, branch: Branch, customer: Customer): Promise<void> {
-
-
     try {
       const conversation = await this.conversationService.getOrCreateConversation(
         from,
@@ -356,6 +357,13 @@ export class NotifyCashierAboutConfirmedProductsUseCase {
       const message = await this.generateCashierMessageUseCase.execute(customer.name, branch.menus[0].id, orderChanges, tableInfo, Object.keys(amenities).length > 0 ? amenities : undefined);
 
       await this.sendMessageUseCase.execute(branch.phoneNumberReception!, message, branch.phoneNumberAssistant!);
+
+      // TODO: Guardar notificacion
+      await this.cashierNotificationRepository.save({
+        branchId: branch.id,
+        phoneNumber: customer.phone,
+        message: message,
+      });
 
       // IMPORTANTE: currentOrder ya contiene las cantidades ACUMULADAS totales
       // porque el asistente muestra todo el pedido acumulado.

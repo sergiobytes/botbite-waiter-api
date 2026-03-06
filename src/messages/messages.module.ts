@@ -16,6 +16,7 @@ import { OpenAIModule } from '../openai/openai.module';
 import { OrdersModule } from '../orders/orders.module';
 import { QueueModule } from '../queue/queue.module';
 import { TemplatesModule } from '../templates/templates.module';
+import { CashierNotification } from './entities/cashier-notifications.entity';
 import { ConversationMessage } from './entities/conversation-message.entity';
 import { Conversation } from './entities/conversation.entity';
 import { OrdersGateway } from './gateways/orders.gateway';
@@ -31,21 +32,21 @@ import { FindConversationsByBranchUseCase } from './use-cases/conversations/find
 import { GetOrCreateConversationUseCase } from './use-cases/conversations/get-create-conversation.usecase';
 import { UpdateConversationLocationUseCase } from './use-cases/conversations/update-conversation-location.usecase';
 import { UpdateLastOrderSentToCashierUseCase } from './use-cases/conversations/update-last-order-sent-cashier.usecase';
+import { CreateOrderAfterBillRequestUseCase } from './use-cases/messages/create-order-after-bill-request.usecase';
 import { DetectOrderActionUseCase } from './use-cases/messages/detect-order-action.usecase';
 import { DetectTemplateResponseUseCase } from './use-cases/messages/detect-template-response.usecase';
+import { GenerateCashierMessageUseCase } from './use-cases/messages/generate-cashier-message.usecase';
 import { GetConversationHistoryUseCase } from './use-cases/messages/get-conversation-history.usecase';
 import { NotifyCashierAboutConfirmedBillUseCase } from './use-cases/messages/notifications/notify-cashier-about-confirmed-bill.usecase';
+import { NotifyCashierAboutConfirmedProductsUseCase } from './use-cases/messages/notifications/notify-cashier-about-confirmed-products.usecase';
+import { NotifyCashierAboutInappropriateBehaviorUseCase } from './use-cases/messages/notifications/notify-cashier-about-inappropriate-behavior.usecase';
 import { ProcessIncomingMessageUseCase } from './use-cases/messages/process-incoming-message.usecase';
 import { ProcessMessageUseCase } from './use-cases/messages/process-message.usecase';
 import { RenderOrderResponseUseCase } from './use-cases/messages/render-order-response.usecase';
 import { SaveMessageUseCase } from './use-cases/messages/save-message.usecase';
+import { SendMessageUseCase } from './use-cases/messages/send-message.usecase';
 import { ProcessIncomingWhatsappMessageUseCase } from './use-cases/twilio/process-incoming-whatsapp-message.usecase';
 import { SendWhatsappMessageUseCase } from './use-cases/twilio/send-whatsapp-message.usecase';
-import { NotifyCashierAboutConfirmedProductsUseCase } from './use-cases/messages/notifications/notify-cashier-about-confirmed-products.usecase';
-import { NotifyCashierAboutInappropriateBehaviorUseCase } from './use-cases/messages/notifications/notify-cashier-about-inappropriate-behavior.usecase';
-import { SendMessageUseCase } from './use-cases/messages/send-message.usecase';
-import { CreateOrderAfterBillRequestUseCase } from './use-cases/messages/create-order-after-bill-request.usecase';
-import { GenerateCashierMessageUseCase } from './use-cases/messages/generate-cashier-message.usecase';
 
 @Module({
   imports: [
@@ -60,7 +61,7 @@ import { GenerateCashierMessageUseCase } from './use-cases/messages/generate-cas
     CustomJwtModule,
     TemplatesModule,
     forwardRef(() => QueueModule),
-    TypeOrmModule.forFeature([Conversation, ConversationMessage]),
+    TypeOrmModule.forFeature([Conversation, ConversationMessage, CashierNotification]),
   ],
   controllers: [MessagesController],
   providers: [

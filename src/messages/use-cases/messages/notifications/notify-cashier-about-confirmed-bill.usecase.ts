@@ -4,18 +4,21 @@ import { Branch } from '../../../../branches/entities/branch.entity';
 import { Customer } from '../../../../customers/entities/customer.entity';
 import { OrdersService } from '../../../../orders/orders.service';
 import { ConversationService } from '../../../services/conversation.service';
-import { TwilioService } from '../../../services/twilio.service';
 import { extractTableInfoFromConversationUtil } from '../../../utils/extract-table-information-from-conversation.util';
 import { CreateOrderAfterBillRequestUseCase } from '../create-order-after-bill-request.usecase';
 import { SendMessageUseCase } from '../send-message.usecase';
+import { InjectRepository } from '@nestjs/typeorm';
+import { CashierNotification } from '../../../entities/cashier-notifications.entity';
+import { Repository } from 'typeorm';
 
 @Injectable()
 export class NotifyCashierAboutConfirmedBillUseCase {
   private readonly logger = new Logger(NotifyCashierAboutConfirmedBillUseCase.name);
 
   constructor(
+    @InjectRepository(CashierNotification)
+    private readonly cashierNotificationRepository: Repository<CashierNotification>,
     private readonly conversationService: ConversationService,
-    private readonly twilioService: TwilioService,
     private readonly branchesService: BranchesService,
     private readonly ordersService: OrdersService,
     private readonly createOrderAfterBillRequestUseCase: CreateOrderAfterBillRequestUseCase,
@@ -73,6 +76,13 @@ Total: $${totalAmount.toFixed(2)}
 Método de pago: ${paymentMethod}`;
 
       await this.sendMessageUseCase.execute(branch.phoneNumberReception!, cashierMessage, branch.phoneNumberAssistant!);
+
+      // TODO: Guardar notificacion
+      await this.cashierNotificationRepository.save({
+        branchId: branch.id,
+        phoneNumber: customer.phone,
+        message: cashierMessage,
+      });
 
       await this.branchesService.updateAvailableMessages(branch);
 
