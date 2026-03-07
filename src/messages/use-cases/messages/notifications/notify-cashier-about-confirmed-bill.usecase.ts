@@ -10,6 +10,7 @@ import { SendMessageUseCase } from '../send-message.usecase';
 import { InjectRepository } from '@nestjs/typeorm';
 import { CashierNotification } from '../../../entities/cashier-notifications.entity';
 import { Repository } from 'typeorm';
+import { OrdersGateway } from '../../../gateways/orders.gateway';
 
 @Injectable()
 export class NotifyCashierAboutConfirmedBillUseCase {
@@ -23,6 +24,7 @@ export class NotifyCashierAboutConfirmedBillUseCase {
     private readonly ordersService: OrdersService,
     private readonly createOrderAfterBillRequestUseCase: CreateOrderAfterBillRequestUseCase,
     private readonly sendMessageUseCase: SendMessageUseCase,
+    private readonly ordersGateway: OrdersGateway,
   ) { }
 
   async execute(from: string, paymentMethod: string, branch: Branch, customer: Customer): Promise<void> {
@@ -78,11 +80,14 @@ Método de pago: ${paymentMethod}`;
       await this.sendMessageUseCase.execute(branch.phoneNumberReception!, cashierMessage, branch.phoneNumberAssistant!);
 
       // TODO: Guardar notificacion
-      await this.cashierNotificationRepository.save({
+      const notification = await this.cashierNotificationRepository.save({
         branchId: branch.id,
         phoneNumber: customer.phone,
         message: cashierMessage,
       });
+
+      // Emitir evento websocket
+      this.ordersGateway.emitNotificationUpdate(branch.id, notification);
 
       await this.branchesService.updateAvailableMessages(branch);
 

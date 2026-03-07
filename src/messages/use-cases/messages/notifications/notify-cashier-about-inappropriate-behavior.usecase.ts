@@ -5,6 +5,7 @@ import { SendMessageUseCase } from '../send-message.usecase';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { CashierNotification } from '../../../entities/cashier-notifications.entity';
+import { OrdersGateway } from '../../../gateways/orders.gateway';
 
 @Injectable()
 export class NotifyCashierAboutInappropriateBehaviorUseCase {
@@ -14,6 +15,7 @@ export class NotifyCashierAboutInappropriateBehaviorUseCase {
     @InjectRepository(CashierNotification)
     private readonly cashierNotificationRepository: Repository<CashierNotification>,
     private readonly sendMessageUseCase: SendMessageUseCase,
+    private readonly ordersGateway: OrdersGateway,
   ) { }
 
   async execute(from: string, message: string, location: string, branch: Branch, customer: Customer): Promise<void> {
@@ -29,11 +31,14 @@ Se ha terminado la conversación con el cliente. Por favor, tome las medidas nec
       await this.sendMessageUseCase.execute(branch.phoneNumberReception!, notificationMessage, branch.phoneNumberAssistant!);
 
       // TODO: Guardar notificacion
-      await this.cashierNotificationRepository.save({
+      const notification = await this.cashierNotificationRepository.save({
         branchId: branch.id,
         phoneNumber: customer.phone,
         message: notificationMessage,
       });
+
+      // Emitir evento websocket
+      this.ordersGateway.emitNotificationUpdate(branch.id, notification);
 
       this.logger.warn(`Inappropriate behavior detected from ${from}: "${message}"`);
     } catch (error) {

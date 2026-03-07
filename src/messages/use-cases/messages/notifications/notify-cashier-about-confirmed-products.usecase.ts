@@ -11,6 +11,7 @@ import { SendMessageUseCase } from '../send-message.usecase';
 import { InjectRepository } from '@nestjs/typeorm';
 import { CashierNotification } from '../../../entities/cashier-notifications.entity';
 import { Repository } from 'typeorm';
+import { OrdersGateway } from '../../../gateways/orders.gateway';
 
 @Injectable()
 export class NotifyCashierAboutConfirmedProductsUseCase {
@@ -22,6 +23,7 @@ export class NotifyCashierAboutConfirmedProductsUseCase {
     private readonly conversationService: ConversationService,
     private readonly generateCashierMessageUseCase: GenerateCashierMessageUseCase,
     private readonly sendMessageUseCase: SendMessageUseCase,
+    private readonly ordersGateway: OrdersGateway,
   ) { }
 
   async execute(from: string, branch: Branch, customer: Customer): Promise<void> {
@@ -359,11 +361,14 @@ export class NotifyCashierAboutConfirmedProductsUseCase {
       await this.sendMessageUseCase.execute(branch.phoneNumberReception!, message, branch.phoneNumberAssistant!);
 
       // TODO: Guardar notificacion
-      await this.cashierNotificationRepository.save({
+      const notification = await this.cashierNotificationRepository.save({
         branchId: branch.id,
         phoneNumber: customer.phone,
         message: message,
       });
+
+      // Emitir evento websocket
+      this.ordersGateway.emitNotificationUpdate(branch.id, notification);
 
       // IMPORTANTE: currentOrder ya contiene las cantidades ACUMULADAS totales
       // porque el asistente muestra todo el pedido acumulado.

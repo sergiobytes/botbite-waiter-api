@@ -93,22 +93,34 @@ export class ConversationService {
   async markNotificationAsRead(notificationId: string): Promise<void> {
     const notification = await this.cashierNotificationRepository.findOne({
       where: { id: notificationId },
+      relations: ['customer'],
     });
 
     if (notification && notification.isActive) {
       notification.isActive = false;
-      await this.cashierNotificationRepository.save(notification);
+      const updated = await this.cashierNotificationRepository.save(notification);
+
+      // Emitir evento websocket
+      if (notification.branchId) {
+        this.ordersGateway.emitNotificationUpdate(notification.branchId, updated);
+      }
     }
   }
 
   async markNotificationAsUnread(notificationId: string): Promise<void> {
     const notification = await this.cashierNotificationRepository.findOne({
       where: { id: notificationId },
+      relations: ['customer'],
     });
 
     if (notification && !notification.isActive) {
       notification.isActive = true;
-      await this.cashierNotificationRepository.save(notification);
+      const updated = await this.cashierNotificationRepository.save(notification);
+
+      // Emitir evento websocket
+      if (notification.branchId) {
+        this.ordersGateway.emitNotificationUpdate(notification.branchId, updated);
+      }
     }
   }
 
