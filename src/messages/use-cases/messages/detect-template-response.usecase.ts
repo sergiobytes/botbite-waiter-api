@@ -532,6 +532,21 @@ export class DetectTemplateResponseUseCase {
       }
 
       // 🛒 PRIORITY 2B: Detectar solicitud de producto (agregar al pedido)
+      // CRITICAL: Only handle SINGLE product requests - multi-product requests must go to AI
+      const multiProductIndicators = [
+        /\s+y\s+(?:un|una|el|la|los|las|otro|otra)\s+/i,  // "X y una Y"
+        /\s+and\s+(?:a|an|the|another)\s+/i,              // "X and a Y"
+        /\s+et\s+(?:un|une|le|la|les|autre)\s+/i,         // "X et une Y"
+        /,\s*(?:un|una|el|la|tambien|also|et)/i,          // "X, también Y"
+      ];
+
+      const hasMultipleProducts = multiProductIndicators.some(pattern => pattern.test(message));
+
+      if (hasMultipleProducts) {
+        this.logger.log(`[PRODUCT REQUEST] ⚠️ Multiple products detected in single message - passing to AI`);
+        return { shouldUseTemplate: false };
+      }
+
       const productRequestPatterns = [
         /(?:dame|deme|agrég|añad|quiero|queremos|me\s+das?|tráeme|traeme|necesito|pido|pídeme|pideme|también|tambien|otro|otra)\s+(?:un\s+|una\s+|el\s+|la\s+|los\s+|las\s+)?([a-záéíóúñ\s]+?)(?:\s+sin\s+|\s+con\s+|$)/i,
         /(?:add|give\s+me|i\s+want|i\s+need|i'd\s+like|bring\s+me|another|also)\s+(?:a\s+|an\s+|the\s+|some\s+)?([a-z\s]+?)(?:\s+without|\s+with|$)/i,
@@ -542,7 +557,7 @@ export class DetectTemplateResponseUseCase {
         const match = message.match(pattern);
         if (match && branchContext?.menus) {
           const productNameRequested = match[1].trim();
-          this.logger.log(`[PRODUCT REQUEST] Detected product request: "${productNameRequested}"`);
+          this.logger.log(`[PRODUCT REQUEST] Detected single product request: "${productNameRequested}"`);
 
           // Extraer notas especiales (sin, con, without, with, sans, avec)
           const notesMatch = message.match(/(sin|without|sans)\s+([a-záéíóúñ\s]+)|(con|with|avec)\s+([a-záéíóúñ\s]+)/i);
