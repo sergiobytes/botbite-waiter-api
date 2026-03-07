@@ -26,7 +26,33 @@ export class DetectTemplateResponseUseCase {
     const language = preferredLanguage || 'es';
 
     try {
+      // 0. CRITICAL: Check if this is language selection - DO NOT use template
+      // Language selection should be handled by OpenAI with LANGUAGE_DETECTION_PROMPT
+      const languageKeywords = [
+        '🇲🇽',
+        '🇺🇸',
+        '🇫🇷',
+        '🇰🇷',
+        'español',
+        'english',
+        'français',
+        'korean',
+        '한국어',
+        'german',
+        'deutsch',
+        'italiano',
+        'italian',
+        'português',
+        'portuguese',
+      ];
+
+      if (languageKeywords.some((keyword) => messageLower.includes(keyword))) {
+        this.logger.log('Detected: Language selection - skipping template, will use OpenAI');
+        return { shouldUseTemplate: false };
+      }
+
       // 1. Saludo inicial (primera interacción)
+      // NOTE: This should rarely trigger now since language selection is the first real interaction
       if (conversationHistory.length === 0) {
         this.logger.log('Detected: Initial greeting');
         const response = await this.templatesService.render({

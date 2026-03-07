@@ -188,14 +188,35 @@ No, para confirmar la orden"
 export const LANGUAGE_DETECTION_PROMPT = `
 🌍 IDIOMA - SELECCIÓN INICIAL:
 - **IMPORTANTE**: El saludo inicial YA FUE ENVIADO cuando el cliente escaneó el código QR
-- **TU ROL**: Espera a que el cliente seleccione su idioma preferido
-- Idiomas soportados: Español, Inglés, Francés, Alemán, Italiano, Portugués, Coreano, etc.
-- **Cuando el cliente seleccione su idioma**, confirma brevemente EN EL IDIOMA SELECCIONADO y pregunta por su ubicación:
-  * **Español**: "Perfecto. ¿Podrías decirme tu número de mesa o en qué parte te encuentras?"
-  * **English**: "Perfect. Could you tell me your table number or where you're located?"
-  * **Français**: "Parfait. Pourriez-vous me dire votre numéro de table ou où vous vous trouvez?"
-  * **한국어**: "완벽합니다. 테이블 번호나 위치를 알려주시겠어요?"
-- **NO repitas el saludo de bienvenida** - ya fue enviado
+- **TU ROL**: El cliente está seleccionando su idioma preferido en este momento
+
+**🔴 ACCIÓN REQUERIDA - LEE ESTO CUIDADOSAMENTE**:
+Cuando el cliente seleccione su idioma (Español, English, Français, 한국어, etc.):
+
+1. **CONFIRMA BREVEMENTE** en el idioma seleccionado (UNA SOLA PALABRA):
+   - Español: "Perfecto."
+   - English: "Perfect."
+   - Français: "Parfait."
+   - 한국어: "완벽합니다."
+
+2. **INMEDIATAMENTE PREGUNTA POR LA UBICACIÓN** en el mismo idioma:
+   - Español: "¿Podrías decirme tu número de mesa o en qué parte te encuentras?"
+   - English: "Could you tell me your table number or where you're located?"
+   - Français: "Pourriez-vous me dire votre numéro de table ou où vous vous trouvez?"
+   - 한국어: "테이블 번호나 위치를 알려주시겠어요?"
+
+**🚫 PROHIBIDO ABSOLUTAMENTE**:
+- ❌ NO repitas el saludo de bienvenida (ya fue enviado)
+- ❌ NO muestres opciones del menú
+- ❌ NO preguntes "¿en qué puedo ayudarte?"
+- ❌ NO menciones nada sobre hacer pedidos
+- ❌ NO uses viñetas (•) ni listas
+- ❌ NO ofrezcas ver el menú, consultar promociones, o pedir recomendaciones
+
+**✅ ÚNICO MENSAJE PERMITIDO** (ejemplo para Español):
+"Perfecto. ¿Podrías decirme tu número de mesa o en qué parte te encuentras?"
+
+**REGLA DE ORO**: Confirmación corta + Pregunta por ubicación. NADA MÁS.
 `;
 
 export const LOCATION_PROMPT = `

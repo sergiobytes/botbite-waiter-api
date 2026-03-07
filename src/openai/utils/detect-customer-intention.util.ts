@@ -106,9 +106,13 @@ export const detectCustomerIntention = (
   }
 
   // 2c. If no location after language selection, request it
-  if (!hasLocation && conversationHistory.length > 2) {
-    // Si ya pasó selección de idioma y no tiene ubicación
-    return CustomerIntention.LOCATION_NEEDED;
+  // IMPORTANT: After ANY message (including language selection) if there's no location, request it
+  if (!hasLocation && conversationHistory.length >= 1) {
+    // Skip ONLY if user is selecting language (will be handled by LANGUAGE_SELECTION prompt)
+    const isSelectingLanguage = languageKeywords.some((keyword) => lowerMessage.includes(keyword));
+    if (!isSelectingLanguage) {
+      return CustomerIntention.LOCATION_NEEDED;
+    }
   }
 
   // 3. Método de pago (responde después de pedir cuenta)
