@@ -33,10 +33,18 @@ export class DetectTemplateResponseUseCase {
           : null;
 
       if (lastBotMessage && lastBotMessage.role === 'assistant') {
+        this.logger.log(`[PHOTO DETECTION] Last bot message: "${lastBotMessage.content.substring(0, 150)}..."`);
+
         const photoQuestionPattern = /¿te\s+gustaría\s+ver\s+una\s+foto\s+de\s+los?\s+\*([^*]+)\*|would\s+you\s+like\s+to\s+see\s+a\s+photo\s+of\s+(?:the\s+)?\*([^*]+)\*|souhaitez-vous\s+voir\s+une\s+photo\s+(?:du\s+|de\s+la\s+)?\*([^*]+)\*/i;
         const photoQuestionMatch = lastBotMessage.content.match(
           photoQuestionPattern,
         );
+
+        if (photoQuestionMatch) {
+          this.logger.log(`[PHOTO DETECTION] ✅ Photo question detected! Product: "${photoQuestionMatch[1] || photoQuestionMatch[2] || photoQuestionMatch[3]}"`);
+        } else {
+          this.logger.log(`[PHOTO DETECTION] ❌ No photo question pattern matched in last message`);
+        }
 
         const affirmativeWords = [
           'sí',
@@ -62,6 +70,12 @@ export class DetectTemplateResponseUseCase {
             messageLower.endsWith(' ' + word),
         );
 
+        if (isAffirmative) {
+          this.logger.log(`[PHOTO DETECTION] ✅ User message is affirmative: "${message}"`);
+        } else {
+          this.logger.log(`[PHOTO DETECTION] ❌ User message is NOT affirmative: "${message}"`);
+        }
+
         if (photoQuestionMatch && isAffirmative && branchContext?.menus) {
           const productNameFromQuestion = (
             photoQuestionMatch[1] ||
@@ -71,12 +85,15 @@ export class DetectTemplateResponseUseCase {
           ).trim();
 
           this.logger.log(
-            `🔍 Detected affirmative response to photo question for product: "${productNameFromQuestion}"`,
+            `🔍 Searching for product: "${productNameFromQuestion}" in branch menus`,
           );
 
           // Buscar el producto en el menú
+          let found = false;
           for (const menu of branchContext.menus) {
             if (menu.menuItems) {
+              this.logger.log(`[PHOTO DETECTION] Checking menu "${menu.name}" with ${menu.menuItems.length} items`);
+
               const item = menu.menuItems.find((mi) => {
                 const menuProductName = mi.product.name
                   .toLowerCase()
@@ -92,9 +109,14 @@ export class DetectTemplateResponseUseCase {
                 );
               });
 
+              if (item) {
+                this.logger.log(`[PHOTO DETECTION] ✅ Found product "${item.product.name}". Has imageUrl: ${!!item.product.imageUrl}, imageUrl value: "${item.product.imageUrl || 'null'}"`);
+                found = true;
+              }
+
               if (item?.product?.imageUrl && item.product.imageUrl.trim()) {
                 this.logger.log(
-                  `✅ Found product with photo - Using template to send photo`,
+                  `✅ Product has valid photo - Rendering template`,
                 );
 
                 const response = await this.templatesService.render({
@@ -111,9 +133,15 @@ export class DetectTemplateResponseUseCase {
             }
           }
 
-          this.logger.warn(
-            `❌ Product "${productNameFromQuestion}" not found or has no photo`,
-          );
+          if (!found) {
+            this.logger.warn(
+              `[PHOTO DETECTION] ❌ Product "${productNameFromQuestion}" NOT found in any menu`,
+            );
+          } else {
+            this.logger.warn(
+              `[PHOTO DETECTION] ❌ Product "${productNameFromQuestion}" found but has no valid imageUrl`,
+            );
+          }
         }
       }
 
@@ -142,6 +170,85 @@ export class DetectTemplateResponseUseCase {
           'Detected: Language selection - skipping template, will use OpenAI',
         );
         return { shouldUseTemplate: false };
+      }
+
+      // 💡 PRIORITY 1: Detectar pregunta sobre un producto específico
+      const productQuestionPatterns = [
+        /qué\s+(?:es|son|tiene|contiene)\s+(?:el|la|los|las)\s+([a-záéíóúñ\s]+)/i,
+        /qué\s+(?:es|son|tiene|contiene)\s+([a-záéíóúñ\s]+)/i,
+        /what\s+(?:is|are|has)\s+(?:the\s+)?([a-z\s]+)/i,
+        /tell\s+me\s+about\s+(?:the\s+)?([a-z\s]+)/i,
+        /qu'est-ce\s+que\s+(?:le|la|les)\s+([a-zàâäéèêëïîôùûüÿç\s]+)/i,
+      ];
+
+      for (const pattern of productQuestionPatterns) {
+        const match = message.match(pattern);
+        if (match && branchContext?.menus) {
+          const potentialProductName = match[1].trim();
+
+          this.logger.log(
+            `[PRODUCT QUESTION] Detected product question: "${potentialProductName}"`,
+          );
+
+          // Buscar el producto en el menú (normalizado)
+          for (const menu of branchContext.menus) {
+            if (!menu.menuItems) continue;
+
+            const item = menu.menuItems.find((mi) => {
+              const menuProductName = mi.product.name
+                .toLowerCase()
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '');
+              const searchName = potentialProductName
+                .toLowerCase()
+                .normalize('NFD')
+                .replace(/[\u0300-\u036f]/g, '');
+
+              return (
+                menuProductName.includes(searchName) ||
+                searchName.includes(menuProductName)
+              );
+            });
+
+            if (item?.product) {
+              const productName = item.product.name;
+              const description =
+                item.product.description || 'un delicioso platillo';
+              const hasPhoto =
+                item.product.imageUrl && item.product.imageUrl.trim();
+
+              this.logger.log(
+                `[PRODUCT QUESTION] ✅ Found product "${productName}", has photo: ${!!hasPhoto}`,
+              );
+
+              // Usar template apropiada según si tiene foto o no
+              const templateKey = hasPhoto
+                ? 'product.ask_with_photo'
+                : 'product.ask_without_photo';
+
+              this.logger.log(
+                `[PRODUCT QUESTION] Using template: ${templateKey}`,
+              );
+
+              const response = await this.templatesService.render({
+                key: templateKey,
+                language,
+                variables: {
+                  productName,
+                  description: description.toLowerCase(),
+                },
+              });
+
+              return { shouldUseTemplate: true, response };
+            }
+          }
+
+          this.logger.log(
+            `[PRODUCT QUESTION] ❌ Product "${potentialProductName}" not found in menus`,
+          );
+          // No encontrado - dejar que OpenAI maneje
+          break;
+        }
       }
 
       // 1. Saludo inicial (primera interacción)

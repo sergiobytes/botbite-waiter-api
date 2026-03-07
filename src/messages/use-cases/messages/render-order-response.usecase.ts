@@ -7,6 +7,7 @@ export interface OrderItem {
     name: string;
     quantity: number;
     unitPrice: number;
+    subtotal: number;
     totalPrice: number;
     notes?: string;
 }
@@ -121,13 +122,20 @@ export class RenderOrderResponseUseCase {
     ): Promise<string> {
         this.logger.log('Rendering items added response');
 
+        // Calcular el total sumando todos los subtotals de los items
+        const calculatedTotal = orderData.items?.reduce(
+            (sum, item) => sum + (item.subtotal || item.quantity * item.unitPrice),
+            0,
+        ) || 0;
+
+        this.logger.log(`Calculated total from items: $${calculatedTotal}`);
+
         return await this.templatesService.render({
             key: 'order.items_added',
             language,
             variables: {
                 items: orderData.items || [],
-                subtotal: orderData.subtotal || 0,
-                total: orderData.total || 0,
+                currentTotal: calculatedTotal,
                 ...additionalVariables,
             },
         });

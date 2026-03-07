@@ -71,10 +71,12 @@ export class OpenAIService {
     // Encolar la llamada para evitar sobrecarga
     return this.queue.add(
       async () => {
+        this.logger.log(`[ROUTING] Analyzing message: "${message}"`);
+
         const orderAction = this.detectOrderAction(message);
 
         if (orderAction) {
-          this.logger.log(`Detected order action: ${orderAction}`);
+          this.logger.log(`[ROUTING] ⚠️ Detected order action: ${orderAction} - Using processOrderWithAI flow`);
 
           const processOrder = await this.processOrderWithAIUseCase.execute(
             this.openai,
@@ -91,7 +93,7 @@ export class OpenAIService {
         }
 
         this.logger.log(
-          `Processing request for conversation ${conversationId} (queue size: ${this.queue.size}, pending: ${this.queue.pending})`,
+          `[ROUTING] ✅ No order action detected - Using standard openAiSendMessageUseCase flow`,
         );
 
         // NOTA: La lógica de plantillas ahora se maneja en el messages module

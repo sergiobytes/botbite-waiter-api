@@ -49,132 +49,6 @@ export const openAiSendMessageUseCase = async (
     `Detected intention: ${intention} for conversation: ${conversationId}`,
   );
 
-  // CRITICAL: Detectar preguntas sobre productos específicos y forzar flujo de foto
-  let enhancedMessage = message;
-
-  // PASO 1: Detectar si el cliente está respondiendo "Sí" a una pregunta sobre ver foto
-  const lastBotMessage =
-    filteredHistory.length > 0
-      ? filteredHistory[filteredHistory.length - 1]
-      : null;
-
-  const affirmativeResponses = /^(s[ií]|yes|ok|dale|claro|por\s+favor|please|oui|d'accord|네|확인|yeah|yep|sure)$/i;
-
-  if (
-    lastBotMessage &&
-    lastBotMessage.role === 'assistant' &&
-    affirmativeResponses.test(message.trim())
-  ) {
-    // Detectar si el último mensaje del bot preguntó sobre ver una foto
-    const photoQuestionPattern = /¿te\s+gustaría\s+ver\s+una\s+foto\s+de\s+los?\s+\*([^*]+)\*/i;
-    const photoQuestionMatch = lastBotMessage.content.match(photoQuestionPattern);
-
-    if (photoQuestionMatch && branchContext?.menus) {
-      const productNameFromQuestion = photoQuestionMatch[1].trim();
-      logger.log(
-        `Client said yes to photo question for product: ${productNameFromQuestion}`,
-      );
-
-      // Buscar el producto y su foto en el menú
-      for (const menu of branchContext.menus) {
-        if (menu.menuItems) {
-          const item = menu.menuItems.find((mi) => {
-            const menuProductName = mi.product.name
-              .toLowerCase()
-              .normalize('NFD')
-              .replace(/[\u0300-\u036f]/g, '');
-            const searchName = productNameFromQuestion
-              .toLowerCase()
-              .normalize('NFD')
-              .replace(/[\u0300-\u036f]/g, '');
-            return (
-              menuProductName.includes(searchName) ||
-              searchName.includes(menuProductName)
-            );
-          });
-
-          if (item?.product?.imageUrl && item.product.imageUrl.trim()) {
-            const productName = item.product.name;
-            const imageUrl = item.product.imageUrl;
-            logger.log(
-              `Forcing photo send for product "${productName}" with URL: ${imageUrl}`,
-            );
-
-            enhancedMessage = `${message}
-
-[INSTRUCCIÓN CRÍTICA DEL SISTEMA - DEBES OBEDECER]:
-El cliente acaba de confirmar que quiere ver la foto de ${productName}.
-ACCIÓN OBLIGATORIA INMEDIATA:
-1. ENVÍA la foto usando EXACTAMENTE este formato (copia y pega):
-   [SEND_IMAGE:${imageUrl}]
-   Aquí tienes la foto.
-   
-2. DESPUÉS de la foto, pregunta: "¿Deseas agregar los *${productName}* a tu pedido?"
-
-NO uses ninguna otra plantilla. NO digas que el pedido está vacío. 
-SOLO envía la foto y pregunta si quiere agregarlo.`;
-            break;
-          }
-        }
-      }
-    }
-  }
-
-  // PASO 2: Detectar preguntas iniciales sobre productos y forzar flujo de foto
-  if (enhancedMessage === message) { // Solo si no se modificó en PASO 1
-    const productQuestionPatterns = [
-      /qu[eé]\s+(?:son|es|tiene|lleva|hay\s+en)\s+(?:los?\s+)?(.+?)(?:\?|$)/i,
-      /(?:what|whats)\s+(?:is|are|in)\s+(?:the\s+)?(.+?)(?:\?|$)/i,
-      /cuales\s+son\s+(?:los?\s+)?(.+?)(?:\?|$)/i,
-    ];
-
-    for (const pattern of productQuestionPatterns) {
-      const match = message.match(pattern);
-      if (match && branchContext?.menus) {
-        const potentialProductName = match[1]
-          .trim()
-          .toLowerCase()
-          .normalize('NFD')
-          .replace(/[\u0300-\u036f]/g, '');
-
-        // Buscar el producto en el menú
-        for (const menu of branchContext.menus) {
-          if (menu.menuItems) {
-            const item = menu.menuItems.find((mi) => {
-              const menuProductName = mi.product.name
-                .toLowerCase()
-                .normalize('NFD')
-                .replace(/[\u0300-\u036f]/g, '');
-              return (
-                menuProductName.includes(potentialProductName) ||
-                potentialProductName.includes(menuProductName)
-              );
-            });
-
-            if (item?.product?.imageUrl && item.product.imageUrl.trim()) {
-              const productName = item.product.name;
-              logger.log(
-                `Product "${productName}" found with photo - enforcing photo prompt workflow`,
-              );
-              enhancedMessage = `${message}
-
-[INSTRUCCIÓN CRÍTICA DEL SISTEMA - OBLIGATORIO SEGUIR]:
-El producto ${productName} tiene foto disponible (imageUrl).
-WORKFLOW OBLIGATORIO:
-1. Explica el producto
-2. INMEDIATAMENTE después pregunta: "¿Te gustaría ver una foto de los *${productName}*?"
-3. DETENTE - NO preguntes todavía si quiere agregarlo
-4. ESPERA respuesta del cliente sobre la foto
-Si NO sigues este workflow exactamente, la respuesta será rechazada.`;
-              break;
-            }
-          }
-        }
-        break;
-      }
-    }
-  }
-
   // Contar cuántas veces hemos redirigido por conversación fuera de contexto
   const offTopicRedirectionCount =
     countOffTopicRedirectionsUtil(filteredHistory);
@@ -206,7 +80,7 @@ Si NO sigues este workflow exactamente, la respuesta será rechazada.`;
       })),
       {
         role: 'user' as const,
-        content: enhancedMessage, // Usar mensaje mejorado con instrucciones de foto si aplica
+        content: message,
       },
     ];
 
@@ -308,7 +182,7 @@ Si NO sigues este workflow exactamente, la respuesta será rechazada.`;
               })),
               {
                 role: 'user' as const,
-                content: enhancedMessage, // Usar mensaje mejorado también en retry
+                content: message,
               },
             ];
 
