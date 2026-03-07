@@ -785,6 +785,8 @@ export class DetectTemplateResponseUseCase {
           addedProductsInfo.push({
             menuItemId: productToAdd.menuItem.id,
             name: productToAdd.product.name,
+            category: categoryName,
+            price: price.toFixed(2),
             quantity: productToAdd.quantity,
             unitPrice: price.toFixed(2),
             subtotal: (price * productToAdd.quantity).toFixed(2),
