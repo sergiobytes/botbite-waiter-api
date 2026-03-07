@@ -531,23 +531,57 @@ export const PRODUCT_MATCHING_PROMPT = `
 - En listados usa SIEMPRE nombre canónico
 - **USA SIEMPRE el ID del producto** al confirmar
 
-📸 ENVÍO DE FOTOS:
-- Si el cliente pide ver la foto de un producto ("muestra la foto", "envía la foto", "quiero ver la foto", etc.):
-  * Busca el producto en la información del restaurante y encuentra su imageUrl
-  * Si tiene imageUrl, usa este FORMATO EXACTO EN ESTE ORDEN:
-    1. Primera línea: "[SEND_IMAGE:URL_COMPLETA]" donde URL_COMPLETA es el valor exacto de imageUrl del producto
-    2. Segunda línea: "Aquí tienes la foto."
-    3. Tercera línea (vacía)
-    4. Cuarta línea: Pregunta si desea agregarlo
-  * Ejemplo correcto:
-    [SEND_IMAGE:https://res.cloudinary.com/dttxg6qln/image/upload/v1765480883/dev/botbite/products/361ac3b4-dd6e-41c8-af80-5119bcebbeaf80/Fulenios/product-0748c830-a072-4ecf-85b3-34cadecf70cd.jpg]
-    Aquí tienes la foto.
-    
-    ¿Deseas agregar los *TORITOS* a tu pedido?
-  * **NUNCA pongas el URL como texto normal o enlace** - debe ser exactamente en el formato [SEND_IMAGE:URL]
-  * **NUNCA inventes URLs** - usa SOLO la URL que aparece en imageUrl del producto
-- Si el producto NO tiene imageUrl:
-  * Responde: "Lo siento, no tengo una foto disponible para ese producto en este momento."
+📸 FOTOS DE PRODUCTOS - FLUJO OBLIGATORIO:
+
+🔴 **CUANDO EL CLIENTE PREGUNTA SOBRE UN PRODUCTO** (ej: "¿Qué son los toritos?", "¿Qué tiene la pizza?"):
+1. **Explica el producto** (descripción, categoría)
+2. **CRÍTICO - VERIFICA SI TIENE FOTO**:
+   - Busca el producto en la información del restaurante
+   - Si tiene imageUrl (no es null/vacío):
+     * **PREGUNTA SI QUIERE VER LA FOTO** EN SU IDIOMA:
+       - Español: "¿Te gustaría ver una foto de los *[PRODUCTO]*?"
+       - Inglés: "Would you like to see a photo of the *[PRODUCT]*?"
+       - Francés: "Souhaitez-vous voir une photo du *[PRODUIT]*?"
+       - Coreano: "*[제품]* 사진을 보시겠습니까?"
+     * **ESPERA** a que el cliente responda sí/no
+     * **NO preguntes todavía** si quiere agregarlo al pedido
+   - Si NO tiene imageUrl:
+     * Continúa directamente al paso 3
+3. **DESPUÉS** (ya sea que vio la foto o no tiene foto):
+   * Pregunta si desea agregarlo: "¿Deseas agregar los *[PRODUCTO]* a tu pedido?"
+
+🔴 **CUANDO EL CLIENTE PIDE EXPLÍCITAMENTE LA FOTO** ("muestra la foto", "envía la foto", "quiero ver la foto"):
+- Si tiene imageUrl, usa este FORMATO EXACTO:
+  
+  [SEND_IMAGE:URL_COMPLETA]
+  Aquí tienes la foto.
+  
+  ¿Deseas agregar los *TORITOS* a tu pedido?
+
+- **FORMATO OBLIGATORIO**:
+  1. Primera línea: "[SEND_IMAGE:URL_COMPLETA]" (URL exacta de imageUrl)
+  2. Segunda línea: "Aquí tienes la foto." (en su idioma)
+  3. Tercera línea: (vacía)
+  4. Cuarta línea: Pregunta si desea agregarlo
+- **NUNCA pongas el URL como texto o enlace** - debe ser EXACTAMENTE [SEND_IMAGE:URL]
+- **NUNCA inventes URLs** - usa SOLO la URL de imageUrl del producto
+- Si NO tiene imageUrl: "Lo siento, no tengo una foto disponible para ese producto en este momento."
+
+📋 **EJEMPLO DE FLUJO COMPLETO**:
+Cliente: "¿Qué son los toritos?"
+Tú: "Los *TORITOS* son un platillo de la categoría 'CALIENTE Y SABROSO'. Se trata de chile caribe o chile güerito marinados, con camarón a mitades bañados en una salsa especial.
+
+¿Te gustaría ver una foto de los *TORITOS*?"
+
+Cliente: "Sí"
+Tú: 
+[SEND_IMAGE:https://res.cloudinary.com/.../product-xyz.jpg]
+Aquí tienes la foto.
+
+¿Deseas agregar los *TORITOS* a tu pedido?
+
+Cliente: "No" (a la foto)
+Tú: "¿Deseas agregar los *TORITOS* a tu pedido?"
 `;
 
 export const SEPARATE_ACCOUNTS_PROMPT = `
