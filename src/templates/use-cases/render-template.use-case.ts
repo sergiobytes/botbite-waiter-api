@@ -12,7 +12,7 @@ export class RenderTemplateUseCase {
   constructor(
     @InjectRepository(Template)
     private readonly templateRepository: Repository<Template>,
-  ) {}
+  ) { }
 
   async execute(params: IRenderTemplateParams): Promise<string> {
     const { key, language, variables = {} } = params;
@@ -35,8 +35,24 @@ export class RenderTemplateUseCase {
   ): string {
     let result = content;
 
+    // Primero manejar variables anidadas como {{object.property}}
     Object.keys(variables).forEach((key) => {
       const value = variables[key];
+
+      // Si el valor es un objeto, reemplazar propiedades anidadas
+      if (value && typeof value === 'object' && !Array.isArray(value)) {
+        Object.keys(value).forEach((nestedKey) => {
+          const nestedValue = value[nestedKey];
+          const stringValue =
+            nestedValue !== null && nestedValue !== undefined
+              ? String(nestedValue)
+              : '';
+          const nestedRegex = new RegExp(`{{${key}\\.${nestedKey}}}`, 'g');
+          result = result.replace(nestedRegex, stringValue);
+        });
+      }
+
+      // Luego reemplazar variables simples
       const stringVariable =
         value !== null && value !== undefined
           ? typeof value === 'object'
@@ -71,6 +87,15 @@ export class RenderTemplateUseCase {
         .map((item, index) => {
           let itemContent = template;
 
+          // Manejar condicionales {{#if this.property}} dentro del loop
+          const ifThisRegex = /{{#if\s+this\.(\w+)}}([\s\S]*?){{\/if}}/g;
+          itemContent = itemContent.replace(ifThisRegex, (match, prop, trueBranch) => {
+            const value = item[prop];
+            const isTrue = Boolean(value);
+            return isTrue ? trueBranch : '';
+          });
+
+          // Reemplazar variables {{this.property}}
           Object.keys(item).forEach((key) => {
             const value = item[key];
             const stringVariable =
@@ -79,8 +104,12 @@ export class RenderTemplateUseCase {
                   ? JSON.stringify(value)
                   : String(value)
                 : '';
-            const regex = new RegExp(`{{${key}}}`, 'g');
-            itemContent = itemContent.replace(regex, stringVariable);
+
+            // Reemplazar tanto {{this.key}} como {{key}}
+            const thisRegex = new RegExp(`{{this\\.${key}}}`, 'g');
+            const directRegex = new RegExp(`{{${key}}}`, 'g');
+            itemContent = itemContent.replace(thisRegex, stringVariable);
+            itemContent = itemContent.replace(directRegex, stringVariable);
           });
 
           itemContent = itemContent.replace(/{{@index}}/g, String(index + 1));
@@ -95,16 +124,29 @@ export class RenderTemplateUseCase {
     content: string,
     variables: ITemplateVariables,
   ): string {
-    const ifRegex = /{{#if\s+(\w+)}}([\s\S]*?)(?:{{else}}([\s\S]*?))?{{\/if}}/g;
+    // Manejar {{#if object.property}}
+    const ifNestedRegex = /{{#if\s+(\w+)\.(\w+)}}([\s\S]*?)(?:{{else}}([\s\S]*?))?{{\/if}}/g;
+    let result = content.replace(
+      ifNestedRegex,
+      (match, objKey, propKey, trueBranch, falseBranch = '') => {
+        const obj = variables[objKey];
+        const value = obj && typeof obj === 'object' ? obj[propKey] : undefined;
+        const isTrue = Boolean(value);
+        return isTrue ? trueBranch : falseBranch;
+      },
+    );
 
-    return content.replace(
+    // Manejar {{#if property}} simple
+    const ifRegex = /{{#if\s+(\w+)}}([\s\S]*?)(?:{{else}}([\s\S]*?))?{{\/if}}/g;
+    result = result.replace(
       ifRegex,
       (match, condition, trueBranch, falseBranch = '') => {
         const value = variables[condition];
         const isTrue = Boolean(value);
-
         return isTrue ? trueBranch : falseBranch;
       },
     );
+
+    return result;
   }
 }
