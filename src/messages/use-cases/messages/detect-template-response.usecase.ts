@@ -538,7 +538,76 @@ export class DetectTemplateResponseUseCase {
         }
       }
 
-      // 🛒 PRIORITY 2B: Detectar solicitud de productos (uno o varios)
+      // � PRIORITY 2: Solicitar la cuenta/bill (ANTES de detectar productos para evitar confusión)
+      if (
+        messageLower.includes('cuenta') ||
+        messageLower.includes('bill') ||
+        messageLower.includes('check') ||
+        messageLower.includes('la cuenta') ||
+        messageLower.includes('mi cuenta') ||
+        messageLower.includes('the bill') ||
+        messageLower.includes('the check') ||
+        messageLower.includes('l\'addition') ||
+        messageLower.includes('addition')
+      ) {
+        if (lastOrderSentToCashier && Object.keys(lastOrderSentToCashier).length > 0 && branchContext?.menus) {
+          this.logger.log('Detected: Bill request');
+          this.logger.log(`[BILL] lastOrderSentToCashier has ${Object.keys(lastOrderSentToCashier).length} items`);
+
+          // Construir items del pedido para la cuenta
+          const items: any[] = [];
+          let total = 0;
+
+          for (const [productKey, orderItem] of Object.entries(lastOrderSentToCashier)) {
+            this.logger.log(`[BILL] Processing item: ${productKey}, menuItemId: ${orderItem.menuItemId}`);
+
+            let itemDetails: any = null;
+            for (const menu of branchContext.menus) {
+              if (!menu.menuItems) continue;
+              const item = menu.menuItems.find(mi => mi.id === orderItem.menuItemId);
+              if (item) {
+                itemDetails = item;
+                this.logger.log(`[BILL] Found item in menu: ${item.product.name}`);
+                break;
+              }
+            }
+
+            if (itemDetails) {
+              const unitPrice = parseFloat(orderItem.price.toString());
+              const subtotal = unitPrice * orderItem.quantity;
+              total += subtotal;
+
+              this.logger.log(`[BILL] Adding to bill: ${itemDetails.product.name}, qty: ${orderItem.quantity}, unitPrice: ${unitPrice}, subtotal: ${subtotal}`);
+
+              items.push({
+                name: itemDetails.product.name,
+                quantity: orderItem.quantity,
+                unitPrice: unitPrice.toFixed(2),
+                subtotal: subtotal.toFixed(2),
+              });
+            } else {
+              this.logger.warn(`[BILL] ⚠️ Item with menuItemId ${orderItem.menuItemId} NOT FOUND in menus!`);
+            }
+          }
+
+          this.logger.log(`[BILL] Final count: ${items.length} items, total: ${total}`);
+
+          const response = await this.templatesService.render({
+            key: 'order.request_bill',
+            language,
+            variables: {
+              items,
+              total: total.toFixed(2),
+            },
+          });
+
+          this.logger.log(`[BILL] Rendered response length: ${response.length} chars`);
+
+          return { shouldUseTemplate: true, response };
+        }
+      }
+
+      // �🛒 PRIORITY 2B: Detectar solicitud de productos (uno o varios)
       const productRequestPatterns = [
         /(?:dame|deme|agrég|añad|quiero|queremos|me\s+das?|tráeme|traeme|necesito|pido|pídeme|pideme|también|tambien|otro|otra)/i,
         /(?:add|give\s+me|i\s+want|i\s+need|i'd\s+like|bring\s+me|another|also)/i,
@@ -1090,63 +1159,6 @@ export class DetectTemplateResponseUseCase {
 
             return { shouldUseTemplate: true, response };
           }
-        }
-      }
-
-      // 8. Solicitar la cuenta/bill
-      if (
-        messageLower.includes('cuenta') ||
-        messageLower.includes('bill') ||
-        messageLower.includes('check') ||
-        messageLower.includes('la cuenta') ||
-        messageLower.includes('mi cuenta') ||
-        messageLower.includes('the bill') ||
-        messageLower.includes('the check') ||
-        messageLower.includes('l\'addition') ||
-        messageLower.includes('addition')
-      ) {
-        if (lastOrderSentToCashier && Object.keys(lastOrderSentToCashier).length > 0 && branchContext?.menus) {
-          this.logger.log('Detected: Bill request');
-
-          // Construir items del pedido para la cuenta
-          const items: any[] = [];
-          let total = 0;
-
-          for (const orderItem of Object.values(lastOrderSentToCashier)) {
-            let itemDetails: any = null;
-            for (const menu of branchContext.menus) {
-              if (!menu.menuItems) continue;
-              const item = menu.menuItems.find(mi => mi.id === orderItem.menuItemId);
-              if (item) {
-                itemDetails = item;
-                break;
-              }
-            }
-
-            if (itemDetails) {
-              const unitPrice = parseFloat(orderItem.price.toString());
-              const subtotal = unitPrice * orderItem.quantity;
-              total += subtotal;
-
-              items.push({
-                name: itemDetails.product.name,
-                quantity: orderItem.quantity,
-                unitPrice: unitPrice.toFixed(2),
-                subtotal: subtotal.toFixed(2),
-              });
-            }
-          }
-
-          const response = await this.templatesService.render({
-            key: 'order.request_bill',
-            language,
-            variables: {
-              items,
-              total: total.toFixed(2),
-            },
-          });
-
-          return { shouldUseTemplate: true, response };
         }
       }
 
