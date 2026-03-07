@@ -26,6 +26,97 @@ export class DetectTemplateResponseUseCase {
     const language = preferredLanguage || 'es';
 
     try {
+      // 💡 PRIORITY 0: Detectar respuesta afirmativa a pregunta de foto de producto
+      const lastBotMessage =
+        conversationHistory.length > 0
+          ? conversationHistory[conversationHistory.length - 1]
+          : null;
+
+      if (lastBotMessage && lastBotMessage.role === 'assistant') {
+        const photoQuestionPattern = /¿te\s+gustaría\s+ver\s+una\s+foto\s+de\s+los?\s+\*([^*]+)\*|would\s+you\s+like\s+to\s+see\s+a\s+photo\s+of\s+(?:the\s+)?\*([^*]+)\*|souhaitez-vous\s+voir\s+une\s+photo\s+(?:du\s+|de\s+la\s+)?\*([^*]+)\*/i;
+        const photoQuestionMatch = lastBotMessage.content.match(
+          photoQuestionPattern,
+        );
+
+        const affirmativeWords = [
+          'sí',
+          'si',
+          'yes',
+          'ok',
+          'dale',
+          'claro',
+          'por favor',
+          'please',
+          'oui',
+          "d'accord",
+          '네',
+          '확인',
+          'yeah',
+          'yep',
+          'sure',
+        ];
+        const isAffirmative = affirmativeWords.some(
+          (word) =>
+            messageLower === word ||
+            messageLower.startsWith(word + ' ') ||
+            messageLower.endsWith(' ' + word),
+        );
+
+        if (photoQuestionMatch && isAffirmative && branchContext?.menus) {
+          const productNameFromQuestion = (
+            photoQuestionMatch[1] ||
+            photoQuestionMatch[2] ||
+            photoQuestionMatch[3] ||
+            ''
+          ).trim();
+
+          this.logger.log(
+            `🔍 Detected affirmative response to photo question for product: "${productNameFromQuestion}"`,
+          );
+
+          // Buscar el producto en el menú
+          for (const menu of branchContext.menus) {
+            if (menu.menuItems) {
+              const item = menu.menuItems.find((mi) => {
+                const menuProductName = mi.product.name
+                  .toLowerCase()
+                  .normalize('NFD')
+                  .replace(/[\u0300-\u036f]/g, '');
+                const searchName = productNameFromQuestion
+                  .toLowerCase()
+                  .normalize('NFD')
+                  .replace(/[\u0300-\u036f]/g, '');
+                return (
+                  menuProductName.includes(searchName) ||
+                  searchName.includes(menuProductName)
+                );
+              });
+
+              if (item?.product?.imageUrl && item.product.imageUrl.trim()) {
+                this.logger.log(
+                  `✅ Found product with photo - Using template to send photo`,
+                );
+
+                const response = await this.templatesService.render({
+                  key: 'product.send_photo',
+                  language,
+                  variables: {
+                    imageUrl: item.product.imageUrl,
+                    productName: item.product.name,
+                  },
+                });
+
+                return { shouldUseTemplate: true, response };
+              }
+            }
+          }
+
+          this.logger.warn(
+            `❌ Product "${productNameFromQuestion}" not found or has no photo`,
+          );
+        }
+      }
+
       // 0. CRITICAL: Check if this is language selection - DO NOT use template
       // Language selection should be handled by OpenAI with LANGUAGE_DETECTION_PROMPT
       const languageKeywords = [
@@ -47,7 +138,9 @@ export class DetectTemplateResponseUseCase {
       ];
 
       if (languageKeywords.some((keyword) => messageLower.includes(keyword))) {
-        this.logger.log('Detected: Language selection - skipping template, will use OpenAI');
+        this.logger.log(
+          'Detected: Language selection - skipping template, will use OpenAI',
+        );
         return { shouldUseTemplate: false };
       }
 

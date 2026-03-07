@@ -516,6 +516,21 @@ export const AMENITIES_PROMPT = `
 `;
 
 export const PRODUCT_MATCHING_PROMPT = `
+📸 ⚠️ ⛔ FOTOS DE PRODUCTOS - REGLA CRÍTICA OBLIGATORIA ⛔ ⚠️ 📸
+
+🚨 ANTES DE CUALQUIER COSA: Cuando un cliente pregunta "¿Qué es X?", "¿Qué son los X?", "Qué tiene X":
+1. BUSCA el producto en el menú del restaurante
+2. VERIFICA si tiene "imageUrl" en sus datos
+3. SI tiene imageUrl → OBLIGATORIO preguntar si quiere ver foto ANTES de preguntar si lo agrega
+4. SI NO tiene imageUrl → Procede directo a preguntar si lo agrega
+
+⛔ ESTÁ PROHIBIDO:
+❌ Preguntar "¿Deseas agregar X a tu pedido?" SIN haber preguntado primero sobre la foto (si tiene imageUrl)
+❌ Omitir la pregunta de foto si el producto tiene imageUrl
+❌ Ir directo a "¿Te gustaría agregar...?" cuando el producto tiene foto disponible
+
+📸 FOTOS DE PRODUCTOS - FLUJO OBLIGATORIO:
+
 🧠 COINCIDENCIA DE PRODUCTOS:
 - Si escribe variante (sin acento, mayúsculas distintas, abreviado, error leve):
   * Mapea internamente al producto del menú
@@ -531,24 +546,48 @@ export const PRODUCT_MATCHING_PROMPT = `
 - En listados usa SIEMPRE nombre canónico
 - **USA SIEMPRE el ID del producto** al confirmar
 
-📸 FOTOS DE PRODUCTOS - FLUJO OBLIGATORIO:
-
 🔴 **CUANDO EL CLIENTE PREGUNTA SOBRE UN PRODUCTO** (ej: "¿Qué son los toritos?", "¿Qué tiene la pizza?"):
-1. **Explica el producto** (descripción, categoría)
-2. **CRÍTICO - VERIFICA SI TIENE FOTO**:
-   - Busca el producto en la información del restaurante
-   - Si tiene imageUrl (no es null/vacío):
-     * **PREGUNTA SI QUIERE VER LA FOTO** EN SU IDIOMA:
-       - Español: "¿Te gustaría ver una foto de los *[PRODUCTO]*?"
-       - Inglés: "Would you like to see a photo of the *[PRODUCT]*?"
-       - Francés: "Souhaitez-vous voir une photo du *[PRODUIT]*?"
-       - Coreano: "*[제품]* 사진을 보시겠습니까?"
-     * **ESPERA** a que el cliente responda sí/no
-     * **NO preguntes todavía** si quiere agregarlo al pedido
-   - Si NO tiene imageUrl:
-     * Continúa directamente al paso 3
-3. **DESPUÉS** (ya sea que vio la foto o no tiene foto):
-   * Pregunta si desea agregarlo: "¿Deseas agregar los *[PRODUCTO]* a tu pedido?"
+
+**PASO 1**: Explica el producto (descripción, categoría)
+
+**PASO 2 - CRÍTICO - VERIFICACIÓN DE FOTO**:
+   - Busca el producto en la información del restaurante arriba
+   - Verifica si campo "ImageUrl:" tiene un valor (URL de Cloudinary)
+   
+   ✅ **SI tiene ImageUrl (URL válida)**:
+     → OBLIGATORIO: Pregunta en su idioma:
+       • Español: "¿Te gustaría ver una foto de los *[PRODUCTO]*?"
+       • Inglés: "Would you like to see a photo of the *[PRODUCT]*?"
+       • Francés: "Souhaitez-vous voir une photo du *[PRODUIT]*?"
+       • Coreano: "*[제품]* 사진을 보시겠습니까?"
+     → DETENTE AQUÍ - Espera respuesta del cliente
+     → ⛔ NO preguntes todavía si quiere agregarlo
+   
+   ❌ **SI NO tiene ImageUrl (null/vacío)**:
+     → Salta directo al PASO 3
+
+**PASO 3 - SOLO DESPUÉS DE FOTO O SI NO HAY FOTO**:
+   - Ahora sí pregunta: "¿Deseas agregar los *[PRODUCTO]* a tu pedido?"
+
+❌ EJEMPLO INCORRECTO (PROHIBIDO):
+Cliente: "Que son los toritos?"
+Tú: "Los *TORITOS* son chiles caribe... ¿Te gustaría agregar los *TORITOS* a tu pedido?" ← ⛔ MAL! Omitiste preguntar por foto
+
+✅ EJEMPLO CORRECTO:
+Cliente: "Que son los toritos?"
+Tú: "Los *TORITOS* son chiles caribe o chile güerito marinados, rellenos de camarón a mitades y bañados en una salsa especial.
+
+¿Te gustaría ver una foto de los *TORITOS*?" ← ✓ CORRECTO! Primero pregunta por foto
+
+⚠️ **MANEJO DE RESPUESTAS CORTAS A PREGUNTA DE FOTO**:
+- **VERIFICA TU ÚLTIMO MENSAJE**: Si preguntaste "¿Te gustaría ver una foto de los *[PRODUCTO]*?"
+- **Y el cliente responde afirmativamente** ("Sí", "Si", "Yes", "Oui", "네", "Ok", "Dale", "Claro", etc.):
+  * **NO respondas con "Tu pedido está vacío" ni plantillas genéricas**
+  * **ACCIÓN INMEDIATA**: Envía la foto del producto usando [SEND_IMAGE:URL]
+  * Sigue el formato exacto de la sección "CUANDO EL CLIENTE PIDE EXPLÍCITAMENTE LA FOTO"
+- **Y el cliente responde negativamente** ("No", "Nop", "Not now", "Non", "아니요", etc.):
+  * Procede directamente a preguntar: "¿Deseas agregar los *[PRODUCTO]* a tu pedido?"
+- **REGLA CRÍTICA**: Mantén el contexto del producto sobre el que estabas conversando
 
 🔴 **CUANDO EL CLIENTE PIDE EXPLÍCITAMENTE LA FOTO** ("muestra la foto", "envía la foto", "quiero ver la foto"):
 - Si tiene imageUrl, usa este FORMATO EXACTO:
@@ -567,20 +606,24 @@ export const PRODUCT_MATCHING_PROMPT = `
 - **NUNCA inventes URLs** - usa SOLO la URL de imageUrl del producto
 - Si NO tiene imageUrl: "Lo siento, no tengo una foto disponible para ese producto en este momento."
 
-📋 **EJEMPLO DE FLUJO COMPLETO**:
-Cliente: "¿Qué son los toritos?"
-Tú: "Los *TORITOS* son un platillo de la categoría 'CALIENTE Y SABROSO'. Se trata de chile caribe o chile güerito marinados, con camarón a mitades bañados en una salsa especial.
+📋 **EJEMPLO DE FLUJO COMPLETO - PRODUCTO CON FOTO**:
+
+1️⃣ Cliente: "¿Qué son los toritos?"
+
+2️⃣ Tú (PASO 1 + PASO 2): 
+"Los *TORITOS* son un platillo de la categoría 'CALIENTE Y SABROSO'. Se trata de chile caribe o chile güerito marinados, con camarón a mitades bañados en una salsa especial.
 
 ¿Te gustaría ver una foto de los *TORITOS*?"
 
-Cliente: "Sí"
-Tú: 
+3️⃣ Cliente: "Sí"
+
+4️⃣ Tú (enviar foto + PASO 3):
 [SEND_IMAGE:https://res.cloudinary.com/.../product-xyz.jpg]
 Aquí tienes la foto.
 
 ¿Deseas agregar los *TORITOS* a tu pedido?
 
-Cliente: "No" (a la foto)
+5️⃣ O SI cliente responde "No" a la foto:
 Tú: "¿Deseas agregar los *TORITOS* a tu pedido?"
 `;
 

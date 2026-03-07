@@ -27,6 +27,26 @@ export const detectCustomerIntention = (
 ): CustomerIntention => {
   const lowerMessage = message.toLowerCase().trim();
 
+  // CRITICAL: Detectar respuesta a pregunta de foto ANTES de cualquier otra detección
+  const lastBotMessage =
+    conversationHistory.length > 0
+      ? conversationHistory[conversationHistory.length - 1]
+      : null;
+
+  if (lastBotMessage && lastBotMessage.role === 'assistant') {
+    const photoQuestionPattern = /¿te\s+gustaría\s+ver\s+una\s+foto|would\s+you\s+like\s+to\s+see\s+a\s+photo|souhaitez-vous\s+voir\s+une\s+photo/i;
+    const isPhotoQuestion = photoQuestionPattern.test(lastBotMessage.content);
+
+    const affirmativeWords = ['sí', 'si', 'yes', 'ok', 'dale', 'claro', 'por favor', 'please', 'oui', "d'accord", '네', '확인', 'yeah', 'yep', 'sure'];
+    const isAffirmative = affirmativeWords.some((word) => lowerMessage === word || lowerMessage.startsWith(word + ' ') || lowerMessage.endsWith(' ' + word));
+
+    if (isPhotoQuestion && isAffirmative) {
+      // El cliente está respondiendo sí a una pregunta de foto
+      // Tratarlo como conversación general para que use el prompt base con la instrucción de foto
+      return CustomerIntention.GENERAL;
+    }
+  }
+
   // 1. Detección de selección de idioma (primer mensaje o respuesta a pregunta de idioma)
   const languageKeywords = [
     '🇲🇽',
@@ -39,10 +59,6 @@ export const detectCustomerIntention = (
     'korean',
     '한국어',
   ];
-  const lastBotMessage =
-    conversationHistory.length > 0
-      ? conversationHistory[conversationHistory.length - 1]
-      : null;
   const isLanguageQuestion =
     lastBotMessage &&
     lastBotMessage.role === 'assistant' &&
