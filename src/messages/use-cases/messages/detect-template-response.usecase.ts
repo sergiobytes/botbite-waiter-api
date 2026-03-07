@@ -410,16 +410,16 @@ export class DetectTemplateResponseUseCase {
               // NUEVA LÓGICA: Leer productos del último mensaje del asistente que contenga productos
               // (en lugar de lastOrderSentToCashier que solo se actualiza al enviar a caja)
               let productsFromLastMessage: Record<string, any> = {};
-              
+
               // Buscar hacia atrás en el historial el último mensaje del asistente con productos
               for (let i = conversationHistory.length - 1; i >= 0; i--) {
                 const msg = conversationHistory[i];
                 if (msg.role === 'assistant') {
                   const contentLower = msg.content.toLowerCase();
-                  
+
                   // Verificar si tiene productos con formato [ID:xxx]
                   const hasProducts = msg.content.includes('• ') && msg.content.match(/\[ID:[^\]]+\]/);
-                  
+
                   // Verificar si tiene sección de pedido completo
                   const hasCompleteOrderSection =
                     contentLower.includes('tu pedido completo:') ||
@@ -428,24 +428,24 @@ export class DetectTemplateResponseUseCase {
                     contentLower.includes('updated order:') ||
                     contentLower.includes('votre commande complète:') ||
                     contentLower.includes('commande mise à jour:');
-                  
+
                   if (hasProducts && (hasCompleteOrderSection || contentLower.includes('he agregado') || contentLower.includes('i added'))) {
                     this.logger.log(`[BUILD ORDER] Found last message with products at index ${i}`);
-                    
-                    // Extraer productos usando regex similar al extractOrderFromResponseUtil
-                    const productLines = msg.content.match(/•\s*\[ID:([^\]]+)\]\s*([^(\n:]+)(?:\s*\([^)]+\))?\s*:\s*\$?(\d+(?:\.\d{2})?)\s*x?\s*(\d+)\s*=\s*\$?(\d+(?:\.\d{2})?)/g);
-                    
+
+                    // Extraer productos usando regex - capturar TODA la línea incluyendo notas
+                    const productLines = msg.content.match(/•\s*\[ID:[^\]]+\][^\n]+/g);
+
                     if (productLines) {
                       for (const line of productLines) {
                         const match = line.match(/•\s*\[ID:([^\]]+)\]\s*([^(\n:]+)(?:\s*\([^)]+\))?\s*:\s*\$?(\d+(?:\.\d{2})?)\s*x?\s*(\d+)\s*=\s*\$?(\d+(?:\.\d{2})?)/);
                         if (match) {
-                          const [, menuItemId, productName, priceStr, quantityStr,subtotalStr] = match;
+                          const [, menuItemId, productName, priceStr, quantityStr, subtotalStr] = match;
                           const cleanName = productName.trim();
-                          
+
                           // Buscar notas en la misma línea
                           const noteMatch = line.match(/\[Nota:\s*([^\]]+)\]|\[Note:\s*([^\]]+)\]/i);
                           const notes = noteMatch ? (noteMatch[1] || noteMatch[2]).trim() : undefined;
-                          
+
                           productsFromLastMessage[cleanName] = {
                             menuItemId: menuItemId.trim(),
                             price: parseFloat(priceStr),
@@ -618,16 +618,16 @@ export class DetectTemplateResponseUseCase {
 
           // NUEVA LÓGICA: Leer productos del último mensaje del asistente que contenga productos
           let productsFromLastMessage: Record<string, any> = {};
-          
+
           // Buscar hacia atrás en el historial el último mensaje del asistente con productos
           for (let i = conversationHistory.length - 1; i >= 0; i--) {
             const msg = conversationHistory[i];
             if (msg.role === 'assistant') {
               const contentLower = msg.content.toLowerCase();
-              
+
               // Verificar si tiene productos con formato [ID:xxx]
               const hasProducts = msg.content.includes('• ') && msg.content.match(/\[ID:[^\]]+\]/);
-              
+
               // Verificar si tiene sección de pedido completo
               const hasCompleteOrderSection =
                 contentLower.includes('tu pedido completo:') ||
@@ -636,24 +636,24 @@ export class DetectTemplateResponseUseCase {
                 contentLower.includes('updated order:') ||
                 contentLower.includes('votre commande complète:') ||
                 contentLower.includes('commande mise à jour:');
-              
+
               if (hasProducts && (hasCompleteOrderSection || contentLower.includes('he agregado') || contentLower.includes('i added'))) {
                 this.logger.log(`[BUILD ORDER] Found last message with products at index ${i}`);
-                
-                // Extraer productos usando regex
-                const productLines = msg.content.match(/•\s*\[ID:([^\]]+)\]\s*([^(\n:]+)(?:\s*\([^)]+\))?\s*:\s*\$?(\d+(?:\.\d{2})?)\s*x?\s*(\d+)\s*=\s*\$?(\d+(?:\.\d{2})?)/g);
-                
+
+                // Extraer productos usando regex - capturar TODA la línea incluyendo notas
+                const productLines = msg.content.match(/•\s*\[ID:[^\]]+\][^\n]+/g);
+
                 if (productLines) {
                   for (const line of productLines) {
                     const match = line.match(/•\s*\[ID:([^\]]+)\]\s*([^(\n:]+)(?:\s*\([^)]+\))?\s*:\s*\$?(\d+(?:\.\d{2})?)\s*x?\s*(\d+)\s*=\s*\$?(\d+(?:\.\d{2})?)/);
                     if (match) {
                       const [, menuItemId, productName, priceStr, quantityStr] = match;
                       const cleanName = productName.trim();
-                      
+
                       // Buscar notas en la misma línea
                       const noteMatch = line.match(/\[Nota:\s*([^\]]+)\]|\[Note:\s*([^\]]+)\]/i);
                       const productNotes = noteMatch ? (noteMatch[1] || noteMatch[2]).trim() : undefined;
-                      
+
                       productsFromLastMessage[cleanName] = {
                         menuItemId: menuItemId.trim(),
                         price: parseFloat(priceStr),
