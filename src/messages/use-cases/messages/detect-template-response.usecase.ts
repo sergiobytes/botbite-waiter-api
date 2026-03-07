@@ -13,6 +13,13 @@ export interface TemplateDetectionResult {
     quantity: number;
     notes?: string;
   };
+  addedProducts?: Array<{
+    menuItemId: string;
+    name: string;
+    price: number;
+    quantity: number;
+    notes?: string;
+  }>;
 }
 
 @Injectable()
@@ -531,46 +538,86 @@ export class DetectTemplateResponseUseCase {
         }
       }
 
-      // 🛒 PRIORITY 2B: Detectar solicitud de producto (agregar al pedido)
-      // CRITICAL: Only handle SINGLE product requests - multi-product requests must go to AI
-      const multiProductIndicators = [
-        /\s+y\s+(?:un|una|el|la|los|las|otro|otra)\s+/i,  // "X y una Y"
-        /\s+and\s+(?:a|an|the|another)\s+/i,              // "X and a Y"
-        /\s+et\s+(?:un|une|le|la|les|autre)\s+/i,         // "X et une Y"
-        /,\s*(?:un|una|el|la|tambien|also|et)/i,          // "X, también Y"
-      ];
-
-      const hasMultipleProducts = multiProductIndicators.some(pattern => pattern.test(message));
-
-      if (hasMultipleProducts) {
-        this.logger.log(`[PRODUCT REQUEST] ⚠️ Multiple products detected in single message - passing to AI`);
-        return { shouldUseTemplate: false };
-      }
-
+      // 🛒 PRIORITY 2B: Detectar solicitud de productos (uno o varios)
       const productRequestPatterns = [
-        /(?:dame|deme|agrég|añad|quiero|queremos|me\s+das?|tráeme|traeme|necesito|pido|pídeme|pideme|también|tambien|otro|otra)\s+(?:un\s+|una\s+|el\s+|la\s+|los\s+|las\s+)?([a-záéíóúñ\s]+?)(?:\s+sin\s+|\s+con\s+|$)/i,
-        /(?:add|give\s+me|i\s+want|i\s+need|i'd\s+like|bring\s+me|another|also)\s+(?:a\s+|an\s+|the\s+|some\s+)?([a-z\s]+?)(?:\s+without|\s+with|$)/i,
-        /(?:ajoutez|donnez-moi|je\s+veux|j'aimerais|apportez-moi|aussi|un\s+autre)\s+(?:un\s+|une\s+|le\s+|la\s+|les\s+|des\s+)?([a-záéíóúñ\s]+?)(?:\s+sans|\s+avec|$)/i,
+        /(?:dame|deme|agrég|añad|quiero|queremos|me\s+das?|tráeme|traeme|necesito|pido|pídeme|pideme|también|tambien|otro|otra)/i,
+        /(?:add|give\s+me|i\s+want|i\s+need|i'd\s+like|bring\s+me|another|also)/i,
+        /(?:ajoutez|donnez-moi|je\s+veux|j'aimerais|apportez-moi|aussi|un\s+autre)/i,
       ];
 
-      for (const pattern of productRequestPatterns) {
-        const match = message.match(pattern);
-        if (match && branchContext?.menus) {
-          const productNameRequested = match[1].trim();
-          this.logger.log(`[PRODUCT REQUEST] Detected single product request: "${productNameRequested}"`);
+      const hasProductRequest = productRequestPatterns.some(pattern => pattern.test(message));
 
-          // Extraer notas especiales (sin, con, without, with, sans, avec)
-          const notesMatch = message.match(/(sin|without|sans)\s+([a-záéíóúñ\s]+)|(con|with|avec)\s+([a-záéíóúñ\s]+)/i);
-          let notes: string | undefined = undefined;
-          if (notesMatch) {
-            // Capturar el prefijo (sin/con/without/etc) + el complemento
-            const prefix = notesMatch[1] || notesMatch[3];  // sin/con/without/with/sans/avec
-            const complement = (notesMatch[2] || notesMatch[4])?.trim();
-            notes = `${prefix} ${complement}`;
-            this.logger.log(`[PRODUCT REQUEST] Special notes detected: "${notes}"`);
+      if (hasProductRequest && branchContext?.menus) {
+        this.logger.log(`[PRODUCT REQUEST] Detected product request in message`);
+
+        // Dividir el mensaje en segmentos de productos usando conectores
+        // Ejemplos: "X y Y", "X, Y y Z", "X and Y"
+        const segments: string[] = [];
+
+        // Primero dividir por "y" / "and" / "et"
+        let tempSegments = message.split(/\s+(?:y|and|et)\s+/i);
+
+        // Luego dividir cada segmento por comas
+        for (const segment of tempSegments) {
+          const subSegments = segment.split(/\s*,\s*/);
+          segments.push(...subSegments);
+        }
+
+        this.logger.log(`[PRODUCT REQUEST] Split into ${segments.length} segment(s)`);
+
+        // Procesar cada segmento para extraer producto y notas
+        const productsToAdd: Array<{
+          menuItem: any;
+          product: any;
+          notes?: string;
+          quantity: number;
+        }> = [];
+
+        for (let i = 0; i < segments.length; i++) {
+          const segment = segments[i].trim();
+          if (!segment) continue;
+
+          this.logger.log(`\n[PRODUCT REQUEST] Processing segment ${i + 1}: "${segment}"`);
+
+          // Extraer cantidad si existe (ej: "2 cervezas", "tres tacos")
+          const quantityMatch = segment.match(/^(un|una|dos|tres|cuatro|cinco|1|2|3|4|5|6|7|8|9|\d+)\s+/i);
+          let quantity = 1;
+          let segmentWithoutQuantity = segment;
+
+          if (quantityMatch) {
+            const qtyText = quantityMatch[1].toLowerCase();
+            const numberMap: Record<string, number> = {
+              'un': 1, 'una': 1, 'uno': 1,
+              'dos': 2, 'tres': 3, 'cuatro': 4, 'cinco': 5,
+              'seis': 6, 'siete': 7, 'ocho': 8, 'nueve': 9,
+            };
+            quantity = numberMap[qtyText] || parseInt(qtyText) || 1;
+            segmentWithoutQuantity = segment.substring(quantityMatch[0].length).trim();
+            this.logger.log(`[PRODUCT REQUEST] Detected quantity: ${quantity}`);
           }
 
-          // Buscar el producto en el menú (normalizado)
+          // Extraer notas especiales (sin, con, without, with, sans, avec)
+          const notesMatch = segmentWithoutQuantity.match(/(sin|without|sans)\s+([a-záéíóúñ\s]+)|(con|with|avec)\s+([a-záéíóúñ\s]+)/i);
+          let notes: string | undefined = undefined;
+          let productNameRequested = segmentWithoutQuantity;
+
+          if (notesMatch) {
+            const prefix = notesMatch[1] || notesMatch[3];
+            const complement = (notesMatch[2] || notesMatch[4])?.trim();
+            notes = `${prefix} ${complement}`;
+            // Remover las notas del nombre del producto
+            productNameRequested = segmentWithoutQuantity.substring(0, notesMatch.index).trim();
+            this.logger.log(`[PRODUCT REQUEST] Notes detected: "${notes}"`);
+          }
+
+          // Remover artículos y palabras comunes al inicio
+          productNameRequested = productNameRequested
+            .replace(/^(?:un|una|el|la|los|las|unas|unos|a|an|the|some)\s+/i, '')
+            .trim();
+
+          this.logger.log(`[PRODUCT REQUEST] Looking for product: "${productNameRequested}"`);
+
+          // Buscar el producto en el menú
           let foundProduct: any = null;
           let foundMenuItem: any = null;
 
@@ -599,7 +646,7 @@ export class DetectTemplateResponseUseCase {
               ) {
                 foundProduct = menuItem.product;
                 foundMenuItem = menuItem;
-                this.logger.log(`[PRODUCT REQUEST] ✅ Found product: "${foundProduct.name}"`);
+                this.logger.log(`[PRODUCT REQUEST] ✅ Found: "${foundProduct.name}"`);
                 break;
               }
             }
@@ -609,148 +656,189 @@ export class DetectTemplateResponseUseCase {
 
           if (!foundProduct || !foundMenuItem) {
             this.logger.log(`[PRODUCT REQUEST] ❌ Product "${productNameRequested}" not found in menu`);
-            break; // Dejar que OpenAI maneje
+            this.logger.log(`[PRODUCT REQUEST] → Passing entire request to AI`);
+            return { shouldUseTemplate: false }; // Si no encuentra alguno, dejar que AI maneje todo
           }
 
-          // Construir el producto agregado
-          const price = parseFloat(foundMenuItem.price.toString());
-          const quantity = 1;
-          const subtotal = price * quantity;
-          const categoryName = foundMenuItem.category?.name || 'Sin categoría';
+          productsToAdd.push({
+            menuItem: foundMenuItem,
+            product: foundProduct,
+            notes,
+            quantity,
+          });
+        }
 
-          const addedProduct = {
-            menuItemId: foundMenuItem.id,
-            name: foundProduct.name,
+        // Si llegamos aquí, encontramos TODOS los productos
+        if (productsToAdd.length === 0) {
+          this.logger.log(`[PRODUCT REQUEST] No valid products found`);
+          return { shouldUseTemplate: false };
+        }
+
+        this.logger.log(`\n[PRODUCT REQUEST] ✅ Found all ${productsToAdd.length} product(s), building response...`);
+
+        // Construir el pedido completo acumulado
+        const completeOrder: any[] = [];
+
+        // Leer productos del último mensaje del asistente
+        let productsFromLastMessage: Record<string, any> = {};
+
+        for (let i = conversationHistory.length - 1; i >= 0; i--) {
+          const msg = conversationHistory[i];
+          if (msg.role === 'assistant') {
+            const contentLower = msg.content.toLowerCase();
+            const hasProducts = msg.content.includes('• ') && msg.content.match(/\[ID:[^\]]+\]/);
+            const hasCompleteOrderSection =
+              contentLower.includes('tu pedido completo:') ||
+              contentLower.includes('pedido actualizado:') ||
+              contentLower.includes('your complete order:') ||
+              contentLower.includes('updated order:') ||
+              contentLower.includes('votre commande complète:') ||
+              contentLower.includes('commande mise à jour:');
+
+            if (hasProducts && (hasCompleteOrderSection || contentLower.includes('he agregado') || contentLower.includes('i added'))) {
+              this.logger.log(`[BUILD ORDER] Found last message with products at index ${i}`);
+              const productLines = msg.content.match(/•\s*\[ID:[^\]]+\][^\n]+/g);
+
+              if (productLines) {
+                for (const line of productLines) {
+                  const match = line.match(/•\s*\[ID:([^\]]+)\]\s*([^(\n:]+)(?:\s*\([^)]+\))?\s*:\s*\$?(\d+(?:\.\d{2})?)\s*x?\s*(\d+)\s*=\s*\$?(\d+(?:\.\d{2})?)/);
+                  if (match) {
+                    const [, menuItemId, productName, priceStr, quantityStr] = match;
+                    const cleanName = productName.trim();
+                    const noteMatch = line.match(/\[Nota:\s*([^\]]+)\]|\[Note:\s*([^\]]+)\]/i);
+                    const productNotes = noteMatch ? (noteMatch[1] || noteMatch[2]).trim() : undefined;
+
+                    productsFromLastMessage[cleanName] = {
+                      menuItemId: menuItemId.trim(),
+                      price: parseFloat(priceStr),
+                      quantity: parseInt(quantityStr),
+                      notes: productNotes,
+                    };
+                  }
+                }
+                this.logger.log(`[BUILD ORDER] Extracted ${Object.keys(productsFromLastMessage).length} products from last message`);
+                break;
+              }
+            }
+          }
+        }
+
+        // Agregar productos del último mensaje
+        if (Object.keys(productsFromLastMessage).length > 0) {
+          for (const [productName, orderItem] of Object.entries(productsFromLastMessage)) {
+            let itemDetails: any = null;
+            for (const menu of branchContext.menus) {
+              if (!menu.menuItems) continue;
+              const item = menu.menuItems.find(mi => mi.id === orderItem.menuItemId);
+              if (item) {
+                itemDetails = item;
+                break;
+              }
+            }
+
+            if (itemDetails) {
+              completeOrder.push({
+                menuItemId: orderItem.menuItemId,
+                name: itemDetails.product.name,
+                category: itemDetails.category?.name || 'Sin categoría',
+                price: parseFloat(orderItem.price.toString()).toFixed(2),
+                quantity: orderItem.quantity,
+                subtotal: (orderItem.price * orderItem.quantity).toFixed(2),
+                ...(orderItem.notes ? { notes: orderItem.notes } : {}),
+              });
+            }
+          }
+        }
+
+        // Agregar los nuevos productos (o actualizar cantidad si ya existen)
+        const addedProductsInfo: any[] = [];
+
+        for (const productToAdd of productsToAdd) {
+          const price = parseFloat(productToAdd.menuItem.price.toString());
+          const categoryName = productToAdd.menuItem.category?.name || 'Sin categoría';
+
+          const newProduct = {
+            menuItemId: productToAdd.menuItem.id,
+            name: productToAdd.product.name,
             category: categoryName,
             price: price.toFixed(2),
-            quantity,
-            subtotal: subtotal.toFixed(2),
-            ...(notes ? { notes } : {}),
+            quantity: productToAdd.quantity,
+            subtotal: (price * productToAdd.quantity).toFixed(2),
+            ...(productToAdd.notes ? { notes: productToAdd.notes } : {}),
           };
 
-          // Construir el pedido completo acumulado
-          const completeOrder: any[] = [];
+          // Verificar si ya existe en completeOrder
+          const existingIndex = completeOrder.findIndex(
+            item => item.menuItemId === newProduct.menuItemId && item.notes === newProduct.notes
+          );
 
-          // NUEVA LÓGICA: Leer productos del último mensaje del asistente que contenga productos
-          let productsFromLastMessage: Record<string, any> = {};
-
-          // Buscar hacia atrás en el historial el último mensaje del asistente con productos
-          for (let i = conversationHistory.length - 1; i >= 0; i--) {
-            const msg = conversationHistory[i];
-            if (msg.role === 'assistant') {
-              const contentLower = msg.content.toLowerCase();
-
-              // Verificar si tiene productos con formato [ID:xxx]
-              const hasProducts = msg.content.includes('• ') && msg.content.match(/\[ID:[^\]]+\]/);
-
-              // Verificar si tiene sección de pedido completo
-              const hasCompleteOrderSection =
-                contentLower.includes('tu pedido completo:') ||
-                contentLower.includes('pedido actualizado:') ||
-                contentLower.includes('your complete order:') ||
-                contentLower.includes('updated order:') ||
-                contentLower.includes('votre commande complète:') ||
-                contentLower.includes('commande mise à jour:');
-
-              if (hasProducts && (hasCompleteOrderSection || contentLower.includes('he agregado') || contentLower.includes('i added'))) {
-                this.logger.log(`[BUILD ORDER] Found last message with products at index ${i}`);
-
-                // Extraer productos usando regex - capturar TODA la línea incluyendo notas
-                const productLines = msg.content.match(/•\s*\[ID:[^\]]+\][^\n]+/g);
-
-                if (productLines) {
-                  for (const line of productLines) {
-                    const match = line.match(/•\s*\[ID:([^\]]+)\]\s*([^(\n:]+)(?:\s*\([^)]+\))?\s*:\s*\$?(\d+(?:\.\d{2})?)\s*x?\s*(\d+)\s*=\s*\$?(\d+(?:\.\d{2})?)/);
-                    if (match) {
-                      const [, menuItemId, productName, priceStr, quantityStr] = match;
-                      const cleanName = productName.trim();
-
-                      // Buscar notas en la misma línea
-                      const noteMatch = line.match(/\[Nota:\s*([^\]]+)\]|\[Note:\s*([^\]]+)\]/i);
-                      const productNotes = noteMatch ? (noteMatch[1] || noteMatch[2]).trim() : undefined;
-
-                      productsFromLastMessage[cleanName] = {
-                        menuItemId: menuItemId.trim(),
-                        price: parseFloat(priceStr),
-                        quantity: parseInt(quantityStr),
-                        notes: productNotes,
-                      };
-                    }
-                  }
-                  this.logger.log(`[BUILD ORDER] Extracted ${Object.keys(productsFromLastMessage).length} products from last message`);
-                  break;
-                }
-              }
-            }
-          }
-
-          // Agregar productos del último mensaje
-          if (Object.keys(productsFromLastMessage).length > 0) {
-            for (const [productName, orderItem] of Object.entries(productsFromLastMessage)) {
-              // Buscar detalles del producto en los menús
-              let itemDetails: any = null;
-              for (const menu of branchContext.menus) {
-                if (!menu.menuItems) continue;
-                const item = menu.menuItems.find(mi => mi.id === orderItem.menuItemId);
-                if (item) {
-                  itemDetails = item;
-                  break;
-                }
-              }
-
-              if (itemDetails) {
-                completeOrder.push({
-                  menuItemId: orderItem.menuItemId,
-                  name: itemDetails.product.name,
-                  category: itemDetails.category?.name || 'Sin categoría',
-                  price: parseFloat(orderItem.price.toString()).toFixed(2),
-                  quantity: orderItem.quantity,
-                  subtotal: (orderItem.price * orderItem.quantity).toFixed(2),
-                  ...(orderItem.notes ? { notes: orderItem.notes } : {}),
-                });
-              }
-            }
-          }
-
-          // Agregar el nuevo producto (o actualizar cantidad si ya existe)
-          const existingIndex = completeOrder.findIndex(item => item.menuItemId === addedProduct.menuItemId && item.notes === addedProduct.notes);
           if (existingIndex >= 0) {
-            // Si ya existe con las mismas notas, actualizar cantidad
-            completeOrder[existingIndex].quantity += addedProduct.quantity;
+            completeOrder[existingIndex].quantity += newProduct.quantity;
             completeOrder[existingIndex].subtotal = (
               parseFloat(completeOrder[existingIndex].price) * completeOrder[existingIndex].quantity
             ).toFixed(2);
           } else {
-            // Si no existe o tiene notas diferentes, agregar nuevo
-            completeOrder.push(addedProduct);
+            completeOrder.push(newProduct);
           }
 
-          this.logger.log(`[PRODUCT REQUEST] Complete order has ${completeOrder.length} items`);
-
-          // Renderizar template apropiado
-          const templateKey = notes ? 'order.item_added_with_note' : 'order.item_added';
-
-          const response = await this.templatesService.render({
-            key: templateKey,
-            language,
-            variables: {
-              addedProduct,
-              completeOrder,
-            },
+          // Para el template "items_added" (productos recién agregados)
+          addedProductsInfo.push({
+            menuItemId: productToAdd.menuItem.id,
+            name: productToAdd.product.name,
+            quantity: productToAdd.quantity,
+            unitPrice: price.toFixed(2),
+            subtotal: (price * productToAdd.quantity).toFixed(2),
+            ...(productToAdd.notes ? { notes: productToAdd.notes } : {}),
           });
+        }
 
-          return {
-            shouldUseTemplate: true,
-            response,
-            addedProduct: {
-              menuItemId: foundMenuItem.id,
-              name: foundProduct.name,
-              price,
-              quantity,
-              ...(notes ? { notes } : {}),
-            },
+        // Calcular total del pedido completo
+        const totalOrder = completeOrder.reduce((sum, item) => sum + parseFloat(item.subtotal), 0);
+
+        this.logger.log(`[PRODUCT REQUEST] Complete order has ${completeOrder.length} items, total: $${totalOrder.toFixed(2)}`);
+
+        // Decidir qué template usar según cantidad de productos agregados
+        let templateKey: string;
+        let templateVariables: any;
+
+        if (productsToAdd.length === 1) {
+          // Un solo producto → usar template detallado
+          const hasNotes = !!productsToAdd[0].notes;
+          templateKey = hasNotes ? 'order.item_added_with_note' : 'order.item_added';
+          templateVariables = {
+            addedProduct: addedProductsInfo[0],
+            completeOrder,
+          };
+        } else {
+          // Múltiples productos → usar template de lista simple
+          templateKey = 'order.items_added';
+          templateVariables = {
+            items: addedProductsInfo,
+            currentTotal: totalOrder.toFixed(2),
           };
         }
+
+        const response = await this.templatesService.render({
+          key: templateKey,
+          language,
+          variables: templateVariables,
+        });
+
+        // Retornar todos los productos agregados para actualizar BD
+        const addedProductsForDB = productsToAdd.map(p => ({
+          menuItemId: p.menuItem.id,
+          name: p.product.name,
+          price: parseFloat(p.menuItem.price.toString()),
+          quantity: p.quantity,
+          ...(p.notes ? { notes: p.notes } : {}),
+        }));
+
+        return {
+          shouldUseTemplate: true,
+          response,
+          addedProduct: addedProductsForDB.length === 1 ? addedProductsForDB[0] : undefined,
+          addedProducts: addedProductsForDB.length > 1 ? addedProductsForDB : undefined,
+        };
       }
 
       // 1. Saludo inicial (primera interacción)

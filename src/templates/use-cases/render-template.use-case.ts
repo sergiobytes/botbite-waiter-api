@@ -67,6 +67,10 @@ export class RenderTemplateUseCase {
 
     result = this.handleConditionals(result, variables);
 
+    // Procesar caracteres escapados (\n, \t, etc)
+    result = result.replace(/\\n/g, '\n');
+    result = result.replace(/\\t/g, '\t');
+
     return result;
   }
 
