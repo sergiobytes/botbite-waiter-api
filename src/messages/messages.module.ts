@@ -14,7 +14,7 @@ import { CustomersModule } from '../customers/customers.module';
 import { MenusModule } from '../menus/menus.module';
 import { OpenAIModule } from '../openai/openai.module';
 import { OrdersModule } from '../orders/orders.module';
-import { QueueModule } from '../queue/queue.module';
+// import { QueueModule } from '../queue/queue.module'; // ⚠️ Queue deshabilitado
 import { TemplatesModule } from '../templates/templates.module';
 import { CashierNotification } from './entities/cashier-notifications.entity';
 import { ConversationMessage } from './entities/conversation-message.entity';
@@ -60,7 +60,7 @@ import { SendWhatsappMessageUseCase } from './use-cases/twilio/send-whatsapp-mes
     MenusModule,
     CustomJwtModule,
     TemplatesModule,
-    forwardRef(() => QueueModule),
+    // forwardRef(() => QueueModule), // ⚠️ Queue deshabilitado
     TypeOrmModule.forFeature([Conversation, ConversationMessage, CashierNotification]),
   ],
   controllers: [MessagesController],

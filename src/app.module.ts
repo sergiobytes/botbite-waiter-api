@@ -17,7 +17,7 @@ import { OrdersModule } from './orders/orders.module';
 import { CustomersModule } from './customers/customers.module';
 import { MessagesModule } from './messages/messages.module';
 import { OpenAIModule } from './openai/openai.module';
-import { QueueModule } from './queue/queue.module';
+// import { QueueModule } from './queue/queue.module'; // ⚠️ Queue deshabilitado
 import { HealthModule } from './health/health.module';
 import { TemplatesModule } from './templates/templates.module';
 
@@ -39,11 +39,11 @@ import { TemplatesModule } from './templates/templates.module';
     CustomersModule,
     MessagesModule,
     OpenAIModule,
-    QueueModule,
+    // QueueModule, // ⚠️ Queue deshabilitado
     HealthModule,
     TemplatesModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
-export class AppModule {}
+export class AppModule { }

@@ -2,7 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Branch } from '../../../branches/entities/branch.entity';
-import { CacheService } from '../../../common/services/cache.service';
+// import { CacheService } from '../../../common/services/cache.service'; // ⚠️ Cache deshabilitado
 import { Customer } from '../../../customers/entities/customer.entity';
 import { OpenAIService } from '../../../openai/openai.service';
 import { ProcessOrderWithAIUseCase } from '../../../openai/use-cases/process-order-with-ai.use-case';
@@ -25,7 +25,7 @@ export class ProcessMessageUseCase {
     @InjectRepository(Conversation)
     private readonly conversationRepository: Repository<Conversation>,
     private readonly openaiService: OpenAIService,
-    private readonly cacheService: CacheService,
+    // private readonly cacheService: CacheService, // ⚠️ Cache deshabilitado
     private readonly getOrCreateConversationUseCase: GetOrCreateConversationUseCase,
     private readonly getConversationHistoryUseCase: GetConversationHistoryUseCase,
     private readonly detectTemplateResponseUseCase: DetectTemplateResponseUseCase,
@@ -337,71 +337,72 @@ export class ProcessMessageUseCase {
       }
 
       // 🚀 VERIFICAR CACHÉ ANTES DE LLAMAR A OPENAI
+      // ⚠️ Cache deshabilitado - ahora siempre se llama a OpenAI directamente ⚠️
 
-      if (this.cacheService) {
-        const cacheStart = Date.now();
-        const conversationContext = messages.slice(-3).map((m) => m.content);
-        const cachedResponse = await this.cacheService.getOpenAICachedResponse(
-          branchId!,
-          userMessage,
-          conversationContext,
-          phoneNumber, // Cache por cliente para evitar respuestas mezcladas
-        );
-        this.logger.log(`[PERF] Cache check in ${Date.now() - cacheStart}ms`);
+      // if (this.cacheService) {
+      //   const cacheStart = Date.now();
+      //   const conversationContext = messages.slice(-3).map((m) => m.content);
+      //   const cachedResponse = await this.cacheService.getOpenAICachedResponse(
+      //     branchId!,
+      //     userMessage,
+      //     conversationContext,
+      //     phoneNumber, // Cache por cliente para evitar respuestas mezcladas
+      //   );
+      //   this.logger.log(`[PERF] Cache check in ${Date.now() - cacheStart}ms`);
 
-        if (cachedResponse) {
-          this.logger.log(`✅ Using CACHED response - Saved OpenAI call!`);
-          aiResponse = cachedResponse;
-        } else {
-          // Cache miss - llamar a OpenAI
-          const aiStart = Date.now();
-          this.logger.log(
-            `[PERF] Calling OpenAI for conversation ${conversation.conversationId}`,
-          );
-          aiResponse = await this.openaiService.sendMessage(
-            conversation.conversationId,
-            userMessage,
-            messages,
-            customerContext,
-            branchContext,
-            conversation.location,
-            conversation.lastOrderSentToCashier,
-            conversation.preferredLanguage,
-          );
-          this.logger.log(
-            `[PERF] OpenAI response received in ${Date.now() - aiStart}ms`,
-          );
+      //   if (cachedResponse) {
+      //     this.logger.log(`✅ Using CACHED response - Saved OpenAI call!`);
+      //     aiResponse = cachedResponse;
+      //   } else {
+      //     // Cache miss - llamar a OpenAI
+      //     const aiStart = Date.now();
+      //     this.logger.log(
+      //       `[PERF] Calling OpenAI for conversation ${conversation.conversationId}`,
+      //     );
+      //     aiResponse = await this.openaiService.sendMessage(
+      //       conversation.conversationId,
+      //       userMessage,
+      //       messages,
+      //       customerContext,
+      //       branchContext,
+      //       conversation.location,
+      //       conversation.lastOrderSentToCashier,
+      //       conversation.preferredLanguage,
+      //     );
+      //     this.logger.log(
+      //       `[PERF] OpenAI response received in ${Date.now() - aiStart}ms`,
+      //     );
 
-          // Guardar en caché (usa CACHE_TTL de env)
-          await this.cacheService.setOpenAICachedResponse(
-            branchId!,
-            userMessage,
-            aiResponse,
-            conversationContext,
-            undefined, // ttl (usa defaultTTL)
-            phoneNumber, // Cache por cliente
-          );
-        }
-      } else {
-        // Fallback sin caché
-        const aiStart = Date.now();
-        this.logger.log(
-          `[PERF] Calling OpenAI for conversation ${conversation.conversationId}`,
-        );
-        aiResponse = await this.openaiService.sendMessage(
-          conversation.conversationId,
-          userMessage,
-          messages,
-          customerContext,
-          branchContext,
-          conversation.location,
-          conversation.lastOrderSentToCashier,
-          conversation.preferredLanguage,
-        );
-        this.logger.log(
-          `[PERF] OpenAI response received in ${Date.now() - aiStart}ms`,
-        );
-      }
+      //     // Guardar en caché (usa CACHE_TTL de env)
+      //     await this.cacheService.setOpenAICachedResponse(
+      //       branchId!,
+      //       userMessage,
+      //       aiResponse,
+      //       conversationContext,
+      //       undefined, // ttl (usa defaultTTL)
+      //       phoneNumber, // Cache por cliente
+      //     );
+      //   }
+      // } else {
+      // Fallback sin caché - ahora es el flujo principal
+      const aiStart = Date.now();
+      this.logger.log(
+        `[PERF] Calling OpenAI for conversation ${conversation.conversationId}`,
+      );
+      aiResponse = await this.openaiService.sendMessage(
+        conversation.conversationId,
+        userMessage,
+        messages,
+        customerContext,
+        branchContext,
+        conversation.location,
+        conversation.lastOrderSentToCashier,
+        conversation.preferredLanguage,
+      );
+      this.logger.log(
+        `[PERF] OpenAI response received in ${Date.now() - aiStart}ms`,
+      );
+      // } // ⚠️ Cierre del bloque else comentado
 
       await this.saveMessageUseCase.execute(conversation.conversationId, 'assistant', aiResponse);
 
