@@ -110,12 +110,13 @@ export class ProcessMessageUseCase {
 
       // 🎨 INTENTAR USAR PLANTILLAS PRIMERO (si los use cases están disponibles)
       let aiResponse: string;
+      let templateResult: { shouldUseTemplate: boolean; response?: string; addedProduct?: any; addedProducts?: any[] } | null = null;
 
       if (this.detectTemplateResponseUseCase) {
         this.logger.log('[TEMPLATE] Checking for template-based response...');
         const templateStart = Date.now();
 
-        const templateResult = await this.detectTemplateResponseUseCase.execute(
+        templateResult = await this.detectTemplateResponseUseCase.execute(
           userMessage,
           messages,
           customerContext,
@@ -389,6 +390,30 @@ export class ProcessMessageUseCase {
       this.logger.log(
         `[PERF] Calling OpenAI for conversation ${conversation.conversationId}`,
       );
+
+      // 🔧 FIX: Si detect-template devolvió addedProduct (confirmación + orden adicional),
+      // necesitamos construir un lastOrderSentToCashier temporal con ese producto
+      // para que el AI tenga contexto de qué se confirmó
+      let orderContextForAI = conversation.lastOrderSentToCashier;
+
+      if (templateResult?.addedProduct && !templateResult.shouldUseTemplate) {
+        this.logger.log(`🔧 [FIX NaN] Building temporary order context with confirmed product: ${templateResult.addedProduct.name}`);
+
+        // Construir order temporal con el producto confirmado
+        const tempProductId = templateResult.addedProduct.menuItemId;
+        orderContextForAI = {
+          ...conversation.lastOrderSentToCashier,
+          [tempProductId]: {
+            menuItemId: templateResult.addedProduct.menuItemId,
+            price: templateResult.addedProduct.price,
+            quantity: templateResult.addedProduct.quantity,
+            notes: templateResult.addedProduct.notes,
+          },
+        };
+
+        this.logger.log(`🔧 [FIX NaN] Temporary order: ${JSON.stringify(orderContextForAI)}`);
+      }
+
       aiResponse = await this.openaiService.sendMessage(
         conversation.conversationId,
         userMessage,
@@ -396,7 +421,7 @@ export class ProcessMessageUseCase {
         customerContext,
         branchContext,
         conversation.location,
-        conversation.lastOrderSentToCashier,
+        orderContextForAI, // ✅ Usar el order temporal si existe, sino el original
         conversation.preferredLanguage,
       );
       this.logger.log(

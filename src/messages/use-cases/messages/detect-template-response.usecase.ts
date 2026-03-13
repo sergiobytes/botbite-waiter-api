@@ -40,11 +40,93 @@ export class DetectTemplateResponseUseCase {
     const language = preferredLanguage || 'es';
 
     try {
-      // 💡 PRIORITY 0: Detectar respuesta afirmativa a pregunta de foto de producto
+      // 🌍 PRIORITY -1: Detectar confirmación de selección de idioma
+      // Si el cliente acaba de seleccionar su idioma, confirmar y pedir ubicación
       const lastBotMessage =
         conversationHistory.length > 0
           ? conversationHistory[conversationHistory.length - 1]
           : null;
+
+      const lastBotAskedForLanguage = lastBotMessage &&
+        lastBotMessage.role === 'assistant' &&
+        (lastBotMessage.content.toLowerCase().includes('idioma') ||
+          lastBotMessage.content.toLowerCase().includes('language') ||
+          lastBotMessage.content.toLowerCase().includes('langue'));
+
+      const languageKeywords = [
+        '🇲🇽', '🇺🇸', '🇫🇷', '🇰🇷', '🇩🇪', '🇮🇹', '🇵🇹',
+        'español', 'english', 'français', 'korean', '한국어',
+        'german', 'deutsch', 'italiano', 'italian', 'português', 'portuguese',
+      ];
+
+      if (lastBotAskedForLanguage && languageKeywords.some(keyword => messageLower.includes(keyword))) {
+        this.logger.log('Detected: Language confirmation - Using language.confirm template');
+        const response = await this.templatesService.render({
+          key: 'language.confirm',
+          language: preferredLanguage || 'es',
+          variables: {},
+        });
+        return { shouldUseTemplate: true, response };
+      }
+
+      // 📍 PRIORITY -0.5: Detectar confirmación de ubicación
+      // Si el cliente acaba de proporcionar su ubicación, confirmar y preguntar por pedido
+      const lastBotAskedForLocation = lastBotMessage &&
+        lastBotMessage.role === 'assistant' &&
+        (lastBotMessage.content.toLowerCase().includes('mesa') ||
+          lastBotMessage.content.toLowerCase().includes('table') ||
+          lastBotMessage.content.toLowerCase().includes('ubicación') ||
+          lastBotMessage.content.toLowerCase().includes('location') ||
+          lastBotMessage.content.toLowerCase().includes('dónde') ||
+          lastBotMessage.content.toLowerCase().includes('where'));
+
+      const locationKeywords = [
+        'mesa', 'table', 'barra', 'bar', 'terraza', 'patio',
+        'arriba', 'abajo', 'upstairs', 'downstairs',
+        /mesa\s*\d+/i, // mesa 1, mesa 2, etc.
+        /table\s*\d+/i, // table 1, table 2, etc.
+      ];
+
+      const hasLocationInfo = locationKeywords.some(keyword => {
+        if (typeof keyword === 'string') {
+          return messageLower.includes(keyword);
+        } else {
+          return keyword.test(message);
+        }
+      });
+
+      if (lastBotAskedForLocation && hasLocationInfo) {
+        this.logger.log('Detected: Location confirmation - Using location.confirm template');
+        const response = await this.templatesService.render({
+          key: 'location.confirm',
+          language,
+          variables: {},
+        });
+        return { shouldUseTemplate: true, response };
+      }
+
+      // � PRIORITY -0.3: Detectar CONSULTA DE PRESUPUESTO
+      // Cuando el usuario pregunta qué puede comprar con X dinero o menciona cuántos son
+      // Ejemplo: "Traigo $500, somos 4", "What can I get with $100?", "We are 5 people with $300"
+      const budgetKeywords = [
+        'traigo', 'tengo', 'cuánto', 'cuanto', 'presupuesto',
+        'somos', 'para', 'personas', 'people',
+        'i have', 'we have', 'what can i', 'budget', 'for', 'with',
+        'j\'ai', 'nous avons', 'combien', 'pour', 'personnes',
+      ];
+
+      const hasBudgetKeyword = budgetKeywords.some(keyword => messageLower.includes(keyword));
+      const hasCurrencyOrNumber = /(\$|€|£|\d+)\s*(\d+|\d{1,3}(?:,\d{3})*(?:\.\d{2})?)/.test(message);
+
+      if (hasBudgetKeyword && hasCurrencyOrNumber) {
+        this.logger.log('Detected: Budget inquiry - passing to AI for suggestions');
+        // Retornar que no use plantilla, que use AI para calcular y sugerir
+        return { shouldUseTemplate: false };
+      }
+
+      // �💡 PRIORITY 0: Detectar respuesta afirmativa a pregunta de foto de producto
+      // 💡 PRIORITY 0: Detectar respuesta afirmativa a pregunta de foto de producto
+      // Reuse lastBotMessage variable from language detection above
 
       if (lastBotMessage && lastBotMessage.role === 'assistant') {
         this.logger.log(`[PHOTO DETECTION] Last bot message: "${lastBotMessage.content.substring(0, 150)}..."`);
@@ -101,6 +183,90 @@ export class DetectTemplateResponseUseCase {
           this.logger.log(
             `🔍 Searching for product: "${productNameFromQuestion}" in branch menus`,
           );
+
+          // 🔍 VERIFICAR SI HAY PEDIDO ADICIONAL EN EL MISMO MENSAJE
+          // Detectar palabras clave que indican que el usuario quiere agregar MÁS además de confirmar la foto
+          const additionalOrderKeywords = [
+            'y agrega',
+            'y quiero',
+            'y dame',
+            'y pido',
+            'también quiero',
+            'también agrega',
+            'también dame',
+            'también pido',
+            'además quiero',
+            'además agrega',
+            'and add',
+            'and i want',
+            'and give me',
+            'i also want',
+            'also add',
+            'et ajoute',
+            'et je veux',
+            'aussi',
+            '또',
+            '그리고',
+          ];
+
+          const hasAdditionalOrder = additionalOrderKeywords.some(keyword =>
+            messageLower.includes(keyword)
+          );
+
+          if (hasAdditionalOrder) {
+            this.logger.log(`⚠️ [PHOTO CONFIRMATION] User confirmed photo BUT also requested additional items in same message: "${message}"`);
+            this.logger.log(`⚠️ [PHOTO CONFIRMATION] Need to find confirmed product info first to pass to AI`);
+
+            // 🔧 FIX: Buscar el producto confirmado ANTES de pasar al AI
+            // El AI necesita saber qué producto se confirmó para incluirlo en el pedido
+            let foundProduct: any = null;
+            let foundMenuItem: any = null;
+
+            for (const menu of branchContext.menus) {
+              if (menu.menuItems) {
+                const item = menu.menuItems.find((mi) => {
+                  const menuProductName = mi.product.name
+                    .toLowerCase()
+                    .normalize('NFD')
+                    .replace(/[\u0300-\u036f]/g, '');
+                  const searchName = productNameFromQuestion
+                    .toLowerCase()
+                    .normalize('NFD')
+                    .replace(/[\u0300-\u036f]/g, '');
+                  return (
+                    menuProductName.includes(searchName) ||
+                    searchName.includes(menuProductName)
+                  );
+                });
+
+                if (item) {
+                  foundProduct = item.product;
+                  foundMenuItem = item;
+                  break;
+                }
+              }
+            }
+
+            // Si encontramos el producto, incluirlo en el resultado
+            if (foundProduct && foundMenuItem) {
+              const price = parseFloat(foundMenuItem.price.toString());
+              this.logger.log(`✅ [PHOTO CONFIRMATION] Found confirmed product: ${foundProduct.name} at $${price}`);
+              this.logger.log(`⚠️ [PHOTO CONFIRMATION] Passing to AI with confirmed product info + full order context`);
+
+              return {
+                shouldUseTemplate: false,
+                addedProduct: {
+                  menuItemId: foundMenuItem.id,
+                  name: foundProduct.name,
+                  price: price,
+                  quantity: 1,
+                },
+              }; // Let AI handle the complex request with product context
+            } else {
+              this.logger.warn(`⚠️ [PHOTO CONFIRMATION] Could not find product details, passing to AI without context`);
+              return { shouldUseTemplate: false }; // Fallback
+            }
+          }
 
           // Buscar el producto en el menú
           let found = false;
@@ -193,33 +359,6 @@ export class DetectTemplateResponseUseCase {
             return { shouldUseTemplate: true, response };
           }
         }
-      }
-
-      // 0. CRITICAL: Check if this is language selection - DO NOT use template
-      // Language selection should be handled by OpenAI with LANGUAGE_DETECTION_PROMPT
-      const languageKeywords = [
-        '🇲🇽',
-        '🇺🇸',
-        '🇫🇷',
-        '🇰🇷',
-        'español',
-        'english',
-        'français',
-        'korean',
-        '한국어',
-        'german',
-        'deutsch',
-        'italiano',
-        'italian',
-        'português',
-        'portuguese',
-      ];
-
-      if (languageKeywords.some((keyword) => messageLower.includes(keyword))) {
-        this.logger.log(
-          'Detected: Language selection - skipping template, will use OpenAI',
-        );
-        return { shouldUseTemplate: false };
       }
 
       // 💡 PRIORITY 1: Detectar pregunta sobre un producto específico
@@ -357,6 +496,96 @@ export class DetectTemplateResponseUseCase {
 
           if (isAffirmative && branchContext?.menus) {
             this.logger.log(`[PRODUCT CONFIRMATION] User confirmed with: "${message}"`);
+
+            // 🔍 VERIFICAR SI HAY PEDIDO ADICIONAL EN EL MISMO MENSAJE
+            const additionalOrderKeywords = [
+              'y agrega',
+              'y quiero',
+              'y dame',
+              'y pido',
+              'también quiero',
+              'también agrega',
+              'también dame',
+              'también pido',
+              'además quiero',
+              'además agrega',
+              'and add',
+              'and i want',
+              'and give me',
+              'i also want',
+              'also add',
+              'et ajoute',
+              'et je veux',
+              'aussi',
+              '또',
+              '그리고',
+            ];
+
+            const hasAdditionalOrder = additionalOrderKeywords.some(keyword =>
+              messageLower.includes(keyword)
+            );
+
+            if (hasAdditionalOrder) {
+              this.logger.log(`⚠️ [PRODUCT CONFIRMATION] User confirmed product BUT also requested additional items in same message: "${message}"`);
+              this.logger.log(`⚠️ [PRODUCT CONFIRMATION] Need to find confirmed product info first before passing to AI`);
+
+              // 🔧 FIX: Buscar el producto confirmado ANTES de pasar al AI
+              let foundProduct: any = null;
+              let foundMenuItem: any = null;
+
+              for (const menu of branchContext.menus) {
+                if (!menu.menuItems) continue;
+
+                for (const menuItem of menu.menuItems) {
+                  if (!menuItem.isActive || !menuItem.product) continue;
+
+                  const normalizedQuestion = productNameFromQuestion
+                    .toLowerCase()
+                    .normalize('NFD')
+                    .replace(/[\u0300-\u036f]/g, '')
+                    .trim();
+
+                  const normalizedProduct = menuItem.product.normalizedName
+                    ?.toLowerCase() || menuItem.product.name
+                      .toLowerCase()
+                      .normalize('NFD')
+                      .replace(/[\u0300-\u036f]/g, '')
+                      .trim();
+
+                  if (
+                    normalizedProduct.includes(normalizedQuestion) ||
+                    normalizedQuestion.includes(normalizedProduct)
+                  ) {
+                    foundProduct = menuItem.product;
+                    foundMenuItem = menuItem;
+                    this.logger.log(`[PRODUCT CONFIRMATION] ✅ Found confirmed product: "${foundProduct.name}"`);
+                    break;
+                  }
+                }
+
+                if (foundProduct) break;
+              }
+
+              // Si encontramos el producto, incluirlo en el resultado
+              if (foundProduct && foundMenuItem) {
+                const price = parseFloat(foundMenuItem.price.toString());
+                this.logger.log(`✅ [PRODUCT CONFIRMATION] Found confirmed product: ${foundProduct.name} at $${price}`);
+                this.logger.log(`⚠️ [PRODUCT CONFIRMATION] Passing to AI with confirmed product info + full order context`);
+
+                return {
+                  shouldUseTemplate: false,
+                  addedProduct: {
+                    menuItemId: foundMenuItem.id,
+                    name: foundProduct.name,
+                    price: price,
+                    quantity: 1,
+                  },
+                }; // Let AI handle the complex request with product context
+              } else {
+                this.logger.warn(`⚠️ [PRODUCT CONFIRMATION] Could not find product details, passing to AI without context`);
+                return { shouldUseTemplate: false }; // Fallback
+              }
+            }
 
             // Buscar el producto en el menú
             let foundProduct: any = null;
@@ -538,12 +767,142 @@ export class DetectTemplateResponseUseCase {
         }
       }
 
-      // � PRIORITY 2: Solicitar la cuenta/bill (ANTES de detectar productos para evitar confusión)
+      // 🌟 PRIORITY 1.3: Solicitud de recomendaciones
+      // Cliente pregunta "¿qué me recomiendas?" o "¿qué es lo mejor?"
+      const recommendationKeywords = [
+        'qué me recomiendas', 'que me recomiendas', 'recomiéndame', 'recomiendame',
+        'qué recomiendas', 'que recomiendas', 'qué es bueno', 'que es bueno',
+        'qué está bueno', 'que esta bueno', 'lo mejor', 'especialidad',
+        'what do you recommend', 'what\'s good', 'what is good', 'your best',
+        'recommend', 'recommendation', 'specialty', 'best dish',
+        'qu\'est-ce que tu recommandes', 'recommandation', 'spécialité',
+        '추천', '뭐가 맛있어', '특별 메뉴',
+      ];
+
+      const isAskingForRecommendations = recommendationKeywords.some(keyword =>
+        messageLower.includes(keyword)
+      );
+
+      if (isAskingForRecommendations && branchContext?.menus) {
+        this.logger.log('Detected: Recommendations request');
+
+        // Filtrar productos con shouldRecommend = true
+        const recommendedItems: any[] = [];
+
+        for (const menu of branchContext.menus) {
+          if (!menu.menuItems) continue;
+
+          for (const menuItem of menu.menuItems) {
+            if (menuItem.isActive && menuItem.shouldRecommend && menuItem.product) {
+              recommendedItems.push({
+                name: menuItem.product.name,
+                description: menuItem.product.description || 'Delicioso platillo de nuestra cocina',
+                price: parseFloat(menuItem.price.toString()).toFixed(2),
+              });
+            }
+          }
+        }
+
+        if (recommendedItems.length > 0) {
+          this.logger.log(`Found ${recommendedItems.length} recommended items`);
+
+          const response = await this.templatesService.render({
+            key: 'menu.recommendations',
+            language,
+            variables: {
+              items: recommendedItems,
+            },
+          });
+
+          return { shouldUseTemplate: true, response };
+        } else {
+          this.logger.log('No recommended items found, passing to AI');
+          // No hay productos recomendados, dejar que AI maneje la respuesta
+          return { shouldUseTemplate: false };
+        }
+      }
+
+      // 📊 PRIORITY 1.5: Consulta de total SIN pedir la cuenta
+      // Cliente pregunta "¿cómo va la cuenta?" / "¿cuánto llevo?" pero NO está pidiendo la cuenta todavía
+      const checkTotalKeywords = [
+        'cómo va', 'como va', 'cuánto llevo', 'cuanto llevo',
+        'cuánto es', 'cuanto es', 'cuánto tengo', 'cuanto tengo',
+        'how much', "how's", 'how is', 'total so far',
+        'combien', 'quel est le total',
+      ];
+
+      const billRequestKeywords = [
+        'la cuenta', 'mi cuenta', 'pide la cuenta', 'trae la cuenta', 'quiero la cuenta',
+        'the bill', 'get the bill', 'bring the bill', 'i want the bill', 'the check',
+        "l'addition", "apportez l'addition", "je veux l'addition",
+      ];
+
+      const isCheckingTotal = checkTotalKeywords.some(keyword => messageLower.includes(keyword));
+      const isRequestingBill = billRequestKeywords.some(keyword => messageLower.includes(keyword));
+
+      if (isCheckingTotal && !isRequestingBill && lastOrderSentToCashier && Object.keys(lastOrderSentToCashier).length > 0 && branchContext?.menus) {
+        this.logger.log('Detected: Check total (NOT bill request)');
+        this.logger.log(`[CHECK TOTAL] lastOrderSentToCashier has ${Object.keys(lastOrderSentToCashier).length} items`);
+
+        // Construir items del pedido para mostrar el total
+        const items: any[] = [];
+        let total = 0;
+
+        for (const [productKey, orderItem] of Object.entries(lastOrderSentToCashier)) {
+          this.logger.log(`[CHECK TOTAL] Processing item: ${productKey}, menuItemId: ${orderItem.menuItemId}`);
+
+          let itemDetails: any = null;
+          for (const menu of branchContext.menus) {
+            if (!menu.menuItems) continue;
+            const item = menu.menuItems.find(mi => mi.id === orderItem.menuItemId);
+            if (item) {
+              itemDetails = item;
+              this.logger.log(`[CHECK TOTAL] Found item in menu: ${item.product.name}`);
+              break;
+            }
+          }
+
+          if (itemDetails) {
+            const unitPrice = parseFloat(orderItem.price.toString());
+            const subtotal = unitPrice * orderItem.quantity;
+            total += subtotal;
+
+            this.logger.log(`[CHECK TOTAL] Adding: ${itemDetails.product.name}, qty: ${orderItem.quantity}, unitPrice: ${unitPrice}, subtotal: ${subtotal}`);
+
+            items.push({
+              name: itemDetails.product.name,
+              quantity: orderItem.quantity,
+              unitPrice: unitPrice.toFixed(2),
+              subtotal: subtotal.toFixed(2),
+            });
+          } else {
+            this.logger.warn(`[CHECK TOTAL] ⚠️ Item with menuItemId ${orderItem.menuItemId} NOT FOUND in menus!`);
+          }
+        }
+
+        this.logger.log(`[CHECK TOTAL] Final count: ${items.length} items, total: ${total}`);
+
+        const response = await this.templatesService.render({
+          key: 'order.check_total',
+          language,
+          variables: {
+            items,
+            total: total.toFixed(2),
+          },
+        });
+
+        this.logger.log(`[CHECK TOTAL] Rendered response length: ${response.length} chars`);
+
+        return { shouldUseTemplate: true, response };
+      }
+
+      // 📋 PRIORITY 2: Solicitar la cuenta/bill (ANTES de detectar productos para evitar confusión)
+      // Cliente EXPRESAMENTE pide la cuenta (no solo pregunta cuánto lleva)
       if (
+        isRequestingBill ||
         messageLower.includes('cuenta') ||
         messageLower.includes('bill') ||
         messageLower.includes('check') ||
-        messageLower.includes('la cuenta') ||
         messageLower.includes('mi cuenta') ||
         messageLower.includes('the bill') ||
         messageLower.includes('the check') ||
@@ -618,6 +977,46 @@ export class DetectTemplateResponseUseCase {
 
       if (hasProductRequest && branchContext?.menus) {
         this.logger.log(`[PRODUCT REQUEST] Detected product request in message`);
+
+        // 🎯 SCENARIO 4: Cuentas separadas - detectar nombres de personas con pedidos
+        // Ejemplo: "Juan quiere tacos, Pedro quiere pizza", "For Maria: beer, for Carlos: wine"
+        const namePatterns = [
+          // Español: "Juan quiere", "Pedro pide", "para María"
+          /([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+)\s+(?:quiere|pide|pidió|va a pedir|ordena)/i,
+          /para\s+([A-ZÁÉÍÓÚÑ][a-záéíóúñ]+)/i,
+          // Inglés: "John wants", "for Mary", "Mary will have"
+          /([A-Z][a-z]+)\s+(?:wants|will have|would like|orders)/i,
+          /for\s+([A-Z][a-z]+)/i,
+          // Francés: "Jean veut", "pour Marie"
+          /([A-Z][a-z]+)\s+(?:veut|voudrait|commande)/i,
+          /pour\s+([A-Z][a-z]+)/i,
+        ];
+
+        const hasPersonNames = namePatterns.some(pattern => pattern.test(message));
+
+        if (hasPersonNames) {
+          this.logger.log('[SCENARIO 4] Detected PERSON NAMES with orders → Passing to AI for split bill tracking');
+          // AI will handle: extract names, associate products with each person, prepare split bills
+          // TODO: Implement split bill template and person tracking in DB structure
+          return { shouldUseTemplate: false };
+        }
+
+        // 🎯 SCENARIO 2: Auto-confirmar cuando se pide cuenta + productos simultáneamente
+        // Ejemplo: "Quiero tacos y trae la cuenta", "Add beer and bring the bill"
+        const billRequestKeywords = [
+          'la cuenta', 'mi cuenta', 'pide la cuenta', 'trae la cuenta', 'quiero la cuenta',
+          'the bill', 'get the bill', 'bring the bill', 'i want the bill', 'the check',
+          'l\'addition', 'apportez l\'addition', 'je veux l\'addition',
+        ];
+
+        const isAlsoRequestingBill = billRequestKeywords.some(keyword => messageLower.includes(keyword));
+
+        if (isAlsoRequestingBill) {
+          this.logger.log('[SCENARIO 2] Detected PRODUCTS + BILL in same message → Passing to AI for auto-confirmation');
+          // AI will handle: add products, auto-confirm, notify cashier, show bill
+          // TODO: Optimize this to use templates after implementing auto-confirm flow in process-message
+          return { shouldUseTemplate: false };
+        }
 
         // Dividir el mensaje en segmentos de productos usando conectores
         // Ejemplos: "X y Y", "X, Y y Z", "X and Y"
@@ -996,6 +1395,46 @@ export class DetectTemplateResponseUseCase {
         }
       }
 
+      // 4.5. Selección de método de pago (después de solicitar cuenta)
+      const lastBotMsg = conversationHistory.length > 0
+        ? conversationHistory[conversationHistory.length - 1]
+        : null;
+
+      const lastBotMessageWasBillOrPayment = lastBotMsg &&
+        lastBotMsg.role === 'assistant' &&
+        (lastBotMsg.content.toLowerCase().includes('cuenta') ||
+          lastBotMsg.content.toLowerCase().includes('bill') ||
+          lastBotMsg.content.toLowerCase().includes('addition') ||
+          lastBotMsg.content.toLowerCase().includes('pago') ||
+          lastBotMsg.content.toLowerCase().includes('payment') ||
+          lastBotMsg.content.toLowerCase().includes('efectivo') ||
+          lastBotMsg.content.toLowerCase().includes('tarjeta') ||
+          lastBotMsg.content.toLowerCase().includes('cash') ||
+          lastBotMsg.content.toLowerCase().includes('card'));
+
+      const paymentMethodKeywords = [
+        'efectivo', 'cash', 'espèces',
+        'tarjeta', 'card', 'carte',
+        'transferencia', 'transfer', 'virement',
+        '현금', '카드',
+      ];
+
+      const isSelectingPaymentMethod = paymentMethodKeywords.some(keyword =>
+        messageLower.includes(keyword)
+      );
+
+      if (lastBotMessageWasBillOrPayment && isSelectingPaymentMethod && branchContext) {
+        this.logger.log('Detected: Payment method selection');
+        const response = await this.templatesService.render({
+          key: 'payment.confirmed',
+          language,
+          variables: {
+            restaurantName: branchContext.restaurant?.name || branchContext.name || 'el restaurante',
+          },
+        });
+        return { shouldUseTemplate: true, response };
+      }
+
       // 5. Solicitud de métodos de pago (sin pedido previo)
       if (
         (messageLower.includes('cómo puedo pagar') ||
@@ -1147,7 +1586,7 @@ export class DetectTemplateResponseUseCase {
             }
 
             const response = await this.templatesService.render({
-              key: 'order.confirmation',
+              key: 'order.confirmed_to_kitchen',
               language,
               variables: {
                 orderNumber: new Date().getTime().toString().slice(-6),
