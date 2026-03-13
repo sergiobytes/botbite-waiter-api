@@ -75,4 +75,20 @@ export class OrdersGateway implements OnGatewayConnection, OnGatewayDisconnect {
       );
     }
   }
+
+  emitNotificationUpdate(branchId: string, notification: any) {
+    const roomName = `branch-${branchId}`;
+    this.logger.log(`Emitting notification update to room: ${roomName}`);
+
+    if (this.server) {
+      this.server.to(roomName).emit('notificationUpdate', {
+        branchId,
+        notification
+      });
+    } else {
+      this.logger.warn(
+        `WebSocket server not ready, skipping notification emit to ${roomName}`,
+      );
+    }
+  }
 }

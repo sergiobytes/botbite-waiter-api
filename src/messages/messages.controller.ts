@@ -5,6 +5,9 @@ import {
   HttpCode,
   HttpStatus,
   Logger,
+  Param,
+  ParseUUIDPipe,
+  Patch,
   Post,
   Query,
 } from '@nestjs/common';
@@ -14,7 +17,8 @@ import { FindConversationsByBranchDto } from './dto/find-conversations-by-branch
 import { ConversationsListResponse } from './interfaces/messages.interfaces';
 import { Auth } from '../auth/decorators/auth.decorator';
 import { UserRoles } from '../users/enums/user-roles';
-import { QueueService } from '../queue/queue.service';
+// import { QueueService } from '../queue/queue.service'; // ⚠️ Queue deshabilitado
+import { MessagesService } from './services/messages.service';
 
 @Controller('messages')
 export class MessagesController {
@@ -22,23 +26,35 @@ export class MessagesController {
 
   constructor(
     private readonly conversationService: ConversationService,
-    private readonly queuesService: QueueService,
-  ) {}
+    // private readonly queuesService: QueueService, // ⚠️ Queue deshabilitado
+    private readonly messagesService: MessagesService,
+  ) { }
 
   @Post('webhook')
   @HttpCode(HttpStatus.OK)
-  handleTwilioWebhook(@Body() body: WebhookDataTwilio) {
+  async handleTwilioWebhook(@Body() body: WebhookDataTwilio) {
     this.logger.log(`📥 Webhook received from: ${body.From}`);
     this.logger.log(`📝 Message: ${body.Body}`);
 
-    // Fire-and-forget: encolar sin bloquear respuesta a Twilio
-    this.queuesService
-      .addInboundMessage(body)
-      .then(() => this.logger.log('✅ Message successfully queued'))
-      .catch((error) => this.logger.error('❌ Error queuing message:', error));
+    // ⚠️ Procesamiento SÍNCRONO - ya no usa colas ⚠️
+    try {
+      await this.messagesService.processIncomingMessage(body);
+      this.logger.log('✅ Message processed successfully');
+      return { status: 'processed', message: 'Mensaje procesado exitosamente' };
+    } catch (error) {
+      this.logger.error('❌ Error processing message:', error);
+      throw error;
+    }
 
-    // Responder inmediatamente a Twilio
-    return { status: 'queued', message: 'Mensaje en proceso' };
+    // ⚠️ Código antiguo con colas comentado ⚠️
+    // Fire-and-forget: encolar sin bloquear respuesta a Twilio
+    // this.queuesService
+    //   .addInboundMessage(body)
+    //   .then(() => this.logger.log('✅ Message successfully queued'))
+    //   .catch((error) => this.logger.error('❌ Error queuing message:', error));
+
+    // // Responder inmediatamente a Twilio
+    // return { status: 'queued', message: 'Mensaje en proceso' };
   }
 
   @Get('conversations')
@@ -47,5 +63,25 @@ export class MessagesController {
     @Query() query: FindConversationsByBranchDto,
   ): Promise<ConversationsListResponse> {
     return this.conversationService.findByBranch(query.branchId);
+  }
+
+  @Get('notifications')
+  @Auth([UserRoles.SUPER, UserRoles.ADMIN, UserRoles.CLIENT])
+  async getNotificationsByBranch(
+    @Query() query: FindConversationsByBranchDto,
+  ) {
+    return await this.conversationService.getNotificationsByBranch(query.branchId);
+  }
+
+  @Patch(':notificationId/read')
+  @Auth([UserRoles.SUPER, UserRoles.ADMIN, UserRoles.CLIENT])
+  async markNotificationAsRead(@Param('notificationId', ParseUUIDPipe) notificationId: string) {
+    await this.conversationService.markNotificationAsRead(notificationId);
+  }
+
+  @Patch(':notificationId/unread')
+  @Auth([UserRoles.SUPER, UserRoles.ADMIN, UserRoles.CLIENT])
+  async markNotificationAsUnread(@Param('notificationId', ParseUUIDPipe) notificationId: string) {
+    await this.conversationService.markNotificationAsUnread(notificationId);
   }
 }

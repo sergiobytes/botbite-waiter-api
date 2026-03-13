@@ -1,66 +1,36 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
-import { TranslationService } from '../common/services/translation.service';
 import { CreateCustomerDto } from './dto/create-customer.dto';
 import { UpdateCustomerDto } from './dto/update-customer.dto';
-import { Customer } from './entities/customer.entity';
 import { CustomerResponse } from './interfaces/customers.interfaces';
-import { createCustomerUseCase } from './use-cases/create-customer.use-case';
-import { findOneCustomerUseCase } from './use-cases/find-one-customer.use-case';
-import { removeCustomerUseCase } from './use-cases/remove-customer.use-case';
-import { updateCustomerUseCase } from './use-cases/update-customer.use-case';
+import { CreateCustomerUseCase } from './use-cases/create-customer.usecase';
+import { FindOneCustomerUseCase } from './use-cases/find-one-customer.usecase';
+import { RemoveCustomerUseCase } from './use-cases/remove-customer.usecase';
+import { UpdateCustomerUseCase } from './use-cases/update-customer.usecase';
 
 @Injectable()
 export class CustomersService {
   private readonly logger = new Logger(CustomersService.name);
 
   constructor(
-    @InjectRepository(Customer)
-    private readonly customerRepo: Repository<Customer>,
-    private readonly translationService: TranslationService,
-  ) {}
+    private readonly createCustomerUseCase: CreateCustomerUseCase,
+    private readonly findOneCustomerUseCase: FindOneCustomerUseCase,
+    private readonly updateCustomerUseCase: UpdateCustomerUseCase,
+    private readonly removeCustomerUseCase: RemoveCustomerUseCase,
+  ) { }
 
-  async create(
-    dto: CreateCustomerDto,
-    lang: string,
-  ): Promise<CustomerResponse> {
-    return createCustomerUseCase({
-      dto,
-      logger: this.logger,
-      lang,
-      repository: this.customerRepo,
-      translationService: this.translationService,
-    });
+  async create(dto: CreateCustomerDto, lang: string,): Promise<CustomerResponse> {
+    return await this.createCustomerUseCase.execute(dto, lang);
   }
 
-  async findByTerm(term: string, lang: string) {
-    return findOneCustomerUseCase({
-      term,
-      lang,
-      repository: this.customerRepo,
-      translationService: this.translationService,
-    });
+  async findByTerm(term: string, lang: string): Promise<CustomerResponse> {
+    return await this.findOneCustomerUseCase.execute(term, lang);
   }
 
-  async update(phone: string, dto: UpdateCustomerDto, lang: string) {
-    return updateCustomerUseCase({
-      phone,
-      dto,
-      logger: this.logger,
-      lang,
-      repository: this.customerRepo,
-      translationService: this.translationService,
-    });
+  async update(phone: string, dto: UpdateCustomerDto, lang: string): Promise<CustomerResponse> {
+    return await this.updateCustomerUseCase.execute(phone, dto, lang);
   }
 
   async remove(phone: string, lang: string) {
-    return removeCustomerUseCase({
-      phone,
-      logger: this.logger,
-      lang,
-      repository: this.customerRepo,
-      translationService: this.translationService,
-    });
+    return await this.removeCustomerUseCase.execute(phone, lang);
   }
 }

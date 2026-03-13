@@ -1,11 +1,17 @@
 import { Module } from '@nestjs/common';
 import { TranslationService } from './services/translation.service';
-import { CacheService } from './services/cache.service';
+// import { CacheService } from './services/cache.service'; // ⚠️ Cache deshabilitado
 import { ConfigModule } from '@nestjs/config';
 
 @Module({
   imports: [ConfigModule],
-  providers: [TranslationService, CacheService],
-  exports: [TranslationService, CacheService],
+  providers: [
+    TranslationService,
+    // CacheService, // ⚠️ Cache deshabilitado
+  ],
+  exports: [
+    TranslationService,
+    // CacheService, // ⚠️ Cache deshabilitado
+  ],
 })
-export class CommonModule {}
+export class CommonModule { }

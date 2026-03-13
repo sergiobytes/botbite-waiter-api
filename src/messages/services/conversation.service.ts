@@ -2,23 +2,18 @@ import { Injectable, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Branch } from '../../branches/entities/branch.entity';
-import { CacheService } from '../../common/services/cache.service';
 import { Customer } from '../../customers/entities/customer.entity';
-import { OpenAIService } from '../../openai/openai.service';
-import { ConversationMessage } from '../entities/conversation-message.entity';
 import { Conversation } from '../entities/conversation.entity';
 import { OrdersGateway } from '../gateways/orders.gateway';
-import {
-  ConversationHistoryResponse,
-  ConversationsListResponse,
-} from '../interfaces/messages.interfaces';
-import { deleteConversationUseCase } from '../use-cases/conversations/delete-conversation.use-case';
-import { findConversationsByBranchUseCase } from '../use-cases/conversations/find-conversations-by-branch.use-case';
-import { getOrCreateConversationUseCase } from '../use-cases/conversations/get-create-conversation.use-case';
-import { updateConversationLocationUseCase } from '../use-cases/conversations/update-conversation-location.use-case';
-import { updateLastOrderSentToCashierUseCase } from '../use-cases/conversations/update-last-order-sent-cashier.use-case';
-import { getConversationHistoryUseCase } from '../use-cases/messages/get-conversation-history.use-case';
-import { processMessageUseCase } from '../use-cases/messages/process-message.use-case';
+import { ConversationHistoryResponse, ConversationsListResponse, } from '../interfaces/messages.interfaces';
+import { DeleteConversationUseCase } from '../use-cases/conversations/delete-conversation.usecase';
+import { FindConversationsByBranchUseCase } from '../use-cases/conversations/find-conversations-by-branch.usecase';
+import { GetOrCreateConversationUseCase } from '../use-cases/conversations/get-create-conversation.usecase';
+import { UpdateConversationLocationUseCase } from '../use-cases/conversations/update-conversation-location.usecase';
+import { UpdateLastOrderSentToCashierUseCase } from '../use-cases/conversations/update-last-order-sent-cashier.usecase';
+import { GetConversationHistoryUseCase } from '../use-cases/messages/get-conversation-history.usecase';
+import { ProcessMessageUseCase } from '../use-cases/messages/process-message.usecase';
+import { CashierNotification } from '../entities/cashier-notifications.entity';
 
 @Injectable()
 export class ConversationService {
@@ -27,73 +22,36 @@ export class ConversationService {
   constructor(
     @InjectRepository(Conversation)
     private readonly conversationRepository: Repository<Conversation>,
-    @InjectRepository(ConversationMessage)
-    private readonly messageRepository: Repository<ConversationMessage>,
-    private readonly openaiService: OpenAIService,
+    @InjectRepository(CashierNotification)
+    private readonly cashierNotificationRepository: Repository<CashierNotification>,
     private readonly ordersGateway: OrdersGateway,
-    private readonly cacheService: CacheService,
-  ) {}
+    private readonly getOrCreateConversationUseCase: GetOrCreateConversationUseCase,
+    private readonly getConversationHistoryUseCase: GetConversationHistoryUseCase,
+    private readonly processMessageUseCase: ProcessMessageUseCase,
+    private readonly updateLastOrderSentToCashierUseCase: UpdateLastOrderSentToCashierUseCase,
+    private readonly updateConversationLocationUseCase: UpdateConversationLocationUseCase,
+    private readonly findConversationsByBranchUseCase: FindConversationsByBranchUseCase,
+    private readonly deleteConversationUseCase: DeleteConversationUseCase
+  ) { }
 
-  async getOrCreateConversation(
-    phoneNumber: string,
-    branchId?: string,
-  ): Promise<Conversation> {
-    return getOrCreateConversationUseCase({
-      phoneNumber,
-      branchId,
-      repository: this.conversationRepository,
-      service: this.openaiService,
-      logger: this.logger,
-    });
+  async getOrCreateConversation(phoneNumber: string, branchId?: string,): Promise<Conversation> {
+    return await this.getOrCreateConversationUseCase.execute(phoneNumber, branchId);
   }
 
-  async getConversationHistory(
-    conversationId: string,
-  ): Promise<ConversationHistoryResponse> {
-    return getConversationHistoryUseCase({
-      conversationId,
-      repository: this.messageRepository,
-    });
+  async getConversationHistory(conversationId: string,): Promise<ConversationHistoryResponse> {
+    return await this.getConversationHistoryUseCase.execute(conversationId);
   }
 
-  async processMessage(
-    phoneNumber: string,
-    userMessage: string,
-    branchId?: string,
-    customerContext?: Customer,
-    branchContext?: Branch,
-  ): Promise<string> {
-    return processMessageUseCase({
-      phoneNumber,
-      userMessage,
-      branchId,
-      customerContext,
-      branchContext,
-      logger: this.logger,
-      conversationRepository: this.conversationRepository,
-      conversationMessageRepository: this.messageRepository,
-      service: this.openaiService,
-      cacheService: this.cacheService,
-    });
+  async processMessage(phoneNumber: string, userMessage: string, branchId?: string, customerContext?: Customer, branchContext?: Branch,): Promise<string> {
+    return await this.processMessageUseCase.execute(phoneNumber, userMessage, branchId, customerContext, branchContext);
   }
 
-  async updateLastOrderSentToCashier(
-    conversationId: string,
-    orderData: Record<
-      string,
-      { price: number; quantity: number; menuItemId: string; notes?: string }
-    >,
-  ): Promise<void> {
-    await updateLastOrderSentToCashierUseCase({
-      conversationId,
-      orderData,
-      repository: this.conversationRepository,
-      logger: this.logger,
-    });
+  async updateLastOrderSentToCashier(conversationId: string, orderData: Record<string, { price: number; quantity: number; menuItemId: string; notes?: string }>,): Promise<void> {
+    await this.updateLastOrderSentToCashierUseCase.execute(conversationId, orderData);
 
     const conversation = await this.conversationRepository.findOne({
       where: { conversationId },
-      select: ['branchId'],
+      select: { branchId: true },
     });
 
     if (conversation?.branchId) {
@@ -101,22 +59,11 @@ export class ConversationService {
     }
   }
 
-  async updateConversationLocation(
-    conversationId: string,
-    location: string,
-  ): Promise<void> {
-    return updateConversationLocationUseCase({
-      conversationId,
-      location,
-      repository: this.conversationRepository,
-      logger: this.logger,
-    });
+  async updateConversationLocation(conversationId: string, location: string,): Promise<void> {
+    return await this.updateConversationLocationUseCase.execute(conversationId, location);
   }
 
-  async updatePreferredLanguage(
-    conversationId: string,
-    language: string,
-  ): Promise<void> {
+  async updatePreferredLanguage(conversationId: string, language: string,): Promise<void> {
     this.logger.log(
       `Updating preferred language for conversation ${conversationId} to: ${language}`,
     );
@@ -127,10 +74,7 @@ export class ConversationService {
   }
 
   async findByBranch(branchId: string): Promise<ConversationsListResponse> {
-    return findConversationsByBranchUseCase({
-      branchId,
-      repository: this.conversationRepository,
-    });
+    return await this.findConversationsByBranchUseCase.execute(branchId);
   }
 
   async deleteConversation(conversationId: string): Promise<void> {
@@ -139,15 +83,64 @@ export class ConversationService {
       select: ['branchId'],
     });
 
-    await deleteConversationUseCase({
-      conversationId,
-      conversationRepository: this.conversationRepository,
-      conversationMessageRepository: this.messageRepository,
-      logger: this.logger,
-    });
+    await this.deleteConversationUseCase.execute(conversationId);
 
     if (conversation?.branchId) {
       this.ordersGateway.emitOrderUpdate(conversation.branchId);
     }
+  }
+
+  async markNotificationAsRead(notificationId: string): Promise<void> {
+    const notification = await this.cashierNotificationRepository.findOne({
+      where: { id: notificationId },
+      relations: ['customer'],
+    });
+
+    if (notification && notification.isActive) {
+      notification.isActive = false;
+      const updated = await this.cashierNotificationRepository.save(notification);
+
+      // Emitir evento websocket
+      if (notification.branchId) {
+        this.ordersGateway.emitNotificationUpdate(notification.branchId, updated);
+      }
+    }
+  }
+
+  async markNotificationAsUnread(notificationId: string): Promise<void> {
+    const notification = await this.cashierNotificationRepository.findOne({
+      where: { id: notificationId },
+      relations: ['customer'],
+    });
+
+    if (notification && !notification.isActive) {
+      notification.isActive = true;
+      const updated = await this.cashierNotificationRepository.save(notification);
+
+      // Emitir evento websocket
+      if (notification.branchId) {
+        this.ordersGateway.emitNotificationUpdate(notification.branchId, updated);
+      }
+    }
+  }
+
+  async getNotificationsByBranch(branchId: string): Promise<{
+    active: CashierNotification[];
+    inactive: CashierNotification[];
+  }> {
+    const [active, inactive] = await Promise.all([
+      this.cashierNotificationRepository.find({
+        where: { branchId, isActive: true },
+        order: { createdAt: 'DESC' },
+        take: 10,
+      }),
+      this.cashierNotificationRepository.find({
+        where: { branchId, isActive: false },
+        order: { createdAt: 'DESC' },
+        take: 10,
+      }),
+    ]);
+
+    return { active, inactive };
   }
 }

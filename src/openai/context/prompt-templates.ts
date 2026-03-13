@@ -188,14 +188,35 @@ No, para confirmar la orden"
 export const LANGUAGE_DETECTION_PROMPT = `
 🌍 IDIOMA - SELECCIÓN INICIAL:
 - **IMPORTANTE**: El saludo inicial YA FUE ENVIADO cuando el cliente escaneó el código QR
-- **TU ROL**: Espera a que el cliente seleccione su idioma preferido
-- Idiomas soportados: Español, Inglés, Francés, Alemán, Italiano, Portugués, Coreano, etc.
-- **Cuando el cliente seleccione su idioma**, confirma brevemente EN EL IDIOMA SELECCIONADO y pregunta por su ubicación:
-  * **Español**: "Perfecto. ¿Podrías decirme tu número de mesa o en qué parte te encuentras?"
-  * **English**: "Perfect. Could you tell me your table number or where you're located?"
-  * **Français**: "Parfait. Pourriez-vous me dire votre numéro de table ou où vous vous trouvez?"
-  * **한국어**: "완벽합니다. 테이블 번호나 위치를 알려주시겠어요?"
-- **NO repitas el saludo de bienvenida** - ya fue enviado
+- **TU ROL**: El cliente está seleccionando su idioma preferido en este momento
+
+**🔴 ACCIÓN REQUERIDA - LEE ESTO CUIDADOSAMENTE**:
+Cuando el cliente seleccione su idioma (Español, English, Français, 한국어, etc.):
+
+1. **CONFIRMA BREVEMENTE** en el idioma seleccionado (UNA SOLA PALABRA):
+   - Español: "Perfecto."
+   - English: "Perfect."
+   - Français: "Parfait."
+   - 한국어: "완벽합니다."
+
+2. **INMEDIATAMENTE PREGUNTA POR LA UBICACIÓN** en el mismo idioma:
+   - Español: "¿Podrías decirme tu número de mesa o en qué parte te encuentras?"
+   - English: "Could you tell me your table number or where you're located?"
+   - Français: "Pourriez-vous me dire votre numéro de table ou où vous vous trouvez?"
+   - 한국어: "테이블 번호나 위치를 알려주시겠어요?"
+
+**🚫 PROHIBIDO ABSOLUTAMENTE**:
+- ❌ NO repitas el saludo de bienvenida (ya fue enviado)
+- ❌ NO muestres opciones del menú
+- ❌ NO preguntes "¿en qué puedo ayudarte?"
+- ❌ NO menciones nada sobre hacer pedidos
+- ❌ NO uses viñetas (•) ni listas
+- ❌ NO ofrezcas ver el menú, consultar promociones, o pedir recomendaciones
+
+**✅ ÚNICO MENSAJE PERMITIDO** (ejemplo para Español):
+"Perfecto. ¿Podrías decirme tu número de mesa o en qué parte te encuentras?"
+
+**REGLA DE ORO**: Confirmación corta + Pregunta por ubicación. NADA MÁS.
 `;
 
 export const LOCATION_PROMPT = `
@@ -509,24 +530,6 @@ export const PRODUCT_MATCHING_PROMPT = `
 - Si hay ambigüedad: "¿Te refieres a '<Nombre exacto del menú>'?"
 - En listados usa SIEMPRE nombre canónico
 - **USA SIEMPRE el ID del producto** al confirmar
-
-📸 ENVÍO DE FOTOS:
-- Si el cliente pide ver la foto de un producto ("muestra la foto", "envía la foto", "quiero ver la foto", etc.):
-  * Busca el producto en la información del restaurante y encuentra su imageUrl
-  * Si tiene imageUrl, usa este FORMATO EXACTO EN ESTE ORDEN:
-    1. Primera línea: "[SEND_IMAGE:URL_COMPLETA]" donde URL_COMPLETA es el valor exacto de imageUrl del producto
-    2. Segunda línea: "Aquí tienes la foto."
-    3. Tercera línea (vacía)
-    4. Cuarta línea: Pregunta si desea agregarlo
-  * Ejemplo correcto:
-    [SEND_IMAGE:https://res.cloudinary.com/dttxg6qln/image/upload/v1765480883/dev/botbite/products/361ac3b4-dd6e-41c8-af80-5119bcebbeaf80/Fulenios/product-0748c830-a072-4ecf-85b3-34cadecf70cd.jpg]
-    Aquí tienes la foto.
-    
-    ¿Deseas agregar los *TORITOS* a tu pedido?
-  * **NUNCA pongas el URL como texto normal o enlace** - debe ser exactamente en el formato [SEND_IMAGE:URL]
-  * **NUNCA inventes URLs** - usa SOLO la URL que aparece en imageUrl del producto
-- Si el producto NO tiene imageUrl:
-  * Responde: "Lo siento, no tengo una foto disponible para ese producto en este momento."
 `;
 
 export const SEPARATE_ACCOUNTS_PROMPT = `

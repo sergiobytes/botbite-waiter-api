@@ -110,6 +110,8 @@ export const extractOrderFromResponseUtil = (
       continue;
     }
 
+    // Use product name + notes as key to support same product with different notes
+    // Example: "AGASAJO||sin cebolla" vs "AGASAJO||con extra cebolla" are different items
     const orderKey = notes ? `${fullName}||${notes}` : fullName;
 
     // CRITICAL FIX: Don't sum quantities - the "complete order" section already has correct totals
