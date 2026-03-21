@@ -2,6 +2,7 @@ import { Injectable, Logger } from '@nestjs/common';
 import { TemplatesService } from '../../../templates/templates.service';
 import { Customer } from '../../../customers/entities/customer.entity';
 import { Branch } from '../../../branches/entities/branch.entity';
+import { extractLocationFromMessageUtil } from '../../utils/extract-location-from-message.util';
 
 export interface TemplateDetectionResult {
   shouldUseTemplate: boolean;
@@ -35,6 +36,7 @@ export class DetectTemplateResponseUseCase {
     branchContext?: Branch,
     lastOrderSentToCashier?: Record<string, any> | null,
     preferredLanguage?: string | null,
+    location?: string | null,
   ): Promise<TemplateDetectionResult> {
     const messageLower = message.toLowerCase().trim();
     const language = preferredLanguage || 'es';
@@ -449,7 +451,55 @@ export class DetectTemplateResponseUseCase {
         }
       }
 
-      // 🛒 PRIORITY 2A: Detectar confirmación de agregar producto después de pregunta del bot
+      // � PRIORITY 1B: Detectar consulta de categoría (listar todos los productos de una categoría)
+      // Ejemplo: "¿qué cervezas tienen?", "cuáles son los postres?", "show me all beers"
+      const categoryQueryPatterns = [
+        /qu[eé]\s+(?:tipos?\s+de\s+)?([a-záéíóúñ\s]+?)\s+(?:tienen|hay|ofrecen)/i,
+        /cu[aá]les?\s+son\s+(?:los?\s+|las?\s+)?([a-záéíóúñ\s]+?)(?:\s+que|$)/i,
+        /(?:show|list|ver)\s+(?:all\s+|the\s+)?([a-záéíóúñ\s]+)/i,
+        /(?:qué|que)\s+([a-záéíóúñ\s]+?)\s+tienen/i,
+        /([a-záéíóúñ\s]+?)\s+(?:disponibles?|available)/i,
+      ];
+
+      if (branchContext?.menus) {
+        for (const pattern of categoryQueryPatterns) {
+          const match = message.match(pattern);
+          if (!match) continue;
+
+          const potentialCategory = match[1].trim().toLowerCase()
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+
+          // Buscar categoría que coincida
+          const allItems: any[] = [];
+          for (const menu of branchContext.menus) {
+            if (!menu.menuItems) continue;
+            for (const menuItem of menu.menuItems) {
+              if (!menuItem.isActive || !menuItem.product || !menuItem.category) continue;
+              const catName = menuItem.category.name.toLowerCase()
+                .normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+              if (catName.includes(potentialCategory) || potentialCategory.includes(catName)) {
+                allItems.push({
+                  name: menuItem.product.name,
+                  price: parseFloat(menuItem.price.toString()).toFixed(2),
+                  description: menuItem.product.description || '',
+                });
+              }
+            }
+          }
+
+          if (allItems.length > 0) {
+            this.logger.log(`[CATEGORY QUERY] Found ${allItems.length} items for category "${potentialCategory}"`);
+            const response = await this.templatesService.render({
+              key: 'product.multiple',
+              language,
+              variables: { products: allItems },
+            });
+            return { shouldUseTemplate: true, response };
+          }
+        }
+      }
+
+      // �🛒 PRIORITY 2A: Detectar confirmación de agregar producto después de pregunta del bot
       const lastBotMessageForProduct =
         conversationHistory.length > 0
           ? conversationHistory[conversationHistory.length - 1]
@@ -957,6 +1007,7 @@ export class DetectTemplateResponseUseCase {
             variables: {
               items,
               total: total.toFixed(2),
+              tableLocation: location || 'tu mesa',
             },
           });
 
@@ -977,6 +1028,18 @@ export class DetectTemplateResponseUseCase {
 
       if (hasProductRequest && branchContext?.menus) {
         this.logger.log(`[PRODUCT REQUEST] Detected product request in message`);
+
+        // Bug #5: Si el cliente no ha dado su ubicación todavía, pedirla antes de ordenar
+        const currentMessageLocation = extractLocationFromMessageUtil(message);
+        if (!location && !currentMessageLocation) {
+          this.logger.log('[PRODUCT REQUEST] ⚠️ No location set yet → requesting location before order');
+          const locationResponse = await this.templatesService.render({
+            key: 'language.confirm',
+            language,
+            variables: {},
+          });
+          return { shouldUseTemplate: true, response: locationResponse };
+        }
 
         // 🎯 SCENARIO 4: Cuentas separadas - detectar nombres de personas con pedidos
         // Ejemplo: "Juan quiere tacos, Pedro quiere pizza", "For Maria: beer, for Carlos: wine"
@@ -1124,8 +1187,12 @@ export class DetectTemplateResponseUseCase {
 
           if (!foundProduct || !foundMenuItem) {
             this.logger.log(`[PRODUCT REQUEST] ❌ Product "${productNameRequested}" not found in menu`);
-            this.logger.log(`[PRODUCT REQUEST] → Passing entire request to AI`);
-            return { shouldUseTemplate: false }; // Si no encuentra alguno, dejar que AI maneje todo
+            const notAvailableResponse = await this.templatesService.render({
+              key: 'product.not_available',
+              language,
+              variables: { productName: productNameRequested },
+            });
+            return { shouldUseTemplate: true, response: notAvailableResponse };
           }
 
           productsToAdd.push({
@@ -1139,7 +1206,7 @@ export class DetectTemplateResponseUseCase {
         // Si llegamos aquí, encontramos TODOS los productos
         if (productsToAdd.length === 0) {
           this.logger.log(`[PRODUCT REQUEST] No valid products found`);
-          return { shouldUseTemplate: false };
+          return { shouldUseTemplate: false }; // No hay nada reconocible como pedido, dejar a AI
         }
 
         this.logger.log(`\n[PRODUCT REQUEST] ✅ Found all ${productsToAdd.length} product(s), building response...`);
@@ -1382,17 +1449,30 @@ export class DetectTemplateResponseUseCase {
         !messageLower.includes('pagar') &&
         !messageLower.includes('pay')
       ) {
-        this.logger.log('Detected: Menu categories request');
-        const categories = this.extractMenuCategories(branchContext);
+        this.logger.log('Detected: Menu request');
 
-        if (categories.length > 0) {
-          const response = await this.templatesService.render({
-            key: 'menu.categories',
-            language,
-            variables: { categories },
-          });
-          return { shouldUseTemplate: true, response };
+        // Bug #1: Si hay un pdfLink en algún menú, enviarlo como documento/foto
+        if (branchContext?.menus) {
+          const menuWithPdf = branchContext.menus.find(menu => menu.pdfLink);
+          if (menuWithPdf) {
+            this.logger.log(`Detected: Menu with PDF link → sending PDF`);
+            const response = await this.templatesService.render({
+              key: 'menu.pdf_link',
+              language,
+              variables: { pdfLink: menuWithPdf.pdfLink! },
+            });
+            return { shouldUseTemplate: true, response };
+          }
         }
+
+        // Sin pdfLink → preguntar si ya sabe qué ordenar
+        this.logger.log('Detected: Menu without PDF → asking if customer knows what to order');
+        const response = await this.templatesService.render({
+          key: 'location.confirm',
+          language,
+          variables: {},
+        });
+        return { shouldUseTemplate: true, response };
       }
 
       // 4.5. Selección de método de pago (después de solicitar cuenta)

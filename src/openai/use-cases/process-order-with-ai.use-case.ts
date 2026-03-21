@@ -14,13 +14,13 @@ export interface OrderItem {
 
 export interface ProcessOrder {
   action:
-    | 'add'
-    | 'remove'
-    | 'modify'
-    | 'confirm'
-    | 'request_bill'
-    | 'separate_bills'
-    | 'show_cart';
+  | 'add'
+  | 'remove'
+  | 'modify'
+  | 'confirm'
+  | 'request_bill'
+  | 'separate_bills'
+  | 'show_cart';
   items?: OrderItem[];
   modifications?: {
     removed?: OrderItem[];
@@ -162,7 +162,7 @@ export class ProcessOrderWithAIUseCase {
 
     if (action === 'add' && aiResponse.items) {
       for (const item of aiResponse.items) {
-        const subtotal = item.quatity * item.unitPrice;
+        const subtotal = item.quantity * item.unitPrice;
         currentTotal += subtotal;
 
         items.push({

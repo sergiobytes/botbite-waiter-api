@@ -90,6 +90,26 @@ export class ProcessMessageUseCase {
         return 'QR_VALIDATION_SUCCESS';
       }
 
+      // Bug #4: Si ya está validado pero el usuario vuelve a escanear el QR (re-scan),
+      // limpiar el estado de la conversación y tratarlo como nueva sesión
+      if (conversation.isQrValidated) {
+        const { isValidQrScan, token } = validateQrScanUtil(userMessage);
+        if (isValidQrScan && token === branchContext?.qrToken) {
+          this.logger.log(`QR re-scan detected for ${phoneNumber}. Resetting conversation state.`);
+          // Limpiar estado de la sesión anterior (nuevo comensal en la misma mesa)
+          await this.conversationRepository.update(
+            { id: conversation.id },
+            {
+              location: null,
+              lastOrderSentToCashier: null,
+              preferredLanguage: null,
+              lastOrderSentAt: null,
+            } as any,
+          );
+          return 'QR_VALIDATION_SUCCESS';
+        }
+      }
+
       // ✅ Continuar con el flujo normal solo si ya está validado
       const saveStart = Date.now();
       await this.saveMessageUseCase.execute(conversation.conversationId, 'user', userMessage);
@@ -123,6 +143,7 @@ export class ProcessMessageUseCase {
           branchContext,
           conversation.lastOrderSentToCashier,
           conversation.preferredLanguage,
+          conversation.location,
         );
 
         this.logger.log(
@@ -132,6 +153,37 @@ export class ProcessMessageUseCase {
         if (templateResult.shouldUseTemplate && templateResult.response) {
           this.logger.log(`✅ Using TEMPLATE response - No OpenAI call needed!`);
           aiResponse = templateResult.response;
+
+          // ✅ Persistir productos agregados en lastOrderSentToCashier
+          const addedItems = templateResult.addedProducts ||
+            (templateResult.addedProduct ? [templateResult.addedProduct] : []);
+
+          if (addedItems.length > 0) {
+            const updatedOrder: Record<string, { price: number; quantity: number; menuItemId: string; notes?: string }> = {
+              ...(conversation.lastOrderSentToCashier || {}),
+            };
+
+            for (const item of addedItems) {
+              const key = `${item.menuItemId}${item.notes ? '_' + item.notes.replace(/\s+/g, '') : ''}`;
+              if (updatedOrder[key]) {
+                updatedOrder[key] = {
+                  ...updatedOrder[key],
+                  quantity: updatedOrder[key].quantity + item.quantity,
+                };
+              } else {
+                updatedOrder[key] = {
+                  menuItemId: item.menuItemId,
+                  price: item.price,
+                  quantity: item.quantity,
+                  ...(item.notes ? { notes: item.notes } : {}),
+                };
+              }
+            }
+
+            conversation.lastOrderSentToCashier = updatedOrder;
+            await this.conversationRepository.save(conversation);
+            this.logger.log(`✅ lastOrderSentToCashier updated with ${addedItems.length} new item(s)`);
+          }
 
           // Guardar respuesta de plantilla
           await this.saveMessageUseCase.execute(conversation.conversationId, 'assistant', aiResponse,);
