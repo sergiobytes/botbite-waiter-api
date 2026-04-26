@@ -59,6 +59,15 @@ export class Conversation extends BaseEntity {
   @Column({ type: 'varchar', length: 10, nullable: true })
   preferredLanguage?: string;
 
+  @Column({ type: 'json', nullable: true })
+  pendingOrder?: Record<
+    string,
+    { price: number; quantity: number; menuItemId: string; notes?: string }
+  >;
+
+  @Column({ type: 'boolean', default: false })
+  awaitingPaymentMethod: boolean;
+
   @OneToMany(() => ConversationMessage, (message) => message.conversation, {
     cascade: false, // Prevent cascade updates that could set conversationId to undefined
   })

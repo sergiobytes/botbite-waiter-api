@@ -1,0 +1,406 @@
+import { Injectable, Logger } from '@nestjs/common';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { Branch } from '../../../branches/entities/branch.entity';
+import { Customer } from '../../../customers/entities/customer.entity';
+import { MenuItem } from '../../../menus/entities/menu-item.entity';
+import { CashierNotification } from '../../entities/cashier-notifications.entity';
+import { Conversation } from '../../entities/conversation.entity';
+import { OrdersGateway } from '../../gateways/orders.gateway';
+import { detectAmenityIntentUtil } from '../../utils/detect-amenity-intent.util';
+import { detectConsumoIntentUtil } from '../../utils/detect-consumo-intent.util';
+import { detectCuentaIntentUtil } from '../../utils/detect-cuenta-intent.util';
+import { detectMenuIntentUtil } from '../../utils/detect-menu-intent.util';
+import { detectOrderResponseUtil } from '../../utils/detect-order-response.util';
+import { detectPaymentMethodInputUtil } from '../../utils/detect-payment-method-input.util';
+import { detectProductInfoIntentUtil } from '../../utils/detect-product-info-intent.util';
+import { detectRecommendationIntentUtil } from '../../utils/detect-recommendation-intent.util';
+import { extractAddItemIntentUtil } from '../../utils/extract-add-item-intent.util';
+import { findMenuItemFuzzyUtil } from '../../utils/find-menu-item-fuzzy.util';
+import {
+    buildOrderDisplay,
+    getAmenityResponseMessage,
+    getBillClosedMessage,
+    getCannotCancelConfirmedMessage,
+    getCartMessage,
+    getConfirmationRePromptMessage,
+    getConsumoMessage,
+    getDefaultFlowMessage,
+    getMenuWelcomeMessage,
+    getNoOrderForBillMessage,
+    getNoRecommendationsMessage,
+    getOrderCancelledMessage,
+    getOrderConfirmedMessage,
+    getPaymentMethodRequestMessage,
+    getPaymentMethodRetryMessage,
+    getProductInfoMessage,
+    getProductNotFoundMessage,
+    getProductUnavailableMessage,
+    getRecommendationsMessage,
+} from '../../utils/get-onboarding-messages.util';
+import { calculateOrderChangesUtil } from '../../utils/calculate-order-changes.util';
+import { CreateOrderAfterBillRequestUseCase } from './create-order-after-bill-request.usecase';
+import { SendMessageUseCase } from './send-message.usecase';
+
+type OrderItems = Record<
+    string,
+    { price: number; quantity: number; menuItemId: string; notes?: string }
+>;
+
+@Injectable()
+export class ProcessMainFlowUseCase {
+    private readonly logger = new Logger(ProcessMainFlowUseCase.name);
+
+    constructor(
+        @InjectRepository(Conversation)
+        private readonly conversationRepository: Repository<Conversation>,
+        @InjectRepository(CashierNotification)
+        private readonly cashierNotificationRepository: Repository<CashierNotification>,
+        private readonly sendMessageUseCase: SendMessageUseCase,
+        private readonly ordersGateway: OrdersGateway,
+        private readonly createOrderAfterBillRequestUseCase: CreateOrderAfterBillRequestUseCase,
+    ) { }
+
+    async execute(
+        phoneNumber: string,
+        userMessage: string,
+        branch: Branch,
+        customer: Customer,
+    ): Promise<string> {
+        const conversation = await this.conversationRepository.findOne({
+            where: { phoneNumber },
+        });
+
+        if (!conversation) {
+            this.logger.error(`Conversation not found for ${phoneNumber}`);
+            return getDefaultFlowMessage('es');
+        }
+
+        const lang = conversation.preferredLanguage ?? 'es';
+        const allMenuItems: MenuItem[] = branch.menus?.flatMap(m => m.menuItems ?? []) ?? [];
+        const activeMenuItems = allMenuItems.filter(i => i.isActive && i.product);
+
+        // ── STATE 1: Awaiting payment method ──────────────────────────────────────
+        if (conversation.awaitingPaymentMethod) {
+            return this.handlePaymentMethod(userMessage, conversation, branch, customer, lang, allMenuItems);
+        }
+
+        // ── STATE 2: Pending order confirmation ───────────────────────────────────
+        const hasPending = conversation.pendingOrder && Object.keys(conversation.pendingOrder).length > 0;
+        if (hasPending) {
+            return this.handlePendingConfirmation(userMessage, conversation, branch, customer, lang, activeMenuItems, allMenuItems);
+        }
+
+        // ── STATE 3: Main flow ────────────────────────────────────────────────────
+        return this.handleMainFlow(userMessage, conversation, branch, customer, lang, activeMenuItems, allMenuItems);
+    }
+
+    // ── State 1 ─────────────────────────────────────────────────────────────────
+
+    private async handlePaymentMethod(
+        userMessage: string,
+        conversation: Conversation,
+        branch: Branch,
+        customer: Customer,
+        lang: string,
+        allMenuItems: MenuItem[],
+    ): Promise<string> {
+        const paymentMethod = detectPaymentMethodInputUtil(userMessage);
+
+        if (!paymentMethod) {
+            return getPaymentMethodRetryMessage(lang);
+        }
+
+        // Build full order for the bill
+        const fullOrder: OrderItems = { ...(conversation.lastOrderSentToCashier ?? {}) };
+        const totalAmount = Object.values(fullOrder).reduce((acc, i) => acc + i.price * i.quantity, 0);
+
+        const cashierMessage =
+            `💳 El cliente *${customer.name}* en *${conversation.location ?? 'ubicación desconocida'}* ha solicitado su cuenta.\n\n` +
+            `${this.buildOrderLines(fullOrder, allMenuItems)}\n` +
+            `Total: $${totalAmount.toFixed(2)}\n` +
+            `Método de pago: *${paymentMethod}*`;
+
+        await this.notifyCashier(cashierMessage, branch, customer);
+
+        // Create DB order + delete conversation
+        try {
+            await this.createOrderAfterBillRequestUseCase.execute(
+                customer.id,
+                fullOrder,
+                branch,
+            );
+        } catch (e) {
+            this.logger.error('Error creating order on bill close:', e);
+        }
+
+        await this.conversationRepository.delete({ conversationId: conversation.conversationId });
+        this.ordersGateway.emitOrderUpdate(branch.id);
+
+        return getBillClosedMessage(lang, fullOrder, allMenuItems, branch);
+    }
+
+    // ── State 2 ─────────────────────────────────────────────────────────────────
+
+    private async handlePendingConfirmation(
+        userMessage: string,
+        conversation: Conversation,
+        branch: Branch,
+        customer: Customer,
+        lang: string,
+        activeMenuItems: MenuItem[],
+        allMenuItems: MenuItem[],
+    ): Promise<string> {
+        const orderResponse = detectOrderResponseUtil(userMessage);
+
+        // Confirm
+        if (orderResponse === 'confirm') {
+            return this.confirmOrder(conversation, branch, customer, lang, allMenuItems);
+        }
+
+        // Cancel → clear pending
+        if (orderResponse === 'cancel') {
+            const hasConfirmed = this.hasConfirmedOrder(conversation);
+            await this.conversationRepository.update(
+                { id: conversation.id },
+                { pendingOrder: null } as any,
+            );
+            if (hasConfirmed) {
+                return getCannotCancelConfirmedMessage(lang) + '\n\n' + getMenuWelcomeMessage(lang, branch);
+            }
+            return getOrderCancelledMessage(lang, branch);
+        }
+
+        // Continue (no) → clear pending, go back to main menu
+        if (orderResponse === 'continue') {
+            await this.conversationRepository.update(
+                { id: conversation.id },
+                { pendingOrder: null } as any,
+            );
+            return getMenuWelcomeMessage(lang, branch);
+        }
+
+        // User adds another product while in pending state
+        const foundItem = findMenuItemFuzzyUtil(userMessage, activeMenuItems);
+        if (foundItem) {
+            return this.addItemAndShowCart(userMessage, foundItem, conversation, lang, allMenuItems);
+        }
+
+        // Unrecognized → re-prompt
+        return getConfirmationRePromptMessage(lang);
+    }
+
+    // ── State 3 ─────────────────────────────────────────────────────────────────
+
+    private async handleMainFlow(
+        userMessage: string,
+        conversation: Conversation,
+        branch: Branch,
+        customer: Customer,
+        lang: string,
+        activeMenuItems: MenuItem[],
+        allMenuItems: MenuItem[],
+    ): Promise<string> {
+        // Menu keyword
+        if (detectMenuIntentUtil(userMessage)) {
+            return getMenuWelcomeMessage(lang, branch);
+        }
+
+        // Consumo
+        if (detectConsumoIntentUtil(userMessage)) {
+            return getConsumoMessage(
+                lang,
+                conversation.lastOrderSentToCashier ?? null,
+                conversation.pendingOrder ?? null,
+                allMenuItems,
+            );
+        }
+
+        // Cuenta
+        if (detectCuentaIntentUtil(userMessage)) {
+            const hasOrder = conversation.lastOrderSentToCashier &&
+                Object.keys(conversation.lastOrderSentToCashier).length > 0;
+            if (!hasOrder) {
+                return getNoOrderForBillMessage(lang);
+            }
+            await this.conversationRepository.update(
+                { id: conversation.id },
+                { awaitingPaymentMethod: true },
+            );
+            return getPaymentMethodRequestMessage(lang);
+        }
+
+        // Recommendations
+        if (detectRecommendationIntentUtil(userMessage)) {
+            const recommended = activeMenuItems.filter(i => i.shouldRecommend);
+            if (recommended.length === 0) return getNoRecommendationsMessage(lang);
+            return getRecommendationsMessage(lang, recommended);
+        }
+
+        // Product info
+        if (detectProductInfoIntentUtil(userMessage)) {
+            const foundItem = findMenuItemFuzzyUtil(userMessage, activeMenuItems);
+            if (!foundItem) return getProductNotFoundMessage(lang);
+            return getProductInfoMessage(lang, foundItem);
+        }
+
+        // Amenity request
+        const { isAmenity, amenities } = detectAmenityIntentUtil(userMessage);
+        if (isAmenity) {
+            const amenityMsg =
+                `🍴 El cliente *${customer.name}* en *${conversation.location ?? 'ubicación desconocida'}* solicita:\n` +
+                Object.entries(amenities).map(([k, q]) => `• ${k}: ${q}`).join('\n');
+            await this.notifyCashier(amenityMsg, branch, customer);
+            return getAmenityResponseMessage(lang, amenities);
+        }
+
+        // Try to add product
+        const foundItem = findMenuItemFuzzyUtil(userMessage, activeMenuItems);
+        if (foundItem) {
+            return this.addItemAndShowCart(userMessage, foundItem, conversation, lang, allMenuItems);
+        }
+
+        // Default
+        return getDefaultFlowMessage(lang);
+    }
+
+    // ── Helpers ──────────────────────────────────────────────────────────────────
+
+    private async confirmOrder(
+        conversation: Conversation,
+        branch: Branch,
+        customer: Customer,
+        lang: string,
+        allMenuItems: MenuItem[],
+    ): Promise<string> {
+        const pending = conversation.pendingOrder ?? {};
+        const last = conversation.lastOrderSentToCashier ?? {};
+
+        // Build merged total order
+        const merged: OrderItems = { ...last };
+        for (const [key, item] of Object.entries(pending)) {
+            if (merged[key]) {
+                merged[key] = { ...merged[key], quantity: merged[key].quantity + item.quantity };
+            } else {
+                merged[key] = item;
+            }
+        }
+
+        // Only send DELTA to cashier
+        const changes = calculateOrderChangesUtil(last, merged, this.logger);
+
+        const menuId = branch.menus?.[0]?.id ?? '';
+        const orderLines = this.buildOrderLines(changes, allMenuItems);
+        const totalChanges = Object.values(changes).reduce((acc, i) => acc + i.price * i.quantity, 0);
+
+        const cashierMessage =
+            `🛎️ El cliente *${customer.name}* en *${conversation.location ?? 'ubicación desconocida'}* ha pedido:\n\n` +
+            `${orderLines}\n` +
+            `Total nuevos items: $${totalChanges.toFixed(2)}`;
+
+        await this.notifyCashier(cashierMessage, branch, customer);
+
+        // Persist merged order, clear pending
+        await this.conversationRepository.update(
+            { id: conversation.id },
+            { lastOrderSentToCashier: merged, pendingOrder: null } as any,
+        );
+
+        this.ordersGateway.emitOrderUpdate(branch.id);
+
+        return getOrderConfirmedMessage(lang);
+    }
+
+    private async addItemAndShowCart(
+        userMessage: string,
+        item: MenuItem,
+        conversation: Conversation,
+        lang: string,
+        allMenuItems: MenuItem[],
+    ): Promise<string> {
+        if (!item.isActive || !item.product?.isActive) {
+            return getProductUnavailableMessage(lang, item.product?.name ?? '');
+        }
+
+        const { quantity, notes } = extractAddItemIntentUtil(userMessage);
+        const productName = item.product.name;
+        const key = notes ? `${productName}||${notes}` : productName;
+
+        const currentPending: OrderItems = { ...(conversation.pendingOrder ?? {}) };
+        if (currentPending[key]) {
+            currentPending[key] = {
+                ...currentPending[key],
+                quantity: currentPending[key].quantity + quantity,
+            };
+        } else {
+            currentPending[key] = {
+                price: Number(item.price),
+                quantity,
+                menuItemId: item.id,
+                notes: notes ?? undefined,
+            };
+        }
+
+        await this.conversationRepository.update(
+            { id: conversation.id },
+            { pendingOrder: currentPending } as any,
+        );
+
+        // Reload conversation state to get updated values
+        const updatedConversation = await this.conversationRepository.findOne({
+            where: { id: conversation.id },
+        });
+
+        return getCartMessage(
+            lang,
+            updatedConversation?.pendingOrder ?? currentPending,
+            updatedConversation?.lastOrderSentToCashier ?? conversation.lastOrderSentToCashier ?? null,
+            allMenuItems,
+        );
+    }
+
+    private buildOrderLines(order: OrderItems, allMenuItems: MenuItem[]): string {
+        return Object.entries(order)
+            .map(([key, item]) => {
+                const productName = key.split('||')[0];
+                const menuItem = allMenuItems.find(mi => mi.id === item.menuItemId);
+                const cat = menuItem?.category?.name ? ` (${menuItem.category.name})` : '';
+                const notesStr = item.notes ? ` [${item.notes}]` : '';
+                return `• ${productName}${cat}: $${item.price.toFixed(2)} x ${item.quantity} = $${(item.price * item.quantity).toFixed(2)}${notesStr}`;
+            })
+            .join('\n');
+    }
+
+    private hasConfirmedOrder(conversation: Conversation): boolean {
+        return !!(
+            conversation.lastOrderSentToCashier &&
+            Object.keys(conversation.lastOrderSentToCashier).length > 0
+        );
+    }
+
+    private async notifyCashier(
+        message: string,
+        branch: Branch,
+        customer: Customer,
+    ): Promise<void> {
+        try {
+            if (branch.phoneNumberReception) {
+                await this.sendMessageUseCase.execute(
+                    branch.phoneNumberReception,
+                    message,
+                    branch.phoneNumberAssistant!,
+                );
+            }
+
+            const notification = await this.cashierNotificationRepository.save({
+                branchId: branch.id,
+                phoneNumber: customer.phone,
+                message,
+            });
+
+            this.ordersGateway.emitNotificationUpdate(branch.id, notification);
+        } catch (e) {
+            this.logger.error('Error notifying cashier:', e);
+        }
+    }
+}

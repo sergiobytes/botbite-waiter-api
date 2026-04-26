@@ -12,6 +12,7 @@ import { detectInvalidTableResponseUtil } from '../../utils/detect-invalid-table
 import { detectOffTopicTerminationUtil } from '../../utils/detect-off-topic-termination.util';
 import { downloadTwilioMediaUtil } from '../../utils/download-twilio-media.util';
 import { extractLocationFromMessageUtil } from '../../utils/extract-location-from-message.util';
+import { getLanguageSelectionPrompt, getLocationRequestMessage, getLocationRetryMessage, getMenuWelcomeMessage } from '../../utils/get-onboarding-messages.util';
 import { isInitialOrderConfirmationUtil } from '../../utils/is-initial-order-confirmation.util';
 import { isOrderAndBillRequestUtil } from '../../utils/is-order-and-bill-request.util';
 import { isProductUpdateUtil } from '../../utils/is-product-update.util';
@@ -195,6 +196,39 @@ export class ProcessIncomingMessageUseCase {
         '🇫🇷 Français\n' +
         '🇰🇷 한국어',
         to);
+      return;
+    }
+
+    // ✅ Manejar flags de onboarding: selección de idioma y ubicación
+    if (response === 'AWAITING_LANGUAGE') {
+      await this.sendMessageUseCase.execute(from, getLanguageSelectionPrompt(), to);
+      return;
+    }
+
+    if (response.startsWith('LANG_SELECTED:')) {
+      const lang = response.split(':')[1];
+      await this.sendMessageUseCase.execute(from, getLocationRequestMessage(lang), to);
+      return;
+    }
+
+    if (response.startsWith('AWAITING_LOCATION:')) {
+      const lang = response.split(':')[1];
+      await this.sendMessageUseCase.execute(from, getLocationRetryMessage(lang), to);
+      return;
+    }
+
+    if (response.startsWith('LOCATION_RECEIVED:')) {
+      const lang = response.split(':')[1];
+      await this.sendMessageUseCase.execute(from, getMenuWelcomeMessage(lang, branch), to);
+      return;
+    }
+
+    // ✅ Manejar respuestas del flujo principal determinista (ProcessMainFlowUseCase)
+    if (response.startsWith('MAIN_FLOW:')) {
+      const actualMessage = response.substring('MAIN_FLOW:'.length);
+      const cleanMessage = removeMenuItemsIdsUtil(actualMessage);
+      await this.sendMessageUseCase.execute(from, cleanMessage, to);
+      await this.branchService.updateAvailableMessages(branch);
       return;
     }
 
