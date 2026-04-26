@@ -410,56 +410,114 @@ function toTitleCase(str: string): string {
         .replace(/\b\w/g, c => c.toUpperCase());
 }
 
-'Please select your preferred language:\n\n' +
-    '🇲🇽 Español\n' +
-    '🇺🇸 English\n' +
-    '🇫🇷 Français\n' +
-    '🇰🇷 한국어';
+// ─── Variant / edge-case messages ────────────────────────────────────────────
 
-const LOCATION_REQUEST: Record<string, string> = {
-    es: 'Perfecto. 😊 ¿Podrías decirme tu número de mesa o en qué parte te encuentras?\n\nEjemplos: 1, 2, 3 ó A1, A2, barra, terraza',
-    en: 'Perfect. 😊 Could you tell me your table number or where you are sitting?\n\nExamples: 1, 2, 3 or A1, A2, bar, terrace',
-    fr: 'Parfait. 😊 Pourriez-vous me dire votre numéro de table ou où vous êtes assis ?\n\nExemples: 1, 2, 3 ou A1, A2, bar, terrasse',
-    ko: '완벽합니다. 😊 테이블 번호나 어디에 앉아 계신지 알려주시겠어요?\n\n예시: 1, 2, 3 또는 A1, A2, 바, 테라스',
-};
-
-const LOCATION_RETRY: Record<string, string> = {
-    es: 'Lo siento, primero necesito saber tu ubicación. 📍\n¿Podrías decirme tu número de mesa o en qué parte te encuentras?\n\nEjemplos: 1, 2, 3, 4, 5 ó A1, A2, A3, A4, A5',
-    en: 'Sorry, I first need to know your location. 📍\nCould you tell me your table number or where you are sitting?\n\nExamples: 1, 2, 3, 4, 5 or A1, A2, A3, A4, A5',
-    fr: "Désolé, j'ai d'abord besoin de connaître votre emplacement. 📍\nPourriez-vous me dire votre numéro de table ou où vous êtes assis ?\n\nExemples: 1, 2, 3, 4, 5 ou A1, A2, A3, A4, A5",
-    ko: '죄송합니다, 먼저 위치를 알아야 합니다. 📍\n테이블 번호나 어디에 앉아 계신지 알려주시겠어요?\n\n예시: 1, 2, 3, 4, 5 또는 A1, A2, A3, A4, A5',
-};
-
-export const getLanguageSelectionPrompt = (): string => LANGUAGE_SELECTION_PROMPT;
-
-export const getLocationRequestMessage = (lang: string): string =>
-    LOCATION_REQUEST[lang] ?? LOCATION_REQUEST['es'];
-
-export const getLocationRetryMessage = (lang: string): string =>
-    LOCATION_RETRY[lang] ?? LOCATION_RETRY['es'];
-
-export const getMenuWelcomeMessage = (lang: string, branch: Branch): string => {
-    const pdfMenus =
-        branch.menus?.filter(
-            (m) => m.pdfLink && m.pdfLink !== 'None' && m.pdfLink.trim() !== '',
-        ) ?? [];
-
-    const menuLinks =
-        pdfMenus.length > 0
-            ? pdfMenus
-                .map((m) => `📋 ${convertToInlineUrl(m.pdfLink!, m.id, m.name)}`)
-                .join('\n')
-            : '';
-
-    const buildMenuSection = (prefix: string, tapText: string): string =>
-        menuLinks ? `\n\n${prefix}\n${menuLinks}\n\n${tapText}` : '';
-
-    const messages: Record<string, string> = {
-        es: `¡Gracias! 😊${buildMenuSection('Puedes ver nuestro menú completo aquí 👇', 'Toca el enlace para verlo 🔵')}\n\nCuando gustes te tomo la orden o puedo darte alguna recomendación`,
-        en: `Thank you! 😊${buildMenuSection('You can see our complete menu here 👇', 'Tap the link to view it 🔵')}\n\nWhenever you're ready, I can take your order or give you a recommendation`,
-        fr: `Merci ! 😊${buildMenuSection('Vous pouvez voir notre menu complet ici 👇', 'Appuyez sur le lien pour le voir 🔵')}\n\nQuand vous êtes prêt, je peux prendre votre commande ou vous donner une recommandation`,
-        ko: `감사합니다! 😊${buildMenuSection('전체 메뉴를 여기서 볼 수 있습니다 👇', '링크를 탭하여 보세요 🔵')}\n\n준비되시면 주문을 받거나 추천을 드릴 수 있습니다`,
+/** "Tenemos varias opciones de ese producto, ¿cuál quieres?" */
+export const getPartialMatchMessage = (lang: Lang, branch: Branch): string => {
+    const menuLinks = buildMenuLinks(branch);
+    const linkLine = menuLinks ? `\n\n${menuLinks}` : '';
+    const msgs: Record<string, string> = {
+        es: `Tenemos varias opciones de ese producto, ¿me podrías especificar cuál quieres? 😊${linkLine}`,
+        en: `We have several options for that product, could you specify which one you'd like? 😊${linkLine}`,
+        fr: `Nous avons plusieurs options pour ce produit, pourriez-vous préciser lequel vous souhaitez ? 😊${linkLine}`,
+        ko: `그 제품에 대한 여러 옵션이 있습니다. 어떤 것을 원하시는지 알려주시겠어요? 😊${linkLine}`,
     };
-
-    return messages[lang] ?? messages['es'];
+    return msgs[lang] ?? msgs['es'];
 };
+
+/** "Lo que mencionas combina elementos de distintos productos, confírmame cuál quieres" */
+export const getMixedMatchMessage = (lang: Lang, branch: Branch): string => {
+    const menuLinks = buildMenuLinks(branch);
+    const linkLine = menuLinks ? `\n\n${menuLinks}` : '';
+    const msgs: Record<string, string> = {
+        es: `Con gusto te apoyo. Solo necesito que me confirmes el producto exacto, ya que lo que mencionas combina elementos de distintos productos. 😊${linkLine}`,
+        en: `Happy to help! I just need you to confirm the exact product, since what you mentioned combines elements from different products. 😊${linkLine}`,
+        fr: `Avec plaisir ! J'ai juste besoin que vous confirmiez le produit exact, car ce que vous avez mentionné combine des éléments de différents produits. 😊${linkLine}`,
+        ko: `기꺼이 도와드리겠습니다! 말씀하신 내용이 서로 다른 제품의 요소를 결합하고 있어서 정확한 제품을 확인해 주시겠어요? 😊${linkLine}`,
+    };
+    return msgs[lang] ?? msgs['es'];
+};
+
+/** "Lo siento no puedo cancelar/modificar productos confirmados" */
+export const getCannotCancelOrderMessage = (lang: Lang): string => {
+    const msgs: Record<string, string> = {
+        es: 'Lo siento, no puedo cancelar productos ya confirmados. Cuando gustes puedes ordenar algo más o pedir alguna recomendación. 😊',
+        en: "I'm sorry, I can't cancel already confirmed products. Feel free to order something else or ask for a recommendation. 😊",
+        fr: "Désolé, je ne peux pas annuler des produits déjà confirmés. N'hésitez pas à commander autre chose ou à demander une recommandation. 😊",
+        ko: '죄송합니다, 이미 확인된 제품을 취소할 수 없습니다. 다른 것을 주문하거나 추천을 요청하셔도 됩니다. 😊',
+    };
+    return msgs[lang] ?? msgs['es'];
+};
+
+export const getCannotModifyOrderMessage = (lang: Lang): string => {
+    const msgs: Record<string, string> = {
+        es: 'Lo siento, no puedo modificar productos ya confirmados. Cuando gustes puedes ordenar algo más o pedir alguna recomendación. 😊',
+        en: "I'm sorry, I can't modify already confirmed products. Feel free to order something else or ask for a recommendation. 😊",
+        fr: "Désolé, je ne peux pas modifier des produits déjà confirmés. N'hésitez pas à commander autre chose ou à demander une recommandation. 😊",
+        ko: '죄송합니다, 이미 확인된 제품을 수정할 수 없습니다. 다른 것을 주문하거나 추천을 요청하셔도 됩니다. 😊',
+    };
+    return msgs[lang] ?? msgs['es'];
+};
+
+/** "No puedo dividir cuentas" */
+export const getCannotSplitBillMessage = (lang: Lang): string => {
+    const msgs: Record<string, string> = {
+        es: 'Lo siento, en este momento solo puedo tomar tu pedido. Cuando gustes puedes ordenar algo a tu pedido o pedir alguna recomendación. 😊',
+        en: "I'm sorry, right now I can only take your order. Feel free to add items to your order or ask for a recommendation. 😊",
+        fr: "Désolé, pour le moment je ne peux que prendre votre commande. N'hésitez pas à ajouter des articles ou à demander une recommandation. 😊",
+        ko: '죄송합니다, 지금은 주문을 받는 것만 가능합니다. 주문에 항목을 추가하거나 추천을 요청하셔도 됩니다. 😊',
+    };
+    return msgs[lang] ?? msgs['es'];
+};
+
+/** Farewell / social message response */
+export const getSocialResponseMessage = (lang: Lang, branch: Branch): string => {
+    const menuLinks = buildMenuLinks(branch);
+    const linkLine = menuLinks ? `\n\n${menuLinks}` : '';
+    const msgs: Record<string, string> = {
+        es: `¡Que tengas un buen día! 😊 Cuando gustes, aquí estoy para tomar tu orden.${linkLine}`,
+        en: `Have a great day! 😊 Whenever you're ready, I'm here to take your order.${linkLine}`,
+        fr: `Bonne journée ! 😊 Quand vous le souhaitez, je suis là pour prendre votre commande.${linkLine}`,
+        ko: `좋은 하루 되세요! 😊 준비가 되시면 주문을 받겠습니다.${linkLine}`,
+    };
+    return msgs[lang] ?? msgs['es'];
+};
+
+/** Multiple product info (2+ products) */
+export const getMultipleProductInfoMessage = (lang: Lang, items: MenuItem[]): string => {
+    const blocks = items.map(item => {
+        const name = item.product?.name ?? '';
+        const cat = item.category?.name ? ` (${item.category.name})` : '';
+        const price = `$${Number(item.price).toFixed(2)}`;
+        const desc = item.product?.description ? `\n   📝 ${toTitleCase(item.product.description)}` : '';
+        const imgMarker = item.product?.imageUrl ? `[SEND_IMAGE:${item.product.imageUrl}]` : '';
+        return `${imgMarker}*${name}*${cat} — ${price}${desc}`;
+    }).join('\n\n');
+
+    const footers: Record<string, string> = {
+        es: '¿Deseas ordenar algo a tu pedido?',
+        en: 'Would you like to add something to your order?',
+        fr: 'Souhaitez-vous ajouter quelque chose à votre commande?',
+        ko: '주문에 무언가를 추가하시겠습니까?',
+    };
+    const footer = footers[lang] ?? footers['es'];
+    return `${blocks}\n\n${footer}`;
+};
+
+/** No photo available for product */
+export const getNoPhotoAvailableMessage = (lang: Lang, productName: string): string => {
+    const msgs: Record<string, string> = {
+        es: `Lo siento, en este momento no tengo foto cargada de *${productName}*. ¿Deseas ordenar algo a tu pedido?`,
+        en: `I'm sorry, I don't have a photo loaded for *${productName}* right now. Would you like to add something to your order?`,
+        fr: `Désolé, je n'ai pas de photo chargée pour *${productName}* en ce moment. Souhaitez-vous ajouter quelque chose à votre commande?`,
+        ko: `죄송합니다, 현재 *${productName}*의 사진이 없습니다. 주문에 무언가를 추가하시겠습니까?`,
+    };
+    return msgs[lang] ?? msgs['es'];
+};
+
+/** Photo request keywords */
+export const detectPhotoRequestUtil = (message: string): boolean => {
+    return /\b(foto|fotograf[ií]a|image[n]?|imagen|photo|picture|pic|ver|show|muéstrame|enséñame|cómo\s+(?:es|se\s+ve)|como\s+(?:es|se\s+ve)|보여|사진)\b/i.test(message);
+};
+
+

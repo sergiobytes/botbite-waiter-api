@@ -1,5 +1,5 @@
 import { Injectable, Logger } from '@nestjs/common';
-import { isPaymentMethodResponseUtil } from 'src/messages/utils/is-payment-method-response.util';
+import { isPaymentMethodResponseUtil } from '../../utils/is-payment-method-response.util';
 import { BranchesService } from '../../../branches/branches.service';
 import { CustomersService } from '../../../customers/customers.service';
 import { Customer } from '../../../customers/entities/customer.entity';

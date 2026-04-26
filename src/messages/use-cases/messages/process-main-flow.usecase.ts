@@ -8,6 +8,7 @@ import { CashierNotification } from '../../entities/cashier-notifications.entity
 import { Conversation } from '../../entities/conversation.entity';
 import { OrdersGateway } from '../../gateways/orders.gateway';
 import { detectAmenityIntentUtil } from '../../utils/detect-amenity-intent.util';
+import { detectCancelKeywordUtil, detectModifyKeywordUtil } from '../../utils/detect-cancel-modify-intent.util';
 import { detectConsumoIntentUtil } from '../../utils/detect-consumo-intent.util';
 import { detectCuentaIntentUtil } from '../../utils/detect-cuenta-intent.util';
 import { detectMenuIntentUtil } from '../../utils/detect-menu-intent.util';
@@ -15,28 +16,40 @@ import { detectOrderResponseUtil } from '../../utils/detect-order-response.util'
 import { detectPaymentMethodInputUtil } from '../../utils/detect-payment-method-input.util';
 import { detectProductInfoIntentUtil } from '../../utils/detect-product-info-intent.util';
 import { detectRecommendationIntentUtil } from '../../utils/detect-recommendation-intent.util';
+import { detectSocialMessageUtil } from '../../utils/detect-social-message.util';
+import { detectSplitBillIntentUtil } from '../../utils/detect-split-bill-intent.util';
 import { extractAddItemIntentUtil } from '../../utils/extract-add-item-intent.util';
-import { findMenuItemFuzzyUtil } from '../../utils/find-menu-item-fuzzy.util';
+import { findAllMenuItemsInMessage, FoundOrderItem } from '../../utils/find-all-menu-items-in-message.util';
+import { classifyMenuMatch, findMenuItemFuzzyUtil } from '../../utils/find-menu-item-fuzzy.util';
 import {
     buildOrderDisplay,
+    detectPhotoRequestUtil,
     getAmenityResponseMessage,
     getBillClosedMessage,
     getCannotCancelConfirmedMessage,
+    getCannotCancelOrderMessage,
+    getCannotModifyOrderMessage,
+    getCannotSplitBillMessage,
     getCartMessage,
     getConfirmationRePromptMessage,
     getConsumoMessage,
     getDefaultFlowMessage,
     getMenuWelcomeMessage,
+    getMixedMatchMessage,
+    getMultipleProductInfoMessage,
     getNoOrderForBillMessage,
+    getNoPhotoAvailableMessage,
     getNoRecommendationsMessage,
     getOrderCancelledMessage,
     getOrderConfirmedMessage,
+    getPartialMatchMessage,
     getPaymentMethodRequestMessage,
     getPaymentMethodRetryMessage,
     getProductInfoMessage,
     getProductNotFoundMessage,
     getProductUnavailableMessage,
     getRecommendationsMessage,
+    getSocialResponseMessage,
 } from '../../utils/get-onboarding-messages.util';
 import { calculateOrderChangesUtil } from '../../utils/calculate-order-changes.util';
 import { CreateOrderAfterBillRequestUseCase } from './create-order-after-bill-request.usecase';
@@ -151,6 +164,18 @@ export class ProcessMainFlowUseCase {
         activeMenuItems: MenuItem[],
         allMenuItems: MenuItem[],
     ): Promise<string> {
+        // Edge cases: cancel/modify on already-confirmed items
+        if (detectCancelKeywordUtil(userMessage) && this.hasConfirmedOrder(conversation)) {
+            return getCannotCancelOrderMessage(lang);
+        }
+        if (detectModifyKeywordUtil(userMessage)) {
+            return getCannotModifyOrderMessage(lang);
+        }
+        // Split bill while in pending → refusal, stay in state 2
+        if (detectSplitBillIntentUtil(userMessage)) {
+            return getCannotSplitBillMessage(lang);
+        }
+
         const orderResponse = detectOrderResponseUtil(userMessage);
 
         // Confirm
@@ -180,7 +205,13 @@ export class ProcessMainFlowUseCase {
             return getMenuWelcomeMessage(lang, branch);
         }
 
-        // User adds another product while in pending state
+        // User adds more products while in pending state (multi-item first)
+        const foundItems = findAllMenuItemsInMessage(userMessage, activeMenuItems);
+        if (foundItems.length > 0) {
+            return this.addMultipleItemsAndShowCart(foundItems, conversation, lang, allMenuItems);
+        }
+
+        // Single fuzzy match fallback
         const foundItem = findMenuItemFuzzyUtil(userMessage, activeMenuItems);
         if (foundItem) {
             return this.addItemAndShowCart(userMessage, foundItem, conversation, lang, allMenuItems);
@@ -201,12 +232,32 @@ export class ProcessMainFlowUseCase {
         activeMenuItems: MenuItem[],
         allMenuItems: MenuItem[],
     ): Promise<string> {
-        // Menu keyword
+        // 1. Social / farewell
+        if (detectSocialMessageUtil(userMessage)) {
+            return getSocialResponseMessage(lang, branch);
+        }
+
+        // 2. Split bill
+        if (detectSplitBillIntentUtil(userMessage)) {
+            return getCannotSplitBillMessage(lang);
+        }
+
+        // 3. Cancel keyword — only refuse if there's a confirmed order
+        if (detectCancelKeywordUtil(userMessage) && this.hasConfirmedOrder(conversation)) {
+            return getCannotCancelOrderMessage(lang);
+        }
+
+        // 4. Modify keyword — only refuse if there's a confirmed order
+        if (detectModifyKeywordUtil(userMessage) && this.hasConfirmedOrder(conversation)) {
+            return getCannotModifyOrderMessage(lang);
+        }
+
+        // 5. Menu
         if (detectMenuIntentUtil(userMessage)) {
             return getMenuWelcomeMessage(lang, branch);
         }
 
-        // Consumo
+        // 6. Consumo
         if (detectConsumoIntentUtil(userMessage)) {
             return getConsumoMessage(
                 lang,
@@ -216,35 +267,63 @@ export class ProcessMainFlowUseCase {
             );
         }
 
-        // Cuenta
+        // 7. Cuenta — complex: may include products
         if (detectCuentaIntentUtil(userMessage)) {
-            const hasOrder = conversation.lastOrderSentToCashier &&
-                Object.keys(conversation.lastOrderSentToCashier).length > 0;
-            if (!hasOrder) {
-                return getNoOrderForBillMessage(lang);
+            const hasConfirmed = this.hasConfirmedOrder(conversation);
+
+            if (hasConfirmed) {
+                // Diagram Case 7: has memory → trigger bill flow, ignore any product mentions
+                await this.conversationRepository.update(
+                    { id: conversation.id },
+                    { awaitingPaymentMethod: true },
+                );
+                return getPaymentMethodRequestMessage(lang);
             }
-            await this.conversationRepository.update(
-                { id: conversation.id },
-                { awaitingPaymentMethod: true },
-            );
-            return getPaymentMethodRequestMessage(lang);
+
+            // No confirmed order — check if user also mentioned products (Case 5)
+            const foundItems = findAllMenuItemsInMessage(userMessage, activeMenuItems);
+            if (foundItems.length > 0) {
+                // Add products to pending, show cart (go to state 2)
+                return this.addMultipleItemsAndShowCart(foundItems, conversation, lang, allMenuItems);
+            }
+
+            return getNoOrderForBillMessage(lang);
         }
 
-        // Recommendations
+        // 8. Recommendations
         if (detectRecommendationIntentUtil(userMessage)) {
             const recommended = activeMenuItems.filter(i => i.shouldRecommend);
             if (recommended.length === 0) return getNoRecommendationsMessage(lang);
             return getRecommendationsMessage(lang, recommended);
         }
 
-        // Product info
-        if (detectProductInfoIntentUtil(userMessage)) {
+        // 9. Product info / photo request
+        if (detectProductInfoIntentUtil(userMessage) || detectPhotoRequestUtil(userMessage)) {
+            const foundItems = findAllMenuItemsInMessage(userMessage, activeMenuItems);
+
+            if (foundItems.length > 1) {
+                // Multiple products: show all descriptions
+                return getMultipleProductInfoMessage(lang, foundItems.map(f => f.item));
+            }
+
+            if (foundItems.length === 1) {
+                const item = foundItems[0].item;
+                if (detectPhotoRequestUtil(userMessage) && !item.product?.imageUrl) {
+                    return getNoPhotoAvailableMessage(lang, item.product?.name ?? '');
+                }
+                return getProductInfoMessage(lang, item);
+            }
+
+            // Fallback: fuzzy single match
             const foundItem = findMenuItemFuzzyUtil(userMessage, activeMenuItems);
             if (!foundItem) return getProductNotFoundMessage(lang);
+            if (detectPhotoRequestUtil(userMessage) && !foundItem.product?.imageUrl) {
+                return getNoPhotoAvailableMessage(lang, foundItem.product?.name ?? '');
+            }
             return getProductInfoMessage(lang, foundItem);
         }
 
-        // Amenity request
+        // 10. Amenity request
         const { isAmenity, amenities } = detectAmenityIntentUtil(userMessage);
         if (isAmenity) {
             const amenityMsg =
@@ -254,13 +333,22 @@ export class ProcessMainFlowUseCase {
             return getAmenityResponseMessage(lang, amenities);
         }
 
-        // Try to add product
-        const foundItem = findMenuItemFuzzyUtil(userMessage, activeMenuItems);
-        if (foundItem) {
-            return this.addItemAndShowCart(userMessage, foundItem, conversation, lang, allMenuItems);
+        // 11. Multi-item order detection
+        const foundItems = findAllMenuItemsInMessage(userMessage, activeMenuItems);
+        if (foundItems.length > 0) {
+            return this.addMultipleItemsAndShowCart(foundItems, conversation, lang, allMenuItems);
         }
 
-        // Default
+        // 12. Classify intent for helpful fallback messages
+        const match = classifyMenuMatch(userMessage, activeMenuItems);
+        if (match.type === 'partial') {
+            return getPartialMatchMessage(lang, branch);
+        }
+        if (match.type === 'mixed') {
+            return getMixedMatchMessage(lang, branch);
+        }
+
+        // 13. Unknown intent
         return getDefaultFlowMessage(lang);
     }
 
@@ -355,6 +443,46 @@ export class ProcessMainFlowUseCase {
             lang,
             updatedConversation?.pendingOrder ?? currentPending,
             updatedConversation?.lastOrderSentToCashier ?? conversation.lastOrderSentToCashier ?? null,
+            allMenuItems,
+        );
+    }
+
+    private async addMultipleItemsAndShowCart(
+        items: FoundOrderItem[],
+        conversation: Conversation,
+        lang: string,
+        allMenuItems: MenuItem[],
+    ): Promise<string> {
+        const currentPending: OrderItems = { ...(conversation.pendingOrder ?? {}) };
+
+        for (const { item, quantity, notes } of items) {
+            if (!item.isActive || !item.product?.isActive) continue;
+            const productName = item.product.name;
+            const key = notes ? `${productName}||${notes}` : productName;
+            if (currentPending[key]) {
+                currentPending[key] = {
+                    ...currentPending[key],
+                    quantity: currentPending[key].quantity + quantity,
+                };
+            } else {
+                currentPending[key] = {
+                    price: Number(item.price),
+                    quantity,
+                    menuItemId: item.id,
+                    notes: notes ?? undefined,
+                };
+            }
+        }
+
+        await this.conversationRepository.update(
+            { id: conversation.id },
+            { pendingOrder: currentPending } as any,
+        );
+
+        return getCartMessage(
+            lang,
+            currentPending,
+            conversation.lastOrderSentToCashier ?? null,
             allMenuItems,
         );
     }
