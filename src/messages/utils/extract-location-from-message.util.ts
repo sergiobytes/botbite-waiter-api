@@ -64,15 +64,15 @@ export const extractLocationFromMessageUtil = (
     return plantaMatch[1];
   }
 
-  // Patrón 9: "terraza", "barra", "patio"
-  const ubicacionMatch = content.match(/(terraza|barra|patio)/);
+  // Patrón 9: "terraza", "barra", "patio", "habitacion"
+  const ubicacionMatch = content.match(/(terraza|barra|patio|habitaci[oó]n)/);
   if (ubicacionMatch) {
     return `la ${ubicacionMatch[1]}`;
   }
 
   // Patrón 10: "estoy en la terraza", "estamos en el patio"
   const estoyEnMatch = content.match(
-    /est[oáa]y?\s+en\s+(la\s+)?(terraza|barra|patio|mesa\s+\d+)/,
+    /est[oáa]y?\s+en\s+(la\s+)?(terraza|barra|patio|habitaci[oó]n|mesa\s+\d+)/,
   );
   if (estoyEnMatch) {
     const location = estoyEnMatch[2];
@@ -80,6 +80,12 @@ export const extractLocationFromMessageUtil = (
       return `la ${location}`;
     }
     return `la ${location}`;
+  }
+
+  // Patrón 11: "habitacion 3", "room 3", "chambre 3"
+  const roomMatch = content.match(/(habitaci[oó]n|room|chambre)\s+(\d+)/);
+  if (roomMatch) {
+    return `${roomMatch[1]} ${roomMatch[2]}`;
   }
 
   return null;

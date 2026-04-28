@@ -41,6 +41,7 @@ import { NotifyCashierAboutConfirmedBillUseCase } from './use-cases/messages/not
 import { NotifyCashierAboutConfirmedProductsUseCase } from './use-cases/messages/notifications/notify-cashier-about-confirmed-products.usecase';
 import { NotifyCashierAboutInappropriateBehaviorUseCase } from './use-cases/messages/notifications/notify-cashier-about-inappropriate-behavior.usecase';
 import { ProcessIncomingMessageUseCase } from './use-cases/messages/process-incoming-message.usecase';
+import { ProcessMainFlowUseCase } from './use-cases/messages/process-main-flow.usecase';
 import { ProcessMessageUseCase } from './use-cases/messages/process-message.usecase';
 import { RenderOrderResponseUseCase } from './use-cases/messages/render-order-response.usecase';
 import { SaveMessageUseCase } from './use-cases/messages/save-message.usecase';
@@ -95,7 +96,8 @@ import { SendWhatsappMessageUseCase } from './use-cases/twilio/send-whatsapp-mes
     NotifyCashierAboutInappropriateBehaviorUseCase,
     SendMessageUseCase,
     CreateOrderAfterBillRequestUseCase,
-    GenerateCashierMessageUseCase
+    GenerateCashierMessageUseCase,
+    ProcessMainFlowUseCase,
   ],
   exports: [TypeOrmModule, MessagesService, TwilioService, ConversationService],
 })
