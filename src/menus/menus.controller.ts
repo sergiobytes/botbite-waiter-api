@@ -13,7 +13,7 @@ import {
   UseInterceptors,
 } from '@nestjs/common';
 import { FileInterceptor } from '@nestjs/platform-express';
-import { UserRoles } from 'src/users/enums/user-roles';
+import { UserRoles } from '../users/enums/user-roles';
 import { Auth } from '../auth/decorators/auth.decorator';
 import { Lang } from '../common/decorators/lang.decorator';
 import { CreateMenuItemDto } from './dto/create-menu-item.dto';
@@ -26,7 +26,7 @@ import { MenusService } from './menus.service';
 
 @Controller('menus')
 export class MenusController {
-  constructor(private readonly menusService: MenusService) {}
+  constructor(private readonly menusService: MenusService) { }
 
   //#region Menu
   @Post(':branchId')
