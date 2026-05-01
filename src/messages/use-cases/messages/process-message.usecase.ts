@@ -119,7 +119,9 @@ export class ProcessMessageUseCase {
       }
 
       // ✅ Continuar con el flujo principal determinista
-      return await this.processMainFlowUseCase.execute(phoneNumber, userMessage, branchContext!, customerContext!);
+      // Prefix with MAIN_FLOW: so process-incoming-message bypasses all legacy AI-era utility checks
+      const mainFlowResponse = await this.processMainFlowUseCase.execute(phoneNumber, userMessage, branchContext!, customerContext!);
+      return `MAIN_FLOW:${mainFlowResponse}`;
 
     } catch (error) {
       this.logger.log('Error processing message: ', error);

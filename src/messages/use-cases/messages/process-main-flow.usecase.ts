@@ -196,12 +196,8 @@ export class ProcessMainFlowUseCase {
             return getOrderCancelledMessage(lang, branch);
         }
 
-        // Continue (no) → clear pending, go back to main menu
+        // Continue (no) → keep pending order, show menu so user can keep adding
         if (orderResponse === 'continue') {
-            await this.conversationRepository.update(
-                { id: conversation.id },
-                { pendingOrder: null } as any,
-            );
             return getMenuWelcomeMessage(lang, branch);
         }
 
