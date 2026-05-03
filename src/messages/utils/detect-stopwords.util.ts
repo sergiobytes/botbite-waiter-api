@@ -36,6 +36,9 @@ export const STOPWORDS = new Set([
     'thanks', 'thank', 'hi', 'hey', 'hello',
     // French filler
     'veux', 'voudrais', 'donne', 'apporte', 'merci', 'bonjour', 'bonsoir',
+    // Product info trigger words (stripped so product name is cleanly extracted)
+    'informacion', 'informacion', 'info', 'detalle', 'detalles', 'descripcion', 'descripcion',
+    'information',
 ]);
 
 /**

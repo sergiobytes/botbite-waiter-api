@@ -16,17 +16,17 @@ const LANGUAGE_SELECTION_PROMPT =
     '🇰🇷 한국어';
 
 const LOCATION_REQUEST: Record<string, string> = {
-    es: 'Perfecto. 😊 ¿Podrías decirme tu número de mesa o en qué parte te encuentras?\n\nEjemplos: 1, 2, 3 ó A1, A2, barra, terraza',
-    en: 'Perfect. 😊 Could you tell me your table number or where you are sitting?\n\nExamples: 1, 2, 3 or A1, A2, bar, terrace',
-    fr: 'Parfait. 😊 Pourriez-vous me dire votre numéro de table ou où vous êtes assis ?\n\nExemples: 1, 2, 3 ou A1, A2, bar, terrasse',
-    ko: '완벽합니다. 😊 테이블 번호나 어디에 앉아 계신지 알려주시겠어요?\n\n예시: 1, 2, 3 또는 A1, A2, 바, 테라스',
+    es: 'Indíquenos por favor el *número de su ubicación* 📍\n_(este dato se encuentra en el código escaneado)_\n\nEjemplos: 1, 2, 3 ó A1, A2, barra, terraza',
+    en: 'Please indicate your *location number* 📍\n_(this information is found on the scanned code)_\n\nExamples: 1, 2, 3 or A1, A2, bar, terrace',
+    fr: 'Veuillez indiquer votre *numéro d\'emplacement* 📍\n_(cette information se trouve sur le code scanné)_\n\nExemples: 1, 2, 3 ou A1, A2, bar, terrasse',
+    ko: '위치 번호를 알려주세요 *📍*\n_(이 정보는 스캔된 코드에 있습니다)_\n\n예시: 1, 2, 3 또는 A1, A2, 바, 테라스',
 };
 
 const LOCATION_RETRY: Record<string, string> = {
-    es: 'Lo siento, primero necesito saber tu ubicación. 📍\n¿Podrías decirme tu número de mesa o en qué parte te encuentras?\n\nEjemplos: 1, 2, 3, 4, 5 ó A1, A2, A3, A4, A5',
-    en: 'Sorry, I first need to know your location. 📍\nCould you tell me your table number or where you are sitting?\n\nExamples: 1, 2, 3, 4, 5 or A1, A2, A3, A4, A5',
-    fr: "Désolé, j'ai d'abord besoin de connaître votre emplacement. 📍\nPourriez-vous me dire votre numéro de table ou où vous êtes assis ?\n\nExemples: 1, 2, 3, 4, 5 ou A1, A2, A3, A4, A5",
-    ko: '죄송합니다, 먼저 위치를 알아야 합니다. 📍\n테이블 번호나 어디에 앉아 계신지 알려주시겠어요?\n\n예시: 1, 2, 3, 4, 5 또는 A1, A2, A3, A4, A5',
+    es: 'Necesitamos el *número de su ubicación* para continuar. 📍\nEste dato se encuentra en el código QR escaneado.\n\nEjemplos: 1, 2, 3, 4, 5 ó A1, A2, A3, A4, A5',
+    en: 'We need your *location number* to continue. 📍\nThis information is on the QR code you scanned.\n\nExamples: 1, 2, 3, 4, 5 or A1, A2, A3, A4, A5',
+    fr: "Nous avons besoin de votre *numéro d'emplacement* pour continuer. 📍\nCette information se trouve sur le QR code scanné.\n\nExemples: 1, 2, 3, 4, 5 ou A1, A2, A3, A4, A5",
+    ko: '계속하려면 *위치 번호*가 필요합니다. 📍\n이 정보는 스캔한 QR 코드에 있습니다.\n\n예시: 1, 2, 3, 4, 5 또는 A1, A2, A3, A4, A5',
 };
 
 export const getLanguageSelectionPrompt = (): string => LANGUAGE_SELECTION_PROMPT;
@@ -44,11 +44,19 @@ export const getMenuWelcomeMessage = (lang: Lang, branch: Branch): string => {
     const buildSection = (prefix: string, tap: string): string =>
         menuLinks ? `\n\n${prefix}\n${menuLinks}\n\n${tap}` : '';
 
+    const infoHint: Record<string, string> = {
+        es: '\n\n💡 Para detalles de un platillo escribe: *informacion [nombre]*\nEjemplo: *informacion nachos*',
+        en: '\n\n💡 For dish details type: *information [name]*\nExample: *information nachos*',
+        fr: '\n\n💡 Pour les détails d\'un plat, écrivez: *information [nom]*\nExemple: *information nachos*',
+        ko: '\n\n💡 메뉴 상세 정보: *정보 [이름]*\n예시: *정보 나초*',
+    };
+    const hint = infoHint[lang] ?? infoHint['es'];
+
     const msgs: Record<string, string> = {
-        es: `¡Gracias! 😊${buildSection('Puedes ver nuestro menú completo aquí 👇', 'Toca el enlace para verlo 🔵')}\n\nCuando gustes te tomo la orden o puedo darte alguna recomendación`,
-        en: `Thank you! 😊${buildSection('You can see our complete menu here 👇', 'Tap the link to view it 🔵')}\n\nWhenever you're ready, I can take your order or give you a recommendation`,
-        fr: `Merci ! 😊${buildSection('Vous pouvez voir notre menu complet ici 👇', 'Appuyez sur le lien pour le voir 🔵')}\n\nQuand vous êtes prêt, je peux prendre votre commande ou vous donner une recommandation`,
-        ko: `감사합니다! 😊${buildSection('전체 메뉴를 여기서 볼 수 있습니다 👇', '링크를 탭하여 보세요 🔵')}\n\n준비되시면 주문을 받거나 추천을 드릴 수 있습니다`,
+        es: `¡Gracias! 😊${buildSection('Puedes ver nuestro menú completo aquí 👇', 'Toca el enlace para verlo 🔵')}\n\nCuando gustes te tomo la orden o puedo darte alguna recomendación${hint}`,
+        en: `Thank you! 😊${buildSection('You can see our complete menu here 👇', 'Tap the link to view it 🔵')}\n\nWhenever you're ready, I can take your order or give you a recommendation${hint}`,
+        fr: `Merci ! 😊${buildSection('Vous pouvez voir notre menu complet ici 👇', 'Appuyez sur le lien pour le voir 🔵')}\n\nQuand vous êtes prêt, je peux prendre votre commande ou vous donner une recommandation${hint}`,
+        ko: `감사합니다! 😊${buildSection('전체 메뉴를 여기서 볼 수 있습니다 👇', '링크를 탭하여 보세요 🔵')}\n\n준비되시면 주문을 받거나 추천을 드릴 수 있습니다${hint}`,
     };
     return msgs[lang] ?? msgs['es'];
 };
@@ -119,10 +127,10 @@ export const getProductNotFoundMessage = (lang: Lang): string => {
 
 export const getProductUnavailableMessage = (lang: Lang, productName: string): string => {
     const msgs: Record<string, string> = {
-        es: `Lo sentimos, "${productName}" no está disponible en este momento. ¿Te gustaría ordenar otra cosa?`,
-        en: `Sorry, "${productName}" is not available right now. Would you like to order something else?`,
-        fr: `Désolé, "${productName}" n'est pas disponible en ce moment. Souhaitez-vous commander autre chose?`,
-        ko: `죄송합니다, "${productName}"은(는) 현재 이용할 수 없습니다. 다른 것을 주문하시겠습니까?`,
+        es: `Por el momento *"${productName}"* no está disponible. ¿Te gustaría pedir algo más?`,
+        en: `*"${productName}"* is not available right now. Would you like to order something else?`,
+        fr: `*"${productName}"* n'est pas disponible pour le moment. Souhaitez-vous commander autre chose?`,
+        ko: `현재 *"${productName}"*은(는) 이용할 수 없습니다. 다른 것을 주문하시겠습니까?`,
     };
     return msgs[lang] ?? msgs['es'];
 };
@@ -135,7 +143,7 @@ export const getCartMessage = (
     lastOrderSentToCashier: OrderItems | null,
     allMenuItems: MenuItem[],
 ): string => {
-    const { lines, total } = buildOrderDisplay(pendingOrder, lastOrderSentToCashier, allMenuItems);
+    const { lines, total } = buildOrderDisplay(pendingOrder, null, allMenuItems);
     const itemsStr = lines.join('\n');
 
     const confirmOptions: Record<string, string> = {

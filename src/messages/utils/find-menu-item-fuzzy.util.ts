@@ -4,61 +4,101 @@ import { removeStopwordsUtil } from './detect-stopwords.util';
 
 const FUZZY_THRESHOLD = 0.4;
 
+/** Minimal Levenshtein distance between two strings. */
+function levenshtein(a: string, b: string): number {
+    if (a === b) return 0;
+    if (a.length === 0) return b.length;
+    if (b.length === 0) return a.length;
+    const dp: number[] = Array.from({ length: b.length + 1 }, (_, i) => i);
+    for (let i = 1; i <= a.length; i++) {
+        let prev = dp[0];
+        dp[0] = i;
+        for (let j = 1; j <= b.length; j++) {
+            const temp = dp[j];
+            dp[j] = a[i - 1] === b[j - 1] ? prev : 1 + Math.min(prev, dp[j], dp[j - 1]);
+            prev = temp;
+        }
+    }
+    return dp[b.length];
+}
+
+/** Returns true if two normalized words are a close enough match. */
+function wordsMatch(qw: string, pw: string): boolean {
+    if (pw === qw || pw.startsWith(qw) || qw.startsWith(pw)) return true;
+    // Allow 1 edit for words ≥4 chars, 2 edits for words ≥7 chars
+    const minLen = Math.min(qw.length, pw.length);
+    const maxDist = minLen >= 7 ? 2 : minLen >= 4 ? 1 : 0;
+    return maxDist > 0 && levenshtein(qw, pw) <= maxDist;
+}
+
 /**
  * Scores how well a query matches a single MenuItem.
  * Returns a value in [0, 1]; higher is better.
+ * Pass ignoreActive=true to score inactive items (for unavailability detection).
  */
-export const scoreMenuItem = (query: string, item: MenuItem): number => {
-    if (!item.isActive || !item.product) return 0;
+export const scoreMenuItem = (query: string, item: MenuItem, ignoreActive = false): number => {
+    if (!ignoreActive && (!item.isActive || !item.product)) return 0;
+    if (!item.product) return 0;
 
     const cleaned = removeStopwordsUtil(query);
     if (!cleaned) return 0;
 
     const normQuery = normalizeProductName(cleaned);
-    const queryWords = normQuery.split(/\s+/).filter(w => w.length > 1);
+    const queryWords = normQuery.split(/\s+/).filter(w => w.length > 2);
     if (queryWords.length === 0) return 0;
 
     const productNorm = item.product.normalizedName || normalizeProductName(item.product.name);
-    const productWords = productNorm.split(/\s+/).filter(w => w.length > 1);
+    const productWords = productNorm.split(/\s+/).filter(w => w.length > 2);
     if (productWords.length === 0) return 0;
 
     let matchCount = 0;
     for (const qw of queryWords) {
-        if (productWords.some(pw => pw === qw || pw.startsWith(qw) || qw.startsWith(pw))) {
+        if (productWords.some(pw => wordsMatch(qw, pw))) {
             matchCount++;
         }
     }
 
     if (matchCount === 0) return 0;
 
-    // Score = fraction of product words matched, bonus for matching query words too
     const productCoverage = matchCount / productWords.length;
     const queryCoverage = matchCount / queryWords.length;
     return (productCoverage + queryCoverage) / 2;
 };
 
 /**
- * Finds the best matching active menu item for a given user query.
- * Applies stopword removal and requires score ≥ 0.4 to avoid false positives.
+ * Finds the best matching menu item for a given user query.
+ * Pass ignoreActive=true to include inactive items (for unavailability detection).
+ * Returns null when the query is ambiguous (multiple items score similarly above threshold).
  */
 export const findMenuItemFuzzyUtil = (
     query: string,
     menuItems: MenuItem[],
+    ignoreActive = false,
 ): MenuItem | null => {
     if (!query || !menuItems?.length) return null;
 
     let bestItem: MenuItem | null = null;
     let bestScore = 0;
+    let secondBestScore = 0;
 
     for (const item of menuItems) {
-        const score = scoreMenuItem(query, item);
+        const score = scoreMenuItem(query, item, ignoreActive);
         if (score > bestScore) {
+            secondBestScore = bestScore;
             bestScore = score;
             bestItem = item;
+        } else if (score > secondBestScore) {
+            secondBestScore = score;
         }
     }
 
-    return bestScore >= FUZZY_THRESHOLD ? bestItem : null;
+    if (bestScore < FUZZY_THRESHOLD) return null;
+
+    // Ambiguity guard: if second item also scores above threshold and is close,
+    // the query is too generic (e.g. 'pizza' matching 'pizza boneless' and 'pizza hawaiana')
+    if (secondBestScore >= FUZZY_THRESHOLD && bestScore - secondBestScore < 0.15) return null;
+
+    return bestItem;
 };
 
 /**
@@ -81,18 +121,24 @@ export const classifyMenuMatch = (
 
     let bestItem: MenuItem | null = null;
     let bestScore = 0;
+    let secondBestScore = 0;
     let aboveFloorCount = 0;
 
     for (const item of menuItems) {
         const score = scoreMenuItem(query, item);
         if (score >= 0.15) aboveFloorCount++;
         if (score > bestScore) {
+            secondBestScore = bestScore;
             bestScore = score;
             bestItem = item;
         }
     }
 
     if (bestScore >= FUZZY_THRESHOLD) {
+        // If two items score above threshold with similar scores, it's ambiguous → partial
+        if (secondBestScore >= FUZZY_THRESHOLD && bestScore - secondBestScore < 0.15) {
+            return { type: 'partial' };
+        }
         return { type: 'exact', item: bestItem! };
     }
 

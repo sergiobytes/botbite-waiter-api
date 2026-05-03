@@ -20,7 +20,7 @@ import { detectSocialMessageUtil } from '../../utils/detect-social-message.util'
 import { detectSplitBillIntentUtil } from '../../utils/detect-split-bill-intent.util';
 import { extractAddItemIntentUtil } from '../../utils/extract-add-item-intent.util';
 import { findAllMenuItemsInMessage, FoundOrderItem } from '../../utils/find-all-menu-items-in-message.util';
-import { classifyMenuMatch, findMenuItemFuzzyUtil } from '../../utils/find-menu-item-fuzzy.util';
+import { classifyMenuMatch, findMenuItemFuzzyUtil, scoreMenuItem } from '../../utils/find-menu-item-fuzzy.util';
 import {
     detectPhotoRequestUtil,
     getAmenityResponseMessage,
@@ -42,7 +42,6 @@ import {
     getOrderCancelledMessage,
     getOrderConfirmedMessage,
     getPartialMatchMessage,
-    getPaymentMethodRequestMessage,
     getPaymentMethodRetryMessage,
     getProductInfoMessage,
     getProductNotFoundMessage,
@@ -165,10 +164,7 @@ export class ProcessMainFlowUseCase {
         activeMenuItems: MenuItem[],
         allMenuItems: MenuItem[],
     ): Promise<string> {
-        // Edge cases: cancel/modify on already-confirmed items
-        if (detectCancelKeywordUtil(userMessage) && this.hasConfirmedOrder(conversation)) {
-            return getCannotCancelOrderMessage(lang);
-        }
+        // Edge cases: modify on already-confirmed items (cancel is handled below with pending cleanup)
         if (detectModifyKeywordUtil(userMessage)) {
             return getCannotModifyOrderMessage(lang);
         }
@@ -269,12 +265,27 @@ export class ProcessMainFlowUseCase {
             const hasConfirmed = this.hasConfirmedOrder(conversation);
 
             if (hasConfirmed) {
-                // Diagram Case 7: has memory → trigger bill flow, ignore any product mentions
-                await this.conversationRepository.update(
-                    { id: conversation.id },
-                    { awaitingPaymentMethod: true },
-                );
-                return getPaymentMethodRequestMessage(lang);
+                // Skip payment method selection: notify cashier directly and close conversation
+                const fullOrder: OrderItems = { ...(conversation.lastOrderSentToCashier ?? {}) };
+                const totalAmount = Object.values(fullOrder).reduce((acc, i) => acc + i.price * i.quantity, 0);
+
+                const cashierMessage =
+                    `🧾 El cliente *${customer.name}* en *${conversation.location ?? 'ubicaci\u00f3n desconocida'}* solicita su cuenta.\n\n` +
+                    `${this.buildOrderLines(fullOrder, allMenuItems)}\n` +
+                    `Total: $${totalAmount.toFixed(2)}`;
+
+                await this.notifyCashier(cashierMessage, branch, customer);
+
+                try {
+                    await this.createOrderAfterBillRequestUseCase.execute(customer.id, fullOrder, branch);
+                } catch (e) {
+                    this.logger.error('Error creating order on bill close:', e);
+                }
+
+                await this.conversationRepository.delete({ conversationId: conversation.conversationId });
+                this.ordersGateway.emitOrderUpdate(branch.id);
+
+                return getBillClosedMessage(lang, fullOrder, allMenuItems, branch);
             }
 
             // No confirmed order — check if user also mentioned products (Case 5)
@@ -334,7 +345,19 @@ export class ProcessMainFlowUseCase {
             return getAmenityResponseMessage(lang, amenities);
         }
 
-        // 11. Multi-item order detection
+        // 11. Inactive product detection — before multi-item so we don't suggest a wrong active match
+        const inactiveMatch = findMenuItemFuzzyUtil(userMessage, allMenuItems, true);
+        if (inactiveMatch && (!inactiveMatch.isActive || inactiveMatch.product?.isActive === false)) {
+            const activeScore = findMenuItemFuzzyUtil(userMessage, activeMenuItems)
+                ? scoreMenuItem(userMessage, findMenuItemFuzzyUtil(userMessage, activeMenuItems)!)
+                : 0;
+            const inactiveScore = scoreMenuItem(userMessage, inactiveMatch, true);
+            if (inactiveScore > activeScore) {
+                return getProductUnavailableMessage(lang, inactiveMatch.product?.name ?? '');
+            }
+        }
+
+        // 12. Multi-item order detection
         const foundItems = findAllMenuItemsInMessage(userMessage, activeMenuItems);
         if (foundItems.length > 0) {
             return this.addMultipleItemsAndShowCart(foundItems, conversation, lang, allMenuItems);
