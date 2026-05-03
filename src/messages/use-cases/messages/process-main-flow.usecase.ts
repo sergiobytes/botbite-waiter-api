@@ -22,7 +22,6 @@ import { extractAddItemIntentUtil } from '../../utils/extract-add-item-intent.ut
 import { findAllMenuItemsInMessage, FoundOrderItem } from '../../utils/find-all-menu-items-in-message.util';
 import { classifyMenuMatch, findMenuItemFuzzyUtil } from '../../utils/find-menu-item-fuzzy.util';
 import {
-    buildOrderDisplay,
     detectPhotoRequestUtil,
     getAmenityResponseMessage,
     getBillClosedMessage,
@@ -52,6 +51,7 @@ import {
     getSocialResponseMessage,
 } from '../../utils/get-onboarding-messages.util';
 import { calculateOrderChangesUtil } from '../../utils/calculate-order-changes.util';
+import { OpenAIService } from '../../../openai/openai.service';
 import { CreateOrderAfterBillRequestUseCase } from './create-order-after-bill-request.usecase';
 import { SendMessageUseCase } from './send-message.usecase';
 
@@ -72,6 +72,7 @@ export class ProcessMainFlowUseCase {
         private readonly sendMessageUseCase: SendMessageUseCase,
         private readonly ordersGateway: OrdersGateway,
         private readonly createOrderAfterBillRequestUseCase: CreateOrderAfterBillRequestUseCase,
+        private readonly openAIService: OpenAIService,
     ) { }
 
     async execute(
@@ -290,7 +291,8 @@ export class ProcessMainFlowUseCase {
         if (detectRecommendationIntentUtil(userMessage)) {
             const recommended = activeMenuItems.filter(i => i.shouldRecommend);
             if (recommended.length === 0) return getNoRecommendationsMessage(lang);
-            return getRecommendationsMessage(lang, recommended);
+            const translatedRecommended = await this.translateItemDescriptions(recommended, lang);
+            return getRecommendationsMessage(lang, translatedRecommended);
         }
 
         // 9. Product info / photo request
@@ -299,7 +301,8 @@ export class ProcessMainFlowUseCase {
 
             if (foundItems.length > 1) {
                 // Multiple products: show all descriptions
-                return getMultipleProductInfoMessage(lang, foundItems.map(f => f.item));
+                const translatedItems = await this.translateItemDescriptions(foundItems.map(f => f.item), lang);
+                return getMultipleProductInfoMessage(lang, translatedItems);
             }
 
             if (foundItems.length === 1) {
@@ -307,7 +310,8 @@ export class ProcessMainFlowUseCase {
                 if (detectPhotoRequestUtil(userMessage) && !item.product?.imageUrl) {
                     return getNoPhotoAvailableMessage(lang, item.product?.name ?? '');
                 }
-                return getProductInfoMessage(lang, item);
+                const [translatedItem] = await this.translateItemDescriptions([item], lang);
+                return getProductInfoMessage(lang, translatedItem);
             }
 
             // Fallback: fuzzy single match
@@ -316,7 +320,8 @@ export class ProcessMainFlowUseCase {
             if (detectPhotoRequestUtil(userMessage) && !foundItem.product?.imageUrl) {
                 return getNoPhotoAvailableMessage(lang, foundItem.product?.name ?? '');
             }
-            return getProductInfoMessage(lang, foundItem);
+            const [translatedFoundItem] = await this.translateItemDescriptions([foundItem], lang);
+            return getProductInfoMessage(lang, translatedFoundItem);
         }
 
         // 10. Amenity request
@@ -373,7 +378,6 @@ export class ProcessMainFlowUseCase {
         // Only send DELTA to cashier
         const changes = calculateOrderChangesUtil(last, merged, this.logger);
 
-        const menuId = branch.menus?.[0]?.id ?? '';
         const orderLines = this.buildOrderLines(changes, allMenuItems);
         const totalChanges = Object.values(changes).reduce((acc, i) => acc + i.price * i.quantity, 0);
 
@@ -493,6 +497,29 @@ export class ProcessMainFlowUseCase {
                 return `• ${productName}${cat}: $${item.price.toFixed(2)} x ${item.quantity} = $${(item.price * item.quantity).toFixed(2)}${notesStr}`;
             })
             .join('\n');
+    }
+
+    /**
+     * Returns a shallow copy of each MenuItem with the product description
+     * translated to `lang` when lang !== 'es'. Descriptions are stored in
+     * Spanish; no translation is needed for Spanish conversations.
+     */
+    private async translateItemDescriptions(items: MenuItem[], lang: string): Promise<MenuItem[]> {
+        if (lang === 'es') return items;
+        return Promise.all(
+            items.map(async (item) => {
+                if (!item.product?.description) return item;
+                const translatedDescription = await this.openAIService.translateText(
+                    item.product.description,
+                    lang,
+                );
+                const productCopy = Object.assign(Object.create(Object.getPrototypeOf(item.product)), item.product);
+                productCopy.description = translatedDescription;
+                const itemCopy = Object.assign(Object.create(Object.getPrototypeOf(item)), item);
+                itemCopy.product = productCopy;
+                return itemCopy as MenuItem;
+            }),
+        );
     }
 
     private hasConfirmedOrder(conversation: Conversation): boolean {

@@ -140,6 +140,46 @@ export class OpenAIService {
   }
 
   /**
+   * Translates a short text to the target language using OpenAI.
+   * Returns the original text if OpenAI is not configured or if the target
+   * language is already Spanish (descriptions are stored in Spanish).
+   */
+  async translateText(text: string, targetLang: string): Promise<string> {
+    if (!text || targetLang === 'es' || !this.openai) {
+      return text;
+    }
+
+    const languageNames: Record<string, string> = {
+      en: 'English',
+      fr: 'French',
+      ko: 'Korean',
+      de: 'German',
+      it: 'Italian',
+      pt: 'Portuguese',
+    };
+    const langName = languageNames[targetLang] ?? targetLang;
+
+    try {
+      const response = await this.openai.chat.completions.create({
+        model: 'gpt-4o-mini',
+        messages: [
+          {
+            role: 'system',
+            content: `You are a translator. Translate the following text to ${langName}. Return ONLY the translated text, no explanations.`,
+          },
+          { role: 'user', content: text },
+        ],
+        max_tokens: 150,
+        temperature: 0.3,
+      });
+      return response.choices[0]?.message?.content?.trim() ?? text;
+    } catch (err) {
+      this.logger.warn(`translateText failed: ${err?.message}. Returning original.`);
+      return text;
+    }
+  }
+
+  /**
    * Detecta si el mensaje es una acción sobre pedidos
    */
   private detectOrderAction(message: string): string | null {
