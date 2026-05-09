@@ -25,9 +25,12 @@ function levenshtein(a: string, b: string): number {
 /** Returns true if two normalized words are a close enough match. */
 function wordsMatch(qw: string, pw: string): boolean {
     if (pw === qw || pw.startsWith(qw) || qw.startsWith(pw)) return true;
-    // Allow 1 edit for words ≥4 chars, 2 edits for words ≥7 chars
+    // Permitir 1 error para palabras ≥4, 2 para ≥7, y 3 para ≥10
     const minLen = Math.min(qw.length, pw.length);
-    const maxDist = minLen >= 7 ? 2 : minLen >= 4 ? 1 : 0;
+    let maxDist = 0;
+    if (minLen >= 10) maxDist = 3;
+    else if (minLen >= 7) maxDist = 2;
+    else if (minLen >= 4) maxDist = 1;
     return maxDist > 0 && levenshtein(qw, pw) <= maxDist;
 }
 
@@ -50,6 +53,10 @@ export const scoreMenuItem = (query: string, item: MenuItem, ignoreActive = fals
     const productNorm = item.product.normalizedName || normalizeProductName(item.product.name);
     const productWords = productNorm.split(/\s+/).filter(w => w.length > 2);
     if (productWords.length === 0) return 0;
+    // Si el query coincide exactamente con el nombre de la categoría, no es un producto
+    if (item.category && query.trim().toLowerCase() === item.category.name.trim().toLowerCase()) {
+        return 0;
+    }
 
     let matchCount = 0;
     for (const qw of queryWords) {

@@ -180,22 +180,24 @@ export class ProcessMainFlowUseCase {
             return this.confirmOrder(conversation, branch, customer, lang, allMenuItems);
         }
 
-        // Cancel → clear pending
+        // Cancel → clear pending and reset conversation state
         if (orderResponse === 'cancel') {
-            const hasConfirmed = this.hasConfirmedOrder(conversation);
             await this.conversationRepository.update(
                 { id: conversation.id },
-                { pendingOrder: null } as any,
+                { pendingOrder: null, lastOrderSentToCashier: null } as any,
             );
-            if (hasConfirmed) {
-                return getCannotCancelConfirmedMessage(lang) + '\n\n' + getMenuWelcomeMessage(lang, branch);
-            }
             return getOrderCancelledMessage(lang, branch);
         }
 
         // Continue (no) → keep pending order, show menu so user can keep adding
         if (orderResponse === 'continue') {
             return getMenuWelcomeMessage(lang, branch);
+        }
+
+        // Si el usuario escribe solo 'detalles' o 'detalle', no agregar productos
+        const detallesWords = ['detalles', 'detalle', 'descripcion', 'descripción', 'info', 'informacion', 'información'];
+        if (detallesWords.includes(userMessage.trim().toLowerCase())) {
+            return getConfirmationRePromptMessage(lang);
         }
 
         // User adds more products while in pending state (multi-item first)
@@ -260,42 +262,31 @@ export class ProcessMainFlowUseCase {
             );
         }
 
-        // 7. Cuenta — complex: may include products
+        // 7. Cuenta — omitir método de pago y notificar directo a caja
         if (detectCuentaIntentUtil(userMessage)) {
             const hasConfirmed = this.hasConfirmedOrder(conversation);
 
-            if (hasConfirmed) {
-                // Skip payment method selection: notify cashier directly and close conversation
-                const fullOrder: OrderItems = { ...(conversation.lastOrderSentToCashier ?? {}) };
-                const totalAmount = Object.values(fullOrder).reduce((acc, i) => acc + i.price * i.quantity, 0);
+            // Siempre notificar directo a caja y cerrar conversación
+            const fullOrder: OrderItems = { ...(conversation.lastOrderSentToCashier ?? {}) };
+            const totalAmount = Object.values(fullOrder).reduce((acc, i) => acc + i.price * i.quantity, 0);
 
-                const cashierMessage =
-                    `🧾 El cliente *${customer.name}* en *${conversation.location ?? 'ubicaci\u00f3n desconocida'}* solicita su cuenta.\n\n` +
-                    `${this.buildOrderLines(fullOrder, allMenuItems)}\n` +
-                    `Total: $${totalAmount.toFixed(2)}`;
+            const cashierMessage =
+                `🧾 El cliente *${customer.name}* en *${conversation.location ?? 'ubicación desconocida'}* solicita su cuenta.\n\n` +
+                `${this.buildOrderLines(fullOrder, allMenuItems)}\n` +
+                `Total: $${totalAmount.toFixed(2)}`;
 
-                await this.notifyCashier(cashierMessage, branch, customer);
+            await this.notifyCashier(cashierMessage, branch, customer);
 
-                try {
-                    await this.createOrderAfterBillRequestUseCase.execute(customer.id, fullOrder, branch);
-                } catch (e) {
-                    this.logger.error('Error creating order on bill close:', e);
-                }
-
-                await this.conversationRepository.delete({ conversationId: conversation.conversationId });
-                this.ordersGateway.emitOrderUpdate(branch.id);
-
-                return getBillClosedMessage(lang, fullOrder, allMenuItems, branch);
+            try {
+                await this.createOrderAfterBillRequestUseCase.execute(customer.id, fullOrder, branch);
+            } catch (e) {
+                this.logger.error('Error creating order on bill close:', e);
             }
 
-            // No confirmed order — check if user also mentioned products (Case 5)
-            const foundItems = findAllMenuItemsInMessage(userMessage, activeMenuItems);
-            if (foundItems.length > 0) {
-                // Add products to pending, show cart (go to state 2)
-                return this.addMultipleItemsAndShowCart(foundItems, conversation, lang, allMenuItems);
-            }
+            await this.conversationRepository.delete({ conversationId: conversation.conversationId });
+            this.ordersGateway.emitOrderUpdate(branch.id);
 
-            return getNoOrderForBillMessage(lang);
+            return getBillClosedMessage(lang, fullOrder, allMenuItems, branch);
         }
 
         // 8. Recommendations

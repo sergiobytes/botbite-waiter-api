@@ -16,7 +16,7 @@ const LANGUAGE_SELECTION_PROMPT =
     '🇰🇷 한국어';
 
 const LOCATION_REQUEST: Record<string, string> = {
-    es: 'Indíquenos por favor el *número de su ubicación* 📍\n_(este dato se encuentra en el código escaneado)_\n\nEjemplos: 1, 2, 3 ó A1, A2, barra, terraza',
+    es: 'Indíquenos por favor el número de su ubicación (este dato se encuentra en el código escaneado).',
     en: 'Please indicate your *location number* 📍\n_(this information is found on the scanned code)_\n\nExamples: 1, 2, 3 or A1, A2, bar, terrace',
     fr: 'Veuillez indiquer votre *numéro d\'emplacement* 📍\n_(cette information se trouve sur le code scanné)_\n\nExemples: 1, 2, 3 ou A1, A2, bar, terrasse',
     ko: '위치 번호를 알려주세요 *📍*\n_(이 정보는 스캔된 코드에 있습니다)_\n\n예시: 1, 2, 3 또는 A1, A2, 바, 테라스',
@@ -45,10 +45,10 @@ export const getMenuWelcomeMessage = (lang: Lang, branch: Branch): string => {
         menuLinks ? `\n\n${prefix}\n${menuLinks}\n\n${tap}` : '';
 
     const infoHint: Record<string, string> = {
-        es: '\n\n💡 Para detalles de un platillo escribe: *informacion [nombre]*\nEjemplo: *informacion nachos*',
-        en: '\n\n💡 For dish details type: *information [name]*\nExample: *information nachos*',
-        fr: '\n\n💡 Pour les détails d\'un plat, écrivez: *information [nom]*\nExemple: *information nachos*',
-        ko: '\n\n💡 메뉴 상세 정보: *정보 [이름]*\n예시: *정보 나초*',
+        es: '\n\n💡 Si necesitas detalles sobre algún platillo escribe: *informacion [nombre del platillo]*. Ejemplo: *informacion nachos*',
+        en: '\n\n💡 If you need details about a dish, type: *information [dish name]*. Example: *information nachos*',
+        fr: '\n\n💡 Si vous avez besoin de détails sur un plat, écrivez: *information [nom du plat]*. Exemple: *information nachos*',
+        ko: '\n\n💡 메뉴에 대한 자세한 정보가 필요하면: *정보 [메뉴 이름]*. 예시: *정보 나초*',
     };
     const hint = infoHint[lang] ?? infoHint['es'];
 
@@ -143,8 +143,23 @@ export const getCartMessage = (
     lastOrderSentToCashier: OrderItems | null,
     allMenuItems: MenuItem[],
 ): string => {
-    const { lines, total } = buildOrderDisplay(pendingOrder, null, allMenuItems);
-    const itemsStr = lines.join('\n');
+    // Mostrar solo los productos nuevos agregados (diferencia entre pendingOrder y lastOrderSentToCashier)
+    let newItems: OrderItems = { ...pendingOrder };
+    if (lastOrderSentToCashier) {
+        for (const key of Object.keys(lastOrderSentToCashier)) {
+            if (newItems[key]) {
+                // Si la cantidad es mayor, mostrar solo la diferencia
+                const diffQty = newItems[key].quantity - lastOrderSentToCashier[key].quantity;
+                if (diffQty > 0) {
+                    newItems[key] = { ...newItems[key], quantity: diffQty };
+                } else {
+                    delete newItems[key];
+                }
+            }
+        }
+    }
+    const { lines, total } = buildOrderDisplay(newItems, null, allMenuItems);
+    const itemsStr = lines.length > 0 ? lines.join('\n') : '(No hay productos nuevos agregados)';
 
     const confirmOptions: Record<string, string> = {
         es: '✅ *Sí*, para confirmar\n❌ *No*, para continuar agregando\n🔄 *Cancelar*, para reiniciar la orden',
