@@ -2,7 +2,7 @@ import { MenuItem } from '../../menus/entities/menu-item.entity';
 import { normalizeProductName } from '../../common/utils/normalize-product-name';
 import { removeStopwordsUtil } from './detect-stopwords.util';
 
-const FUZZY_THRESHOLD = 0.4;
+export const FUZZY_THRESHOLD = 0.4;
 
 /** Minimal Levenshtein distance between two strings. */
 function levenshtein(a: string, b: string): number {
@@ -50,7 +50,10 @@ export const scoreMenuItem = (query: string, item: MenuItem, ignoreActive = fals
     const queryWords = normQuery.split(/\s+/).filter(w => w.length > 2);
     if (queryWords.length === 0) return 0;
 
-    const productNorm = item.product.normalizedName || normalizeProductName(item.product.name);
+    // Always normalize to uppercase for consistent case-insensitive comparison.
+    // The DB migration populated normalizedName with LOWER() which causes mismatch with queryWords (uppercase).
+    const rawNorm = item.product.normalizedName || item.product.name;
+    const productNorm = normalizeProductName(rawNorm);
     const productWords = productNorm.split(/\s+/).filter(w => w.length > 2);
     if (productWords.length === 0) return 0;
     // Si el query coincide exactamente con el nombre de la categoría, no es un producto

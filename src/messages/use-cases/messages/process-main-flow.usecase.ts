@@ -4,9 +4,11 @@ import { Repository } from 'typeorm';
 import { Branch } from '../../../branches/entities/branch.entity';
 import { Customer } from '../../../customers/entities/customer.entity';
 import { MenuItem } from '../../../menus/entities/menu-item.entity';
+import { OpenAIService } from '../../../openai/openai.service';
 import { CashierNotification } from '../../entities/cashier-notifications.entity';
 import { Conversation } from '../../entities/conversation.entity';
 import { OrdersGateway } from '../../gateways/orders.gateway';
+import { calculateOrderChangesUtil } from '../../utils/calculate-order-changes.util';
 import { detectAmenityIntentUtil } from '../../utils/detect-amenity-intent.util';
 import { detectCancelKeywordUtil, detectModifyKeywordUtil } from '../../utils/detect-cancel-modify-intent.util';
 import { detectConsumoIntentUtil } from '../../utils/detect-consumo-intent.util';
@@ -18,25 +20,27 @@ import { detectProductInfoIntentUtil } from '../../utils/detect-product-info-int
 import { detectRecommendationIntentUtil } from '../../utils/detect-recommendation-intent.util';
 import { detectSocialMessageUtil } from '../../utils/detect-social-message.util';
 import { detectSplitBillIntentUtil } from '../../utils/detect-split-bill-intent.util';
+import { removeStopwordsUtil } from '../../utils/detect-stopwords.util';
 import { extractAddItemIntentUtil } from '../../utils/extract-add-item-intent.util';
 import { findAllMenuItemsInMessage, FoundOrderItem } from '../../utils/find-all-menu-items-in-message.util';
-import { classifyMenuMatch, findMenuItemFuzzyUtil, scoreMenuItem } from '../../utils/find-menu-item-fuzzy.util';
+import { classifyMenuMatch, findMenuItemFuzzyUtil, FUZZY_THRESHOLD, scoreMenuItem } from '../../utils/find-menu-item-fuzzy.util';
 import {
     detectPhotoRequestUtil,
     getAmenityResponseMessage,
     getBillClosedMessage,
-    getCannotCancelConfirmedMessage,
+    getBillNotifiedMessage,
     getCannotCancelOrderMessage,
     getCannotModifyOrderMessage,
     getCannotSplitBillMessage,
     getCartMessage,
+    getCategoryOptionsMessage,
     getConfirmationRePromptMessage,
     getConsumoMessage,
     getDefaultFlowMessage,
+    getInfoRequestMessage,
     getMenuWelcomeMessage,
     getMixedMatchMessage,
     getMultipleProductInfoMessage,
-    getNoOrderForBillMessage,
     getNoPhotoAvailableMessage,
     getNoRecommendationsMessage,
     getOrderCancelledMessage,
@@ -47,10 +51,8 @@ import {
     getProductNotFoundMessage,
     getProductUnavailableMessage,
     getRecommendationsMessage,
-    getSocialResponseMessage,
+    getSocialResponseMessage
 } from '../../utils/get-onboarding-messages.util';
-import { calculateOrderChangesUtil } from '../../utils/calculate-order-changes.util';
-import { OpenAIService } from '../../../openai/openai.service';
 import { CreateOrderAfterBillRequestUseCase } from './create-order-after-bill-request.usecase';
 import { SendMessageUseCase } from './send-message.usecase';
 
@@ -180,13 +182,13 @@ export class ProcessMainFlowUseCase {
             return this.confirmOrder(conversation, branch, customer, lang, allMenuItems);
         }
 
-        // Cancel → clear pending and reset conversation state
+        // Cancel → clear ONLY pending order; preserve already-confirmed order
         if (orderResponse === 'cancel') {
             await this.conversationRepository.update(
                 { id: conversation.id },
-                { pendingOrder: null, lastOrderSentToCashier: null } as any,
+                { pendingOrder: null } as any,
             );
-            return getOrderCancelledMessage(lang, branch);
+            return getOrderCancelledMessage(lang, this.hasConfirmedOrder(conversation));
         }
 
         // Continue (no) → keep pending order, show menu so user can keep adding
@@ -262,11 +264,8 @@ export class ProcessMainFlowUseCase {
             );
         }
 
-        // 7. Cuenta — omitir método de pago y notificar directo a caja
+        // 7. Cuenta — notificar directo a caja y cerrar conversación con mensaje corto
         if (detectCuentaIntentUtil(userMessage)) {
-            const hasConfirmed = this.hasConfirmedOrder(conversation);
-
-            // Siempre notificar directo a caja y cerrar conversación
             const fullOrder: OrderItems = { ...(conversation.lastOrderSentToCashier ?? {}) };
             const totalAmount = Object.values(fullOrder).reduce((acc, i) => acc + i.price * i.quantity, 0);
 
@@ -286,7 +285,7 @@ export class ProcessMainFlowUseCase {
             await this.conversationRepository.delete({ conversationId: conversation.conversationId });
             this.ordersGateway.emitOrderUpdate(branch.id);
 
-            return getBillClosedMessage(lang, fullOrder, allMenuItems, branch);
+            return getBillNotifiedMessage(lang, branch);
         }
 
         // 8. Recommendations
@@ -318,7 +317,15 @@ export class ProcessMainFlowUseCase {
 
             // Fallback: fuzzy single match
             const foundItem = findMenuItemFuzzyUtil(userMessage, activeMenuItems);
-            if (!foundItem) return getProductNotFoundMessage(lang);
+            if (!foundItem) {
+                // If the message was ONLY info-trigger words (stopwords removed → empty),
+                // ask the user which dish they want info about.
+                const cleaned = removeStopwordsUtil(userMessage);
+                if (!cleaned || cleaned.trim() === '') {
+                    return getInfoRequestMessage(lang);
+                }
+                return getProductNotFoundMessage(lang);
+            }
             if (detectPhotoRequestUtil(userMessage) && !foundItem.product?.imageUrl) {
                 return getNoPhotoAvailableMessage(lang, foundItem.product?.name ?? '');
             }
@@ -336,25 +343,64 @@ export class ProcessMainFlowUseCase {
             return getAmenityResponseMessage(lang, amenities);
         }
 
-        // 11. Inactive product detection — before multi-item so we don't suggest a wrong active match
-        const inactiveMatch = findMenuItemFuzzyUtil(userMessage, allMenuItems, true);
-        if (inactiveMatch && (!inactiveMatch.isActive || inactiveMatch.product?.isActive === false)) {
-            const activeScore = findMenuItemFuzzyUtil(userMessage, activeMenuItems)
-                ? scoreMenuItem(userMessage, findMenuItemFuzzyUtil(userMessage, activeMenuItems)!)
-                : 0;
-            const inactiveScore = scoreMenuItem(userMessage, inactiveMatch, true);
-            if (inactiveScore > activeScore) {
-                return getProductUnavailableMessage(lang, inactiveMatch.product?.name ?? '');
+        // 11. Inactive product detection — scan ALL items directly (no ambiguity guard)
+        // so that "chips de camote" (inactive) is detected even when "chips de papa" (active) scores equally.
+        {
+            let bestInactiveScore = 0;
+            let bestInactiveItem: MenuItem | null = null;
+            for (const item of allMenuItems) {
+                if (item.isActive && item.product?.isActive !== false) continue;
+                const s = scoreMenuItem(userMessage, item, true);
+                if (s > bestInactiveScore) {
+                    bestInactiveScore = s;
+                    bestInactiveItem = item;
+                }
+            }
+
+            if (bestInactiveItem && bestInactiveScore >= FUZZY_THRESHOLD) {
+                let bestActiveScore = 0;
+                for (const item of activeMenuItems) {
+                    const s = scoreMenuItem(userMessage, item);
+                    if (s > bestActiveScore) bestActiveScore = s;
+                }
+                // Show "unavailable" if the inactive product is at least as relevant as the best active one.
+                if (bestInactiveScore >= bestActiveScore) {
+                    return getProductUnavailableMessage(lang, bestInactiveItem.product?.name ?? '');
+                }
             }
         }
 
         // 12. Multi-item order detection
         const foundItems = findAllMenuItemsInMessage(userMessage, activeMenuItems);
         if (foundItems.length > 0) {
+            // Category-guard: if exactly one product was found but the query is a category keyword
+            // and that category has multiple active products, list the options instead of adding directly.
+            if (foundItems.length === 1) {
+                const matchedItem = foundItems[0].item;
+                const categoryName = matchedItem.category?.name;
+                if (categoryName) {
+                    const siblingsInCategory = activeMenuItems.filter(
+                        i => i.category?.name === categoryName && i.id !== matchedItem.id,
+                    );
+                    if (siblingsInCategory.length > 0) {
+                        // Check if query is essentially the category name (no distinguishing words).
+                        // Use removeStopwordsUtil for consistent lowercase+accent-stripped comparison.
+                        const cleaned = removeStopwordsUtil(userMessage);
+                        const normQuery = cleaned;
+                        const normCategory = removeStopwordsUtil(categoryName).replace(/s$/, '');
+                        if (normQuery && normCategory && (normCategory.includes(normQuery) || normQuery.includes(normCategory))) {
+                            const allCategoryItems = activeMenuItems.filter(
+                                i => i.category?.name === categoryName,
+                            );
+                            return getCategoryOptionsMessage(lang, categoryName, allCategoryItems);
+                        }
+                    }
+                }
+            }
             return this.addMultipleItemsAndShowCart(foundItems, conversation, lang, allMenuItems);
         }
 
-        // 12. Classify intent for helpful fallback messages
+        // 13. Classify intent for helpful fallback messages
         const match = classifyMenuMatch(userMessage, activeMenuItems);
         if (match.type === 'partial') {
             return getPartialMatchMessage(lang, branch);
@@ -428,7 +474,10 @@ export class ProcessMainFlowUseCase {
         const productName = item.product.name;
         const key = notes ? `${productName}||${notes}` : productName;
 
-        const currentPending: OrderItems = { ...(conversation.pendingOrder ?? {}) };
+        // Capture snapshot before update so getCartMessage shows only the newly added item.
+        const previousPendingSnapshot: OrderItems = { ...(conversation.pendingOrder ?? {}) };
+
+        const currentPending: OrderItems = { ...previousPendingSnapshot };
         if (currentPending[key]) {
             currentPending[key] = {
                 ...currentPending[key],
@@ -448,15 +497,11 @@ export class ProcessMainFlowUseCase {
             { pendingOrder: currentPending } as any,
         );
 
-        // Reload conversation state to get updated values
-        const updatedConversation = await this.conversationRepository.findOne({
-            where: { id: conversation.id },
-        });
-
         return getCartMessage(
             lang,
-            updatedConversation?.pendingOrder ?? currentPending,
-            updatedConversation?.lastOrderSentToCashier ?? conversation.lastOrderSentToCashier ?? null,
+            currentPending,
+            previousPendingSnapshot,
+            conversation.lastOrderSentToCashier ?? null,
             allMenuItems,
         );
     }
@@ -467,7 +512,9 @@ export class ProcessMainFlowUseCase {
         lang: string,
         allMenuItems: MenuItem[],
     ): Promise<string> {
-        const currentPending: OrderItems = { ...(conversation.pendingOrder ?? {}) };
+        // Capture snapshot before update so getCartMessage shows only the newly added items.
+        const previousPendingSnapshot: OrderItems = { ...(conversation.pendingOrder ?? {}) };
+        const currentPending: OrderItems = { ...previousPendingSnapshot };
 
         for (const { item, quantity, notes } of items) {
             if (!item.isActive || !item.product?.isActive) continue;
@@ -496,6 +543,7 @@ export class ProcessMainFlowUseCase {
         return getCartMessage(
             lang,
             currentPending,
+            previousPendingSnapshot,
             conversation.lastOrderSentToCashier ?? null,
             allMenuItems,
         );

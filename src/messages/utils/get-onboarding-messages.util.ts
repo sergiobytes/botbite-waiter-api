@@ -115,6 +115,16 @@ export const getProductInfoMessage = (lang: Lang, item: MenuItem): string => {
     return msgs[lang] ?? msgs['es'];
 };
 
+export const getInfoRequestMessage = (lang: Lang): string => {
+    const msgs: Record<string, string> = {
+        es: 'Claro, ¿sobre qué platillo te gustaría recibir información? 😊\n\nEjemplo: *informacion nachos*',
+        en: 'Sure, what dish would you like information about? 😊\n\nExample: *information nachos*',
+        fr: 'Bien sûr, sur quel plat souhaitez-vous des informations? 😊\n\nExemple: *information nachos*',
+        ko: '물론입니다, 어떤 요리에 대한 정보를 원하시나요? 😊\n\n예시: *정보 나초*',
+    };
+    return msgs[lang] ?? msgs['es'];
+};
+
 export const getProductNotFoundMessage = (lang: Lang): string => {
     const msgs: Record<string, string> = {
         es: 'Lo siento, no encontré ese producto en nuestro menú. ¿Podrías indicarme el nombre exacto o pedir recomendaciones?',
@@ -139,27 +149,31 @@ export const getProductUnavailableMessage = (lang: Lang, productName: string): s
 
 export const getCartMessage = (
     lang: Lang,
-    pendingOrder: OrderItems,
+    currentPending: OrderItems,
+    previousPendingSnapshot: OrderItems,
     lastOrderSentToCashier: OrderItems | null,
     allMenuItems: MenuItem[],
 ): string => {
-    // Mostrar solo los productos nuevos agregados (diferencia entre pendingOrder y lastOrderSentToCashier)
-    let newItems: OrderItems = { ...pendingOrder };
-    if (lastOrderSentToCashier) {
-        for (const key of Object.keys(lastOrderSentToCashier)) {
-            if (newItems[key]) {
-                // Si la cantidad es mayor, mostrar solo la diferencia
-                const diffQty = newItems[key].quantity - lastOrderSentToCashier[key].quantity;
-                if (diffQty > 0) {
-                    newItems[key] = { ...newItems[key], quantity: diffQty };
-                } else {
-                    delete newItems[key];
-                }
-            }
+    // Show only the items added in THIS specific interaction (diff vs previous pending snapshot).
+    const justAdded: OrderItems = {};
+    for (const [key, item] of Object.entries(currentPending)) {
+        const prev = previousPendingSnapshot[key];
+        if (!prev) {
+            justAdded[key] = item;
+        } else if (item.quantity > prev.quantity) {
+            justAdded[key] = { ...item, quantity: item.quantity - prev.quantity };
         }
     }
-    const { lines, total } = buildOrderDisplay(newItems, null, allMenuItems);
-    const itemsStr = lines.length > 0 ? lines.join('\n') : '(No hay productos nuevos agregados)';
+    const { lines } = buildOrderDisplay(justAdded, null, allMenuItems);
+    const itemsStr = lines.length > 0 ? lines.join('\n') : '(Sin cambios en este mensaje)';
+
+    // Total = all pending items not yet confirmed (currentPending - lastOrderSentToCashier)
+    let pendingTotal = 0;
+    for (const [key, item] of Object.entries(currentPending)) {
+        const confirmedQty = lastOrderSentToCashier?.[key]?.quantity ?? 0;
+        const pendingQty = Math.max(0, item.quantity - confirmedQty);
+        pendingTotal += item.price * pendingQty;
+    }
 
     const confirmOptions: Record<string, string> = {
         es: '✅ *Sí*, para confirmar\n❌ *No*, para continuar agregando\n🔄 *Cancelar*, para reiniciar la orden',
@@ -176,10 +190,10 @@ export const getCartMessage = (
     };
 
     const totals: Record<string, string> = {
-        es: `Total: $${total.toFixed(2)}`,
-        en: `Total: $${total.toFixed(2)}`,
-        fr: `Total: $${total.toFixed(2)}`,
-        ko: `합계: $${total.toFixed(2)}`,
+        es: `Total pendiente: $${pendingTotal.toFixed(2)}`,
+        en: `Pending total: $${pendingTotal.toFixed(2)}`,
+        fr: `Total en attente: $${pendingTotal.toFixed(2)}`,
+        ko: `보류 합계: $${pendingTotal.toFixed(2)}`,
     };
 
     const questions: Record<string, string> = {
@@ -217,8 +231,24 @@ export const getOrderConfirmedMessage = (lang: Lang): string => {
     return msgs[lang] ?? msgs['es'];
 };
 
-export const getOrderCancelledMessage = (lang: Lang, branch: Branch): string =>
-    getMenuWelcomeMessage(lang, branch);
+export const getOrderCancelledMessage = (lang: Lang, hasConfirmedOrder: boolean): string => {
+    if (hasConfirmedOrder) {
+        const msgs: Record<string, string> = {
+            es: 'Listo, cancelé los artículos que estabas agregando. Tu pedido anterior ya confirmado sigue en proceso. Puedes pedir algo más cuando gustes. 😊',
+            en: 'Done, I cancelled the items you were adding. Your previously confirmed order is still being processed. Feel free to order more whenever you\'re ready. 😊',
+            fr: 'Fait, j\'ai annulé les articles que vous ajoutiez. Votre commande précédemment confirmée est toujours en cours. N\'hésitez pas à commander autre chose. 😊',
+            ko: '완료했습니다. 추가하던 항목을 취소했습니다. 이전에 확인된 주문은 계속 처리 중입니다. 원할 때 더 주문하셔도 됩니다. 😊',
+        };
+        return msgs[lang] ?? msgs['es'];
+    }
+    const msgs: Record<string, string> = {
+        es: 'Listo, cancelé tu pedido actual. Puedes comenzar uno nuevo cuando quieras. 😊',
+        en: 'Done, I cancelled your current order. You can start a new one whenever you\'re ready. 😊',
+        fr: 'Fait, j\'ai annulé votre commande actuelle. Vous pouvez en commencer une nouvelle quand vous voulez. 😊',
+        ko: '완료했습니다. 현재 주문을 취소했습니다. 원할 때 새 주문을 시작하실 수 있습니다. 😊',
+    };
+    return msgs[lang] ?? msgs['es'];
+};
 
 export const getCannotCancelConfirmedMessage = (lang: Lang): string => {
     const msgs: Record<string, string> = {
@@ -375,6 +405,26 @@ export const getBillClosedMessage = (
     return `${header}\n\n${lines.join('\n')}\n\n${totalStr}\n\n${footer}`;
 };
 
+export const getBillNotifiedMessage = (lang: Lang, branch: Branch): string => {
+    const surveyTexts: Record<string, string> = {
+        es: 'Por favor, completa esta breve encuesta de satisfacción',
+        en: 'Please complete this brief satisfaction survey',
+        fr: 'Veuillez compléter cette brève enquête de satisfaction',
+        ko: '간단한 만족도 설문을 완료해 주세요',
+    };
+    const surveyLine = branch.surveyUrl
+        ? `\n\n📝 ${surveyTexts[lang] ?? surveyTexts['es']}:\n🔗 ${branch.surveyUrl}`
+        : '';
+
+    const msgs: Record<string, string> = {
+        es: `Claro, ya avisé a caja que deseas pagar tu cuenta. ¡Enseguida te atenderán! 🧾${surveyLine}`,
+        en: `Sure, I've notified the cashier that you'd like to pay. They'll be right with you! 🧾${surveyLine}`,
+        fr: `Bien sûr, j'ai notifié la caisse que vous souhaitez payer. Ils seront avec vous tout de suite! 🧾${surveyLine}`,
+        ko: `물론입니다, 계산원에게 결제를 원하신다고 알렸습니다. 곧 도와드리겠습니다! 🧾${surveyLine}`,
+    };
+    return msgs[lang] ?? msgs['es'];
+};
+
 // ─── Default / Fallback ───────────────────────────────────────────────────────
 
 export const getDefaultFlowMessage = (lang: Lang): string => {
@@ -434,6 +484,21 @@ function toTitleCase(str: string): string {
 }
 
 // ─── Variant / edge-case messages ────────────────────────────────────────────
+
+/** Lists available options when user types a category name with multiple products */
+export const getCategoryOptionsMessage = (lang: Lang, categoryName: string, items: MenuItem[]): string => {
+    const lines = items.map(i => {
+        const price = `$${Number(i.price).toFixed(2)}`;
+        return `• ${i.product?.name} — ${price}`;
+    });
+    const msgs: Record<string, string> = {
+        es: `Tenemos varias opciones de *${categoryName}*:\n\n${lines.join('\n')}\n\n¿Cuál te gustaría pedir?`,
+        en: `We have several *${categoryName}* options:\n\n${lines.join('\n')}\n\nWhich one would you like?`,
+        fr: `Nous avons plusieurs options de *${categoryName}*:\n\n${lines.join('\n')}\n\nLequel souhaitez-vous?`,
+        ko: `*${categoryName}* 옵션이 여러 개 있습니다:\n\n${lines.join('\n')}\n\n어떤 것을 원하시나요?`,
+    };
+    return msgs[lang] ?? msgs['es'];
+};
 
 /** "Tenemos varias opciones de ese producto, ¿cuál quieres?" */
 export const getPartialMatchMessage = (lang: Lang, branch: Branch): string => {
