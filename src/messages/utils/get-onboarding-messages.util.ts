@@ -44,19 +44,11 @@ export const getMenuWelcomeMessage = (lang: Lang, branch: Branch): string => {
     const buildSection = (prefix: string, tap: string): string =>
         menuLinks ? `\n\n${prefix}\n${menuLinks}\n\n${tap}` : '';
 
-    const infoHint: Record<string, string> = {
-        es: '\n\n💡 Si necesitas detalles sobre algún platillo escribe: *informacion [nombre del platillo]*. Ejemplo: *informacion nachos*',
-        en: '\n\n💡 If you need details about a dish, type: *information [dish name]*. Example: *information nachos*',
-        fr: '\n\n💡 Si vous avez besoin de détails sur un plat, écrivez: *information [nom du plat]*. Exemple: *information nachos*',
-        ko: '\n\n💡 메뉴에 대한 자세한 정보가 필요하면: *정보 [메뉴 이름]*. 예시: *정보 나초*',
-    };
-    const hint = infoHint[lang] ?? infoHint['es'];
-
     const msgs: Record<string, string> = {
-        es: `¡Gracias! 😊${buildSection('Puedes ver nuestro menú completo aquí 👇', 'Toca el enlace para verlo 🔵')}\n\nCuando gustes te tomo la orden o puedo darte alguna recomendación${hint}`,
-        en: `Thank you! 😊${buildSection('You can see our complete menu here 👇', 'Tap the link to view it 🔵')}\n\nWhenever you're ready, I can take your order or give you a recommendation${hint}`,
-        fr: `Merci ! 😊${buildSection('Vous pouvez voir notre menu complet ici 👇', 'Appuyez sur le lien pour le voir 🔵')}\n\nQuand vous êtes prêt, je peux prendre votre commande ou vous donner une recommandation${hint}`,
-        ko: `감사합니다! 😊${buildSection('전체 메뉴를 여기서 볼 수 있습니다 👇', '링크를 탭하여 보세요 🔵')}\n\n준비되시면 주문을 받거나 추천을 드릴 수 있습니다${hint}`,
+        es: `¡Gracias! 😊${buildSection('Puedes ver nuestro menú completo aquí 👇', 'Toca el enlace para verlo 🔵')}\n\nCuando gustes te tomo la orden o puedo darte alguna recomendación`,
+        en: `Thank you! 😊${buildSection('You can see our complete menu here 👇', 'Tap the link to view it 🔵')}\n\nWhenever you're ready, I can take your order or give you a recommendation`,
+        fr: `Merci ! 😊${buildSection('Vous pouvez voir notre menu complet ici 👇', 'Appuyez sur le lien pour le voir 🔵')}\n\nQuand vous êtes prêt, je peux prendre votre commande ou vous donner une recommandation`,
+        ko: `감사합니다! 😊${buildSection('전체 메뉴를 여기서 볼 수 있습니다 👇', '링크를 탭하여 보세요 🔵')}\n\n준비되시면 주문을 받거나 추천을 드릴 수 있습니다`,
     };
     return msgs[lang] ?? msgs['es'];
 };

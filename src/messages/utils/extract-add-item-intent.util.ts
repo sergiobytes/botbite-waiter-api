@@ -18,29 +18,39 @@ const WORD_NUMBERS: Record<string, number> = {
 
 const NOTE_PREFIXES = /\b(sin|con|extra|bien|muy|a\s+la|al|without|with\s+no|with|with\s+extra|sans|avec|없이|함께|por\s+favor|please)\b/i;
 
+// Order-initiation verbs stripped before quantity detection so "quiero 3 tacos" → "3 tacos"
+const ORDER_VERB_PREFIX = /^(?:quiero|dame|ponme|me\s+das?|me\s+da|pide|quisiera|deseo|ordenar?|ordena|agrega(?:r|me|rme)?|trae(?:r|me|rme)?|a[nñ]iade|a[nñ]ade|give\s+me|bring\s+me|please\s+give|je\s+voudrais?|주세요)\s+/i;
+
 /**
  * Extracts quantity and optional notes (modifiers) from a user's add-item message.
  * e.g. "2 hamburguesas sin cebolla" → { quantity: 2, notes: "sin cebolla" }
+ *
+ * Numbers embedded inside product names (e.g. "pizza de 4 quesos") are NOT treated
+ * as quantity — only a leading number (after optional order verbs) counts.
  */
 export const extractAddItemIntentUtil = (message: string): AddItemIntent => {
     const lower = message.toLowerCase().trim();
 
-    // Extract numeric quantity
+    // Strip leading order verbs before quantity detection
+    const stripped = lower.replace(ORDER_VERB_PREFIX, '').trim();
+
+    // Only treat a LEADING digit as quantity (not embedded numbers like "pizza de 4 quesos")
     let quantity = 1;
-    const numMatch = lower.match(/\b(\d+)\b/);
-    if (numMatch) {
-        const parsed = parseInt(numMatch[1]);
+    const leadingDigit = stripped.match(/^(\d+)\b/);
+    if (leadingDigit) {
+        const parsed = parseInt(leadingDigit[1]);
         if (parsed > 0 && parsed <= 20) quantity = parsed;
     } else {
+        // Check for a leading word-number (e.g. "dos tacos", "quiero tres cervezas")
         for (const [word, num] of Object.entries(WORD_NUMBERS)) {
-            if (new RegExp(`\\b${word}\\b`).test(lower)) {
+            if (new RegExp(`^${word}\\b`).test(stripped)) {
                 quantity = num;
                 break;
             }
         }
     }
 
-    // Extract notes: text after a note prefix keyword
+    // Extract notes: text starting at the first note-prefix keyword
     const notesMatch = lower.match(new RegExp(NOTE_PREFIXES.source + '.*$', 'i'));
     const notes = notesMatch ? notesMatch[0].trim() : null;
 
