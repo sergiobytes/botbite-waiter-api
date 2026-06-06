@@ -477,6 +477,21 @@ function toTitleCase(str: string): string {
 
 // ─── Variant / edge-case messages ────────────────────────────────────────────
 
+/** Lists matching products when the query is ambiguous (multiple candidates above threshold) */
+export const getMatchingProductsMessage = (lang: Lang, items: MenuItem[]): string => {
+    const lines = items.map(i => {
+        const cat = i.category?.name ? ` (${i.category.name})` : '';
+        return `• ${i.product?.name}${cat} — $${Number(i.price).toFixed(2)}`;
+    });
+    const msgs: Record<string, string> = {
+        es: `Tenemos varias opciones:\n\n${lines.join('\n')}\n\n¿Cuál te gustaría pedir?`,
+        en: `We have several options:\n\n${lines.join('\n')}\n\nWhich one would you like?`,
+        fr: `Nous avons plusieurs options:\n\n${lines.join('\n')}\n\nLequel souhaitez-vous?`,
+        ko: `여러 옵션이 있습니다:\n\n${lines.join('\n')}\n\n어떤 것을 원하시나요?`,
+    };
+    return msgs[lang] ?? msgs['es'];
+};
+
 /** Lists available options when user types a category name with multiple products */
 export const getCategoryOptionsMessage = (lang: Lang, categoryName: string, items: MenuItem[]): string => {
     const lines = items.map(i => {

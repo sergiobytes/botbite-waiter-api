@@ -61,6 +61,18 @@ export const scoreMenuItem = (query: string, item: MenuItem, ignoreActive = fals
         return 0;
     }
 
+    // ── Tier 1/2: Name-priority via exact word matching ──────────────────────
+    // Scores above 1.0 so a direct name match always beats any fuzzy match (max 1.0).
+    const exactMatchCount = queryWords.filter(qw => productWords.includes(qw)).length;
+    if (exactMatchCount > 0) {
+        const allQueryMatched = exactMatchCount === queryWords.length;
+        const allProductMatched = exactMatchCount === productWords.length;
+        if (allQueryMatched && allProductMatched) return 2.0; // identical word sets
+        if (allQueryMatched) return 1.5;  // every query word found in product name
+        if (allProductMatched) return 1.2; // every product word found in query
+    }
+
+    // ── Tier 3: Fuzzy word-level match ───────────────────────────────────────
     let matchCount = 0;
     for (const qw of queryWords) {
         if (productWords.some(pw => wordsMatch(qw, pw))) {
@@ -171,5 +183,22 @@ export const classifyMenuMatch = (
     }
 
     return { type: 'none' };
+};
+
+/**
+ * Returns all active menu items scoring ≥ minScore for the query, sorted by score descending.
+ * Use this as a "worst-case" fallback to list candidates when no single item wins clearly.
+ */
+export const findMatchingMenuItemsUtil = (
+    query: string,
+    menuItems: MenuItem[],
+    minScore = FUZZY_THRESHOLD,
+): MenuItem[] => {
+    if (!query || !menuItems?.length) return [];
+    return menuItems
+        .map(item => ({ item, score: scoreMenuItem(query, item) }))
+        .filter(({ score }) => score >= minScore)
+        .sort((a, b) => b.score - a.score)
+        .map(({ item }) => item);
 };
 

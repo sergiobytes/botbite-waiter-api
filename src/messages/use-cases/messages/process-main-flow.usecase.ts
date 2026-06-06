@@ -23,7 +23,7 @@ import { detectSplitBillIntentUtil } from '../../utils/detect-split-bill-intent.
 import { removeStopwordsUtil } from '../../utils/detect-stopwords.util';
 import { extractAddItemIntentUtil } from '../../utils/extract-add-item-intent.util';
 import { findAllMenuItemsInMessage, FoundOrderItem } from '../../utils/find-all-menu-items-in-message.util';
-import { classifyMenuMatch, findMenuItemFuzzyUtil, FUZZY_THRESHOLD, scoreMenuItem } from '../../utils/find-menu-item-fuzzy.util';
+import { classifyMenuMatch, findMatchingMenuItemsUtil, findMenuItemFuzzyUtil, FUZZY_THRESHOLD, scoreMenuItem } from '../../utils/find-menu-item-fuzzy.util';
 import {
     detectPhotoRequestUtil,
     getAmenityResponseMessage,
@@ -39,6 +39,7 @@ import {
     getDefaultFlowMessage,
     getInfoRequestMessage,
     getMenuWelcomeMessage,
+    getMatchingProductsMessage,
     getMixedMatchMessage,
     getMultipleProductInfoMessage,
     getNoPhotoAvailableMessage,
@@ -400,16 +401,35 @@ export class ProcessMainFlowUseCase {
             return this.addMultipleItemsAndShowCart(foundItems, conversation, lang, allMenuItems);
         }
 
-        // 13. Classify intent for helpful fallback messages
+        // 13. Classify intent; list concrete candidates when available
         const match = classifyMenuMatch(userMessage, activeMenuItems);
         if (match.type === 'partial') {
+            // Try listing by category name first (query = "cervezas" → list Cervezas category)
+            const normQuery = removeStopwordsUtil(userMessage);
+            const categoryMatch = normQuery
+                ? activeMenuItems.find(i => {
+                      const catNorm = removeStopwordsUtil(i.category?.name ?? '');
+                      const catSingular = catNorm.replace(/s$/, '');
+                      return catNorm && (catNorm === normQuery || catSingular === normQuery || normQuery.includes(catSingular));
+                  })
+                : null;
+            if (categoryMatch) {
+                const catName = categoryMatch.category!.name;
+                const catItems = activeMenuItems.filter(i => i.category?.name === catName);
+                return getCategoryOptionsMessage(lang, catName, catItems);
+            }
+            // Otherwise list all product candidates scoring above threshold
+            const candidates = findMatchingMenuItemsUtil(userMessage, activeMenuItems).slice(0, 5);
+            if (candidates.length > 0) {
+                return getMatchingProductsMessage(lang, candidates);
+            }
             return getPartialMatchMessage(lang, branch);
         }
         if (match.type === 'mixed') {
             return getMixedMatchMessage(lang, branch);
         }
 
-        // 13. Unknown intent
+        // Unknown intent
         return getDefaultFlowMessage(lang);
     }
 
