@@ -39,11 +39,18 @@ const extractQuantity = (message: string): number => {
 
 /** Detects amenity requests in user messages (forks, napkins, spoons, etc.) */
 export const detectAmenityIntentUtil = (message: string): AmenityDetectionResult => {
-    const n = message.toLowerCase();
+    // Split into individual words (strip punctuation) so "salchicha" does NOT match "sal".
+    const words = new Set(
+        message
+            .toLowerCase()
+            .replace(/[^a-záéíóúüñ0-9\s]/gi, ' ')
+            .split(/\s+/)
+            .filter(Boolean),
+    );
     const amenities: Record<string, number> = {};
 
     for (const [key, keywords] of Object.entries(AMENITY_KEYWORDS)) {
-        if (keywords.some(kw => n.includes(kw))) {
+        if (keywords.some(kw => words.has(kw))) {
             amenities[key] = extractQuantity(message);
         }
     }
