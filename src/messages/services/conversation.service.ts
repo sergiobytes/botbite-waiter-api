@@ -136,7 +136,7 @@ export class ConversationService {
       }),
       this.cashierNotificationRepository.find({
         where: { branchId, isActive: false },
-        order: { createdAt: 'DESC' },
+        order: { createdAt: 'ASC' },
         take: 10,
       }),
     ]);
