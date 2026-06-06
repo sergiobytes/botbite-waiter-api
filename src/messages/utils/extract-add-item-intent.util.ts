@@ -23,30 +23,45 @@ const ORDER_VERB_PREFIX = /^(?:quiero|dame|ponme|me\s+das?|me\s+da|pide|quisiera
 
 /**
  * Extracts quantity and optional notes (modifiers) from a user's add-item message.
- * e.g. "2 hamburguesas sin cebolla" → { quantity: 2, notes: "sin cebolla" }
  *
- * Numbers embedded inside product names (e.g. "pizza de 4 quesos") are NOT treated
- * as quantity — only a leading number (after optional order verbs) counts.
+ * Quantity rules (in priority order):
+ *   1. Leading digit/word-number after optional order verb  → "3 cervezas", "quiero dos tacos"
+ *   2. Trailing digit/word-number (last token, ≥2 tokens)  → "cervezas 3", "tacos dos"
+ *   3. Numbers embedded in the middle are ignored           → "pizza de 4 quesos" → qty=1
  */
 export const extractAddItemIntentUtil = (message: string): AddItemIntent => {
     const lower = message.toLowerCase().trim();
 
     // Strip leading order verbs before quantity detection
     const stripped = lower.replace(ORDER_VERB_PREFIX, '').trim();
+    const tokens = stripped.split(/\s+/);
 
-    // Only treat a LEADING digit as quantity (not embedded numbers like "pizza de 4 quesos")
     let quantity = 1;
+
+    // 1. Leading digit
     const leadingDigit = stripped.match(/^(\d+)\b/);
     if (leadingDigit) {
         const parsed = parseInt(leadingDigit[1]);
         if (parsed > 0 && parsed <= 20) quantity = parsed;
     } else {
-        // Check for a leading word-number (e.g. "dos tacos", "quiero tres cervezas")
+        // 1b. Leading word-number
         for (const [word, num] of Object.entries(WORD_NUMBERS)) {
             if (new RegExp(`^${word}\\b`).test(stripped)) {
                 quantity = num;
                 break;
             }
+        }
+    }
+
+    // 2. Trailing digit/word-number — only when leading check found nothing
+    //    and message has at least 2 tokens (so the number isn't the whole message).
+    if (quantity === 1 && tokens.length >= 2) {
+        const lastToken = tokens[tokens.length - 1];
+        if (/^\d+$/.test(lastToken)) {
+            const parsed = parseInt(lastToken);
+            if (parsed > 0 && parsed <= 20) quantity = parsed;
+        } else if (WORD_NUMBERS[lastToken] !== undefined) {
+            quantity = WORD_NUMBERS[lastToken];
         }
     }
 
